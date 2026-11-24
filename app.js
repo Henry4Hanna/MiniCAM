@@ -670,7 +670,8 @@ const tUsedBy=(id)=>S.ops.filter(o=>o.on&&o.tool===id).map(o=>opLabel(o.type)).f
 function editTool(id){
  const x=toolById(id);if(!x)return;const L=(k,v)=>inp(k,fl(v),`data-tl="${id}" data-k="${k}" data-u="L"`),N=(k,v)=>inp(k,v??'',`data-tl="${id}" data-k="${k}" data-u="N"`);
  const types=['flat','ball','bull','face','drill','spot','chamfer','tap','reamer','boring','cornerround'];
- openSheet(`<div class="grab"></div><div class="grid g2b grid" style="grid-template-columns:minmax(0,1fr)"><div class="big" style="height:260px;display:grid;place-items:center;color:var(--ink)" id="tlPic">${toolSVG(x,{dims:true,holder:true})}</div>
+ openSheet(`<div class="grab"></div><div class="grid g2b grid" style="grid-template-columns:minmax(0,1fr)"><div class="big" style="height:300px;position:relative;padding:0;overflow:hidden"><canvas id="tl3d" data-tl="${x.id}" style="width:100%;height:100%;display:block;cursor:grab"></canvas><div id="tl3dFb" style="display:none"></div><span class="sub" style="position:absolute;left:10px;bottom:8px;font-size:12px">${LANG==='vi'?'Kéo để xoay · 3D':'Drag to rotate · 3D'}</span></div>
+ <div class="big" style="height:240px;display:grid;place-items:center;color:var(--ink)" id="tlPic">${toolSVG(x,{dims:true,holder:true})}</div>
  ${(()=>{const h=HOLDERS[holderOf(x)],vi=LANG==='vi',bad=(x.dia||0)>h.max+1e-6,long=stickOf(x)>(x.dia||0.25)*4;return`<div class="card" style="--cc:#2457d6;margin:0 0 10px"><b>${vi?'Tại sao dùng đầu kẹp này?':'Why this holder?'} · ${esc(holderName(x))}</b><p style="margin:6px 0 0;line-height:1.5">${esc(h.why[vi?1:0])}</p><p class="sub" style="margin:6px 0 0;font-size:13px">${vi?'Kẹp tới':'Capacity'} Ø${fl(h.max,3)} · ${vi?'độ đảo':'runout'} ${h.runout}" · ${vi?'đường kính đầu':'nose'} Ø${fl(h.d,2)}${h.gauge?` · gauge ${fl(h.gauge,2)}`:''}</p>${bad?`<p style="margin:6px 0 0;color:var(--bad);font-weight:700">⚠ ${vi?'Dao lớn hơn khả năng kẹp':'Tool is larger than holder capacity'} (${fl(h.max,3)})</p>`:''}${long?`<p style="margin:6px 0 0;color:#b54200;font-weight:600">${vi?'Dao nhô dài hơn 4×D — dễ rung, nên giảm feed hoặc dùng dao/đầu kẹp ngắn hơn.':'Stick-out over 4×D — chatter risk; lower feed or use a shorter setup.'}</p>`:''}</div>`;})()}
  <div class="card" style="--cc:#ff6a13;margin:0 0 10px"><b>${LANG==='vi'?'Tại sao dùng dao này?':'Why use this tool?'}</b><p style="margin:6px 0 0;line-height:1.5">${esc(twhy(x.type))}</p>${tUsedBy(x.id).length?`<p class="sub" style="margin:6px 0 0">${LANG==='vi'?'Đang dùng cho: ':'Used for: '}${esc(tUsedBy(x.id).join(', '))}</p>`:''}${(()=>{const m=mat(),hard=['ss304','ss316','ss174','in718','ti64','s4140','a2','s4340'].includes(m.id);const soft=['al6061','al7075','al2024','al5052','mic6','delrin','brass','cu110','brz932'].includes(m.id);const tip=soft?(LANG==='vi'?'Vật liệu mềm: dao 2–3 me, không phủ / ZrN, bóng me.':'Soft material: 2–3 flutes, uncoated / ZrN, polished flutes.'):hard?(LANG==='vi'?'Vật liệu cứng/dai: carbide 4–5 me phủ AlTiN, dao ngắn, nhiều nước làm mát.':'Hard/tough material: carbide 4–5 flutes AlTiN, short stick-out, lots of coolant.'):(LANG==='vi'?'Thép thường: carbide 4 me phủ TiAlN.':'Steel: carbide 4 flutes TiAlN.');return`<p class="sub" style="margin:6px 0 0">${esc((LANG==='vi'?m.vi:m.en)+': '+tip)}</p>`;})()}</div>
  <div class="fields">${N('num',x.num)}<label class="f">${t('type')}<select data-tl="${id}" data-k="type">${types.map(k=>`<option ${k===x.type?'selected':''}>${k}</option>`).join('')}</select></label>
@@ -680,7 +681,7 @@ function editTool(id){
  ${L('dia',x.dia)}${N('flutes',x.flutes)}<label class="f">${t('tmat')}<select data-tl="${id}" data-k="mat"><option value="carbide" ${x.mat!=='hss'?'selected':''}>Carbide</option><option value="hss" ${x.mat==='hss'?'selected':''}>HSS / Cobalt</option></select></label>
  <label class="f">${t('coat')}<select data-tl="${id}" data-k="coat">${Object.keys(COATS).filter(k=>k!=='hss').map(k=>`<option ${k===(x.coat||'none')?'selected':''}>${k}</option>`).join('')}</select></label>
  ${L('loc',x.loc)}${L('oal',x.oal)}${['bull','cornerround'].includes(x.type)?L('cornerR',x.cornerR):''}${['drill','spot','chamfer'].includes(x.type)?N('tipAngle',x.tipAngle):''}${['chamfer','cornerround'].includes(x.type)?L('tipDia',x.tipDia):''}${x.type==='tap'?L('pitch',x.pitch):''}</div>
- <div class="row" style="justify-content:space-between"><button class="btn" data-deltool="${id}" style="color:var(--bad)">${IC.del}${t('del')}</button><button class="btn pri" data-act="closeSheet">${t('save')}</button></div></div>`);
+ <div class="row" style="justify-content:space-between"><button class="btn" data-deltool="${id}" style="color:var(--bad)">${IC.del}${t('del')}</button><button class="btn pri" data-act="closeSheet">${t('save')}</button></div></div>`);setTimeout(()=>pv3Wire('tl3d','tool'),60);
 }
 function openSheet(h){$('#sheetBody').innerHTML=h;$('#sheet').classList.add('on');}
 function closeSheet(){$('#sheet').classList.remove('on');if(S.tab==='tools')rTools();}
@@ -690,14 +691,14 @@ function rFixtures(){
  const fx=S.fixture,types=['vise','softjaw','clamps','plate','collet','angle'];const fc=fixtureCheck();
  $('#main').innerHTML=`<h1>${t('fixTitle')}</h1><p class="sub">${t('fixSub')}</p>
  <div class="fixgrid" style="margin-bottom:14px">${types.map(k=>`<button class="fx ${fx.type===k?'on':''}" data-fx="${k}">${fixtureSVG(k,true)}${t(k)}</button>`).join('')}</div>
- <div class="grid g2"><div class="card big">${fixtureSVG(fx.type)}
+ <div class="grid g2"><div class="card big"><div style="position:relative;height:320px;margin:-4px -4px 8px"><canvas id="fx3d" style="width:100%;height:100%;display:block;cursor:grab"></canvas><span class="sub" style="position:absolute;left:8px;bottom:6px;font-size:12px">${LANG==='vi'?'Kéo để xoay · 3D':'Drag to rotate · 3D'}</span></div><div id="fx3dFb" style="display:none">${fixtureSVG(fx.type)}</div>
   ${fc?`<div class="kpi" style="margin-top:10px"><div><span>${t('stickout')}</span><b>${fl(fc.so,3)}</b></div><div><span>${t('deep')}</span><b style="color:${fc.bad?'var(--bad)':'inherit'}">${fl(fc.deep,3)}</b></div></div>
   <p class="${fc.bad?'':'ok'}" style="font-weight:600;margin:10px 0 0;${fc.bad?'color:var(--bad)':''}">${fc.bad?t('fixBad'):t('fixOk')}${fc.low?' · '+t('fixLow'):''}</p>`:''}</div>
   <div class="grid" style="align-content:start"><div class="card"><div class="fields">${inp('viseSize',fl(fx.vise),'data-b="fixture.vise" data-u="L"')}${inp('jawH',fl(fx.jawH),'data-b="fixture.jawH" data-u="L"')}${inp('parH',fl(fx.parH),'data-b="fixture.parH" data-u="L"')}<label class="row" style="gap:8px;font-weight:600;font-size:14px;align-self:end;min-height:46px"><span class="sw"><input type="checkbox" id="parAuto" ${fx.parAuto?'checked':''}><i></i></span>${t('parAuto')}</label>
   ${inp('sz',fl(S.stock.z),'data-b="stock.z" data-u="L"')}</div>
   <label class="f" style="margin-top:10px">${t('notes')}<textarea data-b="fixture.notes" data-u="S">${esc(fx.notes)}</textarea></label></div>
   ${holdCard()}
-  <div class="card"><h3>${t('zero')}</h3>${partSVG({mh:280})||`<p class="sub">${t('noPart')}</p>`}</div></div></div>`;
+  <div class="card"><h3>${t('zero')}</h3>${partSVG({mh:280})||`<p class="sub">${t('noPart')}</p>`}</div></div></div>`;setTimeout(()=>pv3Wire('fx3d','fix'),30);
 }
 function peakForce(){const m=mat(),p=C.mprops(m);let best={f:0,o:null};for(const o of S.ops){if(!o.on)continue;const tl=toolById(o.tool);if(!tl)continue;const k=KIND[o.type];
  let f=0;if(['drill','spot','tap','ream','bore'].includes(k))continue;/* thrust goes down into the parallels, friction holds the side force */f=C.sideForce(p.kc,tl.dia,Math.min(o.doc||tl.dia,Math.abs((o.zBot||0)-(o.zTop||0))||tl.dia),Math.min(o.woc||tl.dia,tl.dia),o.feed||1,o.rpm||1000);
@@ -880,7 +881,86 @@ function GB(){const P=[],C=[],N=[];return{P,C,N,tri(a,b,c,col,n){for(const v of[
  box(x0,y0,z0,x1,y1,z1,col){const q=this.quad.bind(this);q([x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],col,[0,0,1]);q([x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[x1,y0,z0],col,[0,0,-1]);q([x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],col,[0,-1,0]);q([x1,y1,z0],[x0,y1,z0],[x0,y1,z1],[x1,y1,z1],col,[0,1,0]);q([x0,y1,z0],[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],col,[-1,0,0]);q([x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[x1,y0,z1],col,[1,0,0]);},
  cyl(x,y,z0,z1,r0,r1,col,caps,seg){seg=seg||36;for(let k=0;k<seg;k++){const a0=k/seg*2*Math.PI,a1=(k+1)/seg*2*Math.PI,c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);const p00=[x+r0*c0,y+r0*s0,z0],p01=[x+r0*c1,y+r0*s1,z0],p10=[x+r1*c0,y+r1*s0,z1],p11=[x+r1*c1,y+r1*s1,z1];this.tri(p00,p01,p11,col,[[c0,s0,0],[c1,s1,0],[c1,s1,0]]);this.tri(p00,p11,p10,col,[[c0,s0,0],[c1,s1,0],[c0,s0,0]]);if(caps&1)this.tri([x,y,z0],p01,p00,col,[0,0,-1]);if(caps&2)this.tri([x,y,z1],p10,p11,col,[0,0,1]);}},
  sphere(x,y,z,r,col,seg){seg=seg||24;for(let i=0;i<seg/2;i++)for(let k=0;k<seg;k++){const t0=Math.PI/2+i/(seg/2)*Math.PI/2,t1=Math.PI/2+(i+1)/(seg/2)*Math.PI/2,a0=k/seg*2*Math.PI,a1=(k+1)/seg*2*Math.PI;const V=(t,a)=>[Math.sin(t)*Math.cos(a),Math.sin(t)*Math.sin(a),Math.cos(t)];const n00=V(t0,a0),n01=V(t0,a1),n10=V(t1,a0),n11=V(t1,a1),pp=n=>[x+r*n[0],y+r*n[1],z+r*n[2]];this.tri(pp(n00),pp(n10),pp(n11),col,[n00,n10,n11]);this.tri(pp(n00),pp(n11),pp(n01),col,[n00,n11,n01]);}},
+ rev(c,ax,prof,col,seg,caps){seg=seg||40;const M=(u,a,b)=>ax==='x'?[c[0]+u,c[1]+a,c[2]+b]:ax==='y'?[c[0]+b,c[1]+u,c[2]+a]:[c[0]+a,c[1]+b,c[2]+u],MN=(nu,na,nb)=>ax==='x'?[nu,na,nb]:ax==='y'?[nb,nu,na]:[na,nb,nu];
+  for(let i=0;i<prof.length-1;i++){const[u0,r0]=prof[i],[u1,r1]=prof[i+1];if(Math.abs(u1-u0)<1e-9&&Math.abs(r1-r0)<1e-9)continue;const L=Math.hypot(u1-u0,r1-r0),nr=(u1-u0)/L,nu=-(r1-r0)/L;const cl=prof[i][2]||col;
+   for(let k=0;k<seg;k++){const a0=k/seg*2*Math.PI,a1=(k+1)/seg*2*Math.PI,c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);const p00=M(u0,r0*c0,r0*s0),p01=M(u0,r0*c1,r0*s1),p10=M(u1,r1*c0,r1*s0),p11=M(u1,r1*c1,r1*s1);
+    const n0=seg<=8?[0,0,0]:MN(nu,nr*c0,nr*s0),n1=seg<=8?[0,0,0]:MN(nu,nr*c1,nr*s1);this.tri(p00,p01,p11,cl,[n0,n1,n1]);this.tri(p00,p11,p10,cl,[n0,n1,n0]);}}
+  const cap=(u,r,sg,cl)=>{if(r<=1e-6)return;const n=MN(sg,0,0);for(let k=0;k<seg;k++){const a0=k/seg*2*Math.PI,a1=(k+1)/seg*2*Math.PI;this.tri(M(u,0,0),M(u,r*Math.cos(a0),r*Math.sin(a0)),M(u,r*Math.cos(a1),r*Math.sin(a1)),cl,n);}};
+  if(caps&1)cap(prof[0][0],prof[0][1],-1,prof[0][2]||col);if(caps&2)cap(prof[prof.length-1][0],prof[prof.length-1][1],1,prof[prof.length-1][2]||col);},
+ flutes(x,y,z0,z1,r,n,helixDeg,col,depth,pitch){const nz=Math.max(6,Math.min(60,Math.ceil((z1-z0)/(r*0.18)))),na=Math.max(36,n*16),k=Math.tan((helixDeg||0)*Math.PI/180)/Math.max(r,1e-3),dp=depth==null?0.2:depth;
+  const R=(zz,a)=>{let rr=r*(1-dp*Math.pow(Math.max(0,Math.cos(n*(a-(zz-z0)*k))),5));if(pitch){const f=((zz-z0)/pitch)%1;rr*=0.9+0.1*(1-Math.abs(2*f-1)*2>0?1-Math.abs(2*f-1):0)*2;}return rr;};
+  const V=(i,j)=>{const zz=z0+(z1-z0)*i/nz,a=j/na*2*Math.PI,rr=R(zz,a);return[x+rr*Math.cos(a),y+rr*Math.sin(a),zz];};
+  for(let i=0;i<nz;i++)for(let j=0;j<na;j++){const a=V(i,j),b=V(i,j+1),c_=V(i+1,j+1),d=V(i+1,j);this.tri(a,b,c_,col,null);this.tri(a,c_,d,col,null);}},
  out(){return[new Float32Array(P),new Float32Array(C),new Float32Array(N)];}};}
+/* ----- realistic tool + holder + spindle ----- */
+const TCOL={tin:[0.86,0.68,0.26],altin:[0.36,0.34,0.44],tialn:[0.40,0.36,0.48],zrn:[0.80,0.74,0.52],black:[0.16,0.17,0.19],none:[0.80,0.82,0.85],dlc:[0.22,0.22,0.25]};
+function toolCol(tl){const c=String(tl.coat||'').toLowerCase().replace(/[^a-z]/g,'');return TCOL[c]||(tl.mat==='hss'?[0.72,0.74,0.77]:TCOL.none);}
+function glTool(G,tl,x,y,z,o){o=o||{};const r=tl.dia/2,ty=tl.type,col=toolCol(tl),shank=[0.83,0.85,0.88],stick=o.stick!=null?o.stick:stickOf(tl),loc=Math.min(stick,Math.max(tl.loc||tl.dia*2.5,r*0.6)),n=Math.max(1,tl.flutes||(ty==='drill'?2:3));
+ const rs=ty==='face'?Math.min(r,0.75):Math.min(r,Math.max(0.125,r));let zt=z;
+ if(ty==='face'){const bh=Math.max(0.6,Math.min(1.6,stick*0.6)),body=[0.30,0.32,0.35];G.rev([x,y,0],'z',[[z+0.06,r*0.82],[z+bh*0.55,r*0.95],[z+bh,r*0.62],[z+bh,0]],body,48,1);
+  for(let k=0;k<n;k++){const a=k/n*2*Math.PI+0.3,ix=x+Math.cos(a)*(r-0.17),iy=y+Math.sin(a)*(r-0.17);G.box(ix-0.17,iy-0.17,z,ix+0.17,iy+0.17,z+0.2,[0.86,0.68,0.26]);G.box(ix-0.1,iy-0.1,z+0.2,ix+0.1,iy+0.1,z+0.45,[0.18,0.19,0.2]);}
+  G.rev([x,y,0],'z',[[z+bh,0.6],[z+stick,0.6]],[0.55,0.58,0.62],32,2);return z+stick;}
+ if(ty==='ball'){G.rev([x,y,0],'z',Array.from({length:13},(_,i)=>{const t=i/12*Math.PI/2;return[z+r-r*Math.cos(t),r*Math.sin(t)];}),col,40,0);zt=z+r;G.flutes(x,y,zt,z+loc,r,n,30,col,0.18);}
+ else if(ty==='drill'||ty==='spot'||ty==='chamfer'||ty==='engrave'){const ang=(tl.tipAngle||(ty==='drill'?118:90))*Math.PI/360,td=(tl.tipDia||0)/2,hh=(r-td)/Math.tan(ang);G.rev([x,y,0],'z',[[z,td],[z+hh,r]],col,40,1);zt=z+hh;if(ty==='chamfer'||ty==='engrave'){G.rev([x,y,0],'z',[[zt,r],[zt+0.05,r*0.7],[z+loc,rs*0.7]],col,40,0);zt=z+loc;}else G.flutes(x,y,zt,z+loc,r,n,ty==='drill'?30:15,col,0.32);}
+ else if(ty==='tap'){const lead=r*0.8;G.rev([x,y,0],'z',[[z,r*0.72],[z+lead,r]],col,40,1);G.flutes(x,y,z+lead,z+loc,r,n,0,col,0.3,tl.pitch||0.05);zt=z+loc;}
+ else if(ty==='boring'){G.rev([x,y,0],'z',[[z,0],[z,r*0.55],[z+stick,r*0.55]],[0.25,0.26,0.28],32,0);G.box(x+r*0.2,y-0.05,z,x+r,y+0.05,z+0.12,[0.86,0.68,0.26]);return z+stick;}
+ else{const cr=ty==='bull'?Math.min(r,tl.cornerR||0.03):0;if(cr>0){G.rev([x,y,0],'z',Array.from({length:7},(_,i)=>{const t=i/6*Math.PI/2;return[z+cr-cr*Math.cos(t),r-cr+cr*Math.sin(t)];}).map((p,i)=>i===0?[p[0],0]:p),col,40,0);}else G.rev([x,y,0],'z',[[z,0],[z,r]],col,40,0);zt=z+cr;G.flutes(x,y,zt,z+loc,r,n,ty==='reamer'?0:38,col,ty==='reamer'?0.12:0.22);}
+ // neck + shank
+ G.rev([x,y,0],'z',[[z+loc,r*0.92],[z+loc+0.04,rs*0.9],[z+stick,rs]],shank,36,0);return z+stick;}
+function glHolder(G,tl,x,y,zb,o){o=o||{};const H=HOLDERS[holderOf(tl)]||HOLDERS.er32,kind=H.kind,len=H.len,d=H.d/2,stl=[0.50,0.53,0.57],dk=[0.22,0.23,0.25],nut=[0.62,0.65,0.68],zt=zb+len,tp=mTaper(),r=tl.dia/2,fr=tp==='R8'?1:1.18;
+ if(kind==='er'){G.rev([x,y,0],'z',[[zb,r+0.06],[zb+0.06,d*0.78],[zb+0.55,d]],nut,8,1);G.rev([x,y,0],'z',[[zb+0.55,d],[zb+0.62,d*0.9],[zb+len*0.55,d*0.88],[zt,d*fr]],stl,40,0);}
+ else if(kind==='shrink'){G.rev([x,y,0],'z',[[zb,r+0.09],[zb+len*0.7,Math.max(r+0.3,d*0.8)],[zt,d*fr]],stl,40,1);}
+ else if(kind==='drill'){G.rev([x,y,0],'z',[[zb,r+0.05],[zb+0.35,d*0.55],[zb+0.9,d],[zb+len*0.6,d],[zb+len*0.6,d*0.75],[zt,d*0.75]],[0.30,0.31,0.33],40,1);}
+ else if(kind==='tap'){G.rev([x,y,0],'z',[[zb,r+0.1],[zb+0.3,d*0.7],[zb+0.4,d],[zb+len*0.5,d],[zb+len*0.5+0.06,d*0.85],[zb+len*0.5+0.12,d],[zt,d]],[0.70,0.55,0.18],40,1);}
+ else if(kind==='shell'){G.rev([x,y,0],'z',[[zb,d],[zt,d*1.1]],stl,40,1);G.box(x-0.12,y-d*0.9,zb-0.12,x+0.12,y-d*0.5,zb,dk);G.box(x-0.12,y+d*0.5,zb-0.12,x+0.12,y+d*0.9,zb,dk);}
+ else if(kind==='boring'){G.rev([x,y,0],'z',[[zb+0.4,d],[zt,d]],stl,40,1);G.box(x-d*0.9,y-0.45,zb,x+d*0.9,y+0.45,zb+0.4,dk);}
+ else if(kind==='r8'){G.rev([x,y,0],'z',[[zb,r+0.08],[zb+0.2,d],[zt,d]],stl,32,1);}
+ else{G.rev([x,y,0],'z',[[zb,r+0.12],[zb+0.15,d*0.9],[zb+len*0.4,d],[zb+len*0.4,d*0.94],[zb+len*0.45,d],[zt,d*fr]],stl,40,1);if(kind==='weldon')G.box(x+d*0.85,y-0.14,zb+len*0.3,x+d*1.08,y+0.14,zb+len*0.5,dk);}
+ let ztop=zt;
+ if(tp!=='R8'&&!o.noTaper){const fl=1.25;G.rev([x,y,0],'z',[[zt,d*1.18],[zt+0.06,fl],[zt+0.24,fl],[zt+0.36,fl-0.12],[zt+0.48,fl],[zt+0.62,fl],[zt+0.62,0.85]],[0.40,0.42,0.45],48,2);ztop=zt+0.62;
+  if(tp.includes('HSK'))G.rev([x,y,0],'z',[[ztop,0.95],[ztop+0.9,0.8]],[0.55,0.57,0.6],32,2);else G.rev([x,y,0],'z',[[ztop,0.85],[ztop+1.6,0.5]],[0.55,0.57,0.6],32,2);}
+ if(o.spindle!==false){const sd=tp==='R8'?1.1:1.55;G.rev([x,y,0],'z',[[ztop+0.02,sd],[ztop+(o.spH||2.2),sd]],[0.16,0.17,0.19],48,1);}
+ return zt;}
+/* ----- realistic fixtures ----- */
+function glTable(G,x0,y0,x1,y1,z){const c=[0.28,0.30,0.33],sl=[0.14,0.15,0.16],th=0.6,w=0.75,pitch=2.5;G.box(x0,y0,z-th-0.4,x1,y1,z-th,c);let y=y0;const slots=[];for(let yy=(y0+y1)/2-pitch*Math.floor((y1-y0)/2/pitch);yy<y1;yy+=pitch)if(yy>y0+0.5&&yy<y1-0.5)slots.push(yy);
+ for(const ys of slots){if(ys-w/2>y)G.box(x0,y,z-th,x1,ys-w/2,z,c);G.box(x0,ys-w/2,z-th,x1,ys+w/2,z-th+0.05,sl);y=ys+w/2;}if(y<y1)G.box(x0,y,z-th,x1,y1,z,c);}
+function glFixture(G,sr,bot,top){const fx=S.fixture,t=fx.type,W=sr[2]-sr[0],H=sr[3]-sr[1],ext=Math.max(0.6,Math.min(W,H)*0.25),blue=[0.17,0.34,0.72],steel=[0.74,0.76,0.79],gp=[0.82,0.84,0.86],blk=[0.17,0.18,0.2];
+ if(t==='vise'||t==='softjaw'){const fc=fixtureCheck();const grip=Math.max(0.1,S.stock.z-(fc?fc.so:S.stock.z-0.3)),jt=bot+grip,jw=0.7,par=Math.max(0.1,fx.parH||0.5),jl=Math.max(W+0.8,(fx.vise||6)),xc=(sr[0]+sr[2])/2,jh=Math.min(fx.jawH||1.75,grip+par+0.2),plate=t==='softjaw'?[0.80,0.80,0.82]:steel,base=bot-par-0.6;
+  const bodyB=jt-jh;// jaw plates
+  G.box(xc-jl/2,sr[1]-0.3,bodyB,xc+jl/2,sr[1],jt,plate);G.box(xc-jl/2,sr[3],bodyB,xc+jl/2,sr[3]+0.3,jt,plate);
+  for(const[xs,yy]of[[-1,sr[1]-0.15],[1,sr[1]-0.15],[-1,sr[3]+0.15],[1,sr[3]+0.15]])G.rev([xc+xs*jl*0.3,yy,(bodyB+jt)/2],'y',[[-0.16,0.0],[-0.16,0.13],[0.16,0.13]],blk,6,0);
+  // fixed jaw casting (back) and movable jaw (front)
+  G.box(xc-jl/2-0.1,sr[3]+0.3,base,xc+jl/2+0.1,sr[3]+1.6,jt-0.02,blue);G.box(xc-jl/2-0.1,sr[1]-1.9,base+0.35,xc+jl/2+0.1,sr[1]-0.3,jt-0.02,blue);
+  // vise bed + rails
+  const yb0=sr[1]-6.5,yb1=sr[3]+1.6;G.box(xc-jl/2-0.1,yb0,base-0.9,xc+jl/2+0.1,yb1,base,blue);G.box(xc-jl/2+0.2,yb0,base,xc-jl/2+0.7,sr[1]-1.9,base+0.35,[0.62,0.65,0.7]);G.box(xc+jl/2-0.7,yb0,base,xc+jl/2-0.2,sr[1]-1.9,base+0.35,[0.62,0.65,0.7]);
+  // screw + handle
+  G.rev([xc,yb0,base+0.25],'y',[[-1.6,0.0],[-1.6,0.32],[0,0.32],[0,0.45],[0.6,0.45]],blk,8,1);G.rev([xc,yb0-1.6,base+0.25],'x',[[-2.2,0.12],[2.2,0.12]],[0.6,0.62,0.65],16,3);
+  // parallels
+  G.box(sr[0]+0.1,sr[1]+0.02,bot-par,sr[2]-0.1,sr[1]+Math.min(0.25,H*0.2),bot,gp);G.box(sr[0]+0.1,sr[3]-Math.min(0.25,H*0.2),bot-par,sr[2]-0.1,sr[3]-0.02,bot,gp);
+  glTable(G,xc-jl/2-3,yb0-2.5,xc+jl/2+3,yb1+2,base-0.9);}
+ else if(t==='clamps'||t==='plate'){const px0=sr[0]-ext,py0=sr[1]-ext,px1=sr[2]+ext,py1=sr[3]+ext,pz=bot;G.box(px0,py0,pz-0.75,px1,py1,pz,t==='plate'?[0.60,0.63,0.67]:[0.36,0.38,0.42]);
+  if(t==='plate')for(let x=px0+0.5;x<px1-0.2;x+=1)for(let y=py0+0.5;y<py1-0.2;y+=1){if(x>sr[0]-0.2&&x<sr[2]+0.2&&y>sr[1]-0.2&&y<sr[3]+0.2)continue;G.rev([x,y,pz],'z',[[-0.01,0.13],[0.003,0.13]],blk,12,2);}
+  if(t==='clamps')for(const[x,y]of[[sr[0],sr[1]],[sr[2],sr[1]],[sr[0],sr[3]],[sr[2],sr[3]]]){const dx=x<sr[0]+W/2?-1:1,zt=bot+S.stock.z*0.98;
+   G.box(Math.min(x-dx*0.15,x+dx*1.6),y-0.3,zt,Math.max(x-dx*0.15,x+dx*1.6),y+0.3,zt+0.32,blk);// strap
+   G.rev([x+dx*0.85,y,0],'z',[[pz,0.19],[zt+0.75,0.19]],[0.55,0.57,0.6],16,2);G.rev([x+dx*0.85,y,0],'z',[[zt+0.32,0.4],[zt+0.36,0.4],[zt+0.36,0.3],[zt+0.62,0.3]],[0.7,0.72,0.75],6,2);
+   for(let k=0;k<4;k++){const sx=x+dx*1.5;G.box(Math.min(sx,sx+dx*0.6),y-0.32,pz+k*(zt-pz)/4,Math.max(sx,sx+dx*0.6)+(dx>0?-k*0.1:k*0.1),y+0.32,pz+(k+1)*(zt-pz)/4,[0.75,0.55,0.18]);}}
+  else for(const[x,y]of[[sr[0]-ext/2,(sr[1]+sr[3])/2],[sr[2]+ext/2,(sr[1]+sr[3])/2]]){G.box(x-0.25,y-0.5,pz,x+0.25,y+0.5,pz+0.45,[0.2,0.4,0.75]);G.rev([x,y,0],'z',[[pz+0.45,0.15],[pz+0.6,0.15]],blk,6,2);}
+  glTable(G,px0-2,py0-2,px1+2,py1+2,pz-0.75);}
+ else if(t==='angle'){G.box(sr[0]-0.3,sr[1]-1.1,bot-0.5,sr[2]+0.3,sr[1],bot+S.stock.z*0.8,[0.36,0.39,0.43]);G.box(sr[0]-0.3,sr[1]-1.1,bot-1.2,sr[2]+0.3,sr[3]+0.5,bot-0.5,[0.30,0.33,0.37]);for(const xx of[sr[0]-0.3,sr[2]+0.1])for(let k=0;k<5;k++)G.box(xx,sr[1]-1.1+k*0.2,bot-0.5,xx+0.2,sr[1]-1.1+(k+1)*0.2,bot-0.5+(5-k)*0.25,[0.33,0.36,0.4]);glTable(G,sr[0]-3,sr[1]-3,sr[2]+3,sr[3]+3,bot-1.2);}
+ else if(t==='collet'){const xc=(sr[0]+sr[2])/2,yc=(sr[1]+sr[3])/2,r=Math.max(W,H)/2+0.4;G.rev([xc,yc,0],'z',[[bot-1.5,r*1.15],[bot,r*1.15]],blue,6,3);G.rev([xc,yc,0],'z',[[bot,r],[bot+0.25,r*0.9]],steel,40,2);glTable(G,xc-r-3,yc-r-3,xc+r+3,yc+r+3,bot-1.5);}}
+function glScene(g,W,H,dpr,cam,build){if(!glReady())return false;const gl=GL3.gl,c=GL3.c;if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);}
+ const cyw=Math.cos(cam.yaw),syw=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);gl.viewport(0,0,c.width,c.height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.useProgram(GL3.pr);const U=GL3.U;
+ gl.uniform4f(U.uC,cam.cx,cam.cy,cam.zc,0);gl.uniform4f(U.uR,cyw,syw,cp,sp);gl.uniform4f(U.uS,cam.sc,W,H,cam.span*4);gl.uniform3f(U.uV,-syw*sp,-cyw*sp,cp);gl.uniform1f(U.uLine,0);gl.uniform1f(U.uOff,0);
+ const G=GB();build(G);const[a,cc,n]=G.out();glDraw(glMesh('scene',a,cc,n),gl.TRIANGLES);g.clearRect(0,0,W,H);g.drawImage(c,0,0,W,H);return true;}
+/* 3D previews (tool sheet, fixtures tab): drag to rotate */
+const PV3={yaw:-0.7,pitch:1.05,zoom:1},PVT={yaw:-0.5,pitch:1.32,zoom:1};const pvS=k=>k==='tool'?PVT:PV3;
+function pv3Draw(id,kind){const cv=document.getElementById(id);if(!cv)return;const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;if(!W)return;cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+ let cam,build;if(kind==='tool'){const tl=toolById(cv.dataset.tl);if(!tl)return;const st=stickOf(tl),hl=(HOLDERS[holderOf(tl)]||{len:2}).len,tot=st+hl+(mTaper()==='R8'?0.3:2.4);cam={cx:0,cy:0,zc:(st+hl+(mTaper()==='R8'?0:0.62))/2,yaw:PVT.yaw,pitch:PVT.pitch,span:(st+hl+0.9)*1.05/PVT.zoom};cam.sc=Math.min(W,H)/cam.span*0.95;build=G=>{const zt=glTool(G,tl,0,0,0);glHolder(G,tl,0,0,zt,{spindle:false});};}
+ else{const sr=[0,0,S.stock.x,S.stock.y],bot=-S.stock.z;const vz=['vise','softjaw'].includes(S.fixture.type),sp_=Math.max(S.stock.x,S.stock.y)*1.5+(vz?8:5);cam={cx:S.stock.x/2,cy:S.stock.y/2-(vz?2.2:0.4),zc:-S.stock.z-0.6,yaw:PV3.yaw,pitch:PV3.pitch,span:sp_/PV3.zoom};cam.sc=Math.min(W,H)/cam.span*0.95;
+  const mc=hexRGB(mat().color).map(v=>v/255);build=G=>{G.box(0,0,bot,S.stock.x,S.stock.y,0,mc);glFixture(G,sr,bot,0);};}
+ if(!glScene(g,W,H,dpr,cam,build)){cv.style.display='none';const fb=document.getElementById(id+'Fb');if(fb)fb.style.display='';}}
+function pv3Wire(id,kind){const cv=document.getElementById(id);if(!cv)return;let d=null;cv.style.touchAction='none';const V=pvS(kind);cv.addEventListener('pointerdown',e=>{d={x:e.clientX,y:e.clientY,yw:V.yaw,pt:V.pitch};cv.setPointerCapture(e.pointerId);});cv.addEventListener('pointermove',e=>{if(!d)return;V.yaw=d.yw+(e.clientX-d.x)*0.012;V.pitch=Math.min(1.57,Math.max(0.1,d.pt-(e.clientY-d.y)*0.01));pv3Draw(id,kind);});const up=()=>{d=null;};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);cv.addEventListener('wheel',e=>{e.preventDefault();V.zoom=Math.min(4,Math.max(0.4,V.zoom*(e.deltaY<0?1.1:0.9)));pv3Draw(id,kind);},{passive:false});pv3Draw(id,kind);}
+
 function simGL(g,W,H,dpr,tl){const gl=GL3.gl,c=GL3.c,{nx,ny,h,res,sr}=SIM;if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);}
  const cx=(sr[0]+sr[2])/2,cy=(sr[1]+sr[3])/2,zc=(SIM.top+SIM.bot)/2,cyw=Math.cos(SIMSTATE.yaw),syw=Math.sin(SIMSTATE.yaw),cp=Math.cos(SIMSTATE.pitch),sp=Math.sin(SIMSTATE.pitch);
  const span=Math.max(sr[2]-sr[0],sr[3]-sr[1],S.stock.z*1.5)*(SIMSTATE.sh.fix?1.3:1),sc=Math.min(W,H)/span*0.72*SIMSTATE.zoom;
@@ -898,12 +978,11 @@ function simGL(g,W,H,dpr,tl){const gl=GL3.gl,c=GL3.c,{nx,ny,h,res,sr}=SIM;if(c.w
   for(let i=0;i<gx-1;i++){G.quad([X(i),Y(0),b],[X(i+1),Y(0),b],[X(i+1),Y(0),Zv(i+1,0)],[X(i),Y(0),Zv(i,0)],mc,[0,-1,0]);G.quad([X(i+1),Y(gy-1),b],[X(i),Y(gy-1),b],[X(i),Y(gy-1),Zv(i,gy-1)],[X(i+1),Y(gy-1),Zv(i+1,gy-1)],mc,[0,1,0]);}
   for(let j=0;j<gy-1;j++){G.quad([X(0),Y(j+1),b],[X(0),Y(j),b],[X(0),Y(j),Zv(0,j)],[X(0),Y(j+1),Zv(0,j+1)],mc,[-1,0,0]);G.quad([X(gx-1),Y(j),b],[X(gx-1),Y(j+1),b],[X(gx-1),Y(j+1),Zv(gx-1,j+1)],[X(gx-1),Y(j),Zv(gx-1,j)],mc,[1,0,0]);}
   G.quad([X(0),Y(0),b],[X(0),Y(gy-1),b],[X(gx-1),Y(gy-1),b],[X(gx-1),Y(0),b],mc,[0,0,-1]);const[a,cc,n]=G.out();glDraw(glMesh('walls',a,cc,n),gl.TRIANGLES);}
- // fixture
- if(SIMSTATE.sh.fix){const key=JSON.stringify([S.fixture,sr,SIM.bot,SIM.top]);if(GL3.fixKey!==key){const G=GB();let bx=[];try{bx=simFixture(()=>[0,0,0],null,0).boxes;}catch(_){}for(const q of bx){const col=hexRGB(q[7]||'#3c6fd1').map(v=>v/255);G.box(q[0],q[1],q[2],q[3],q[4],q[5],col);}const[a,cc,n]=G.out();glMesh('fix',a,cc,n);GL3.fixKey=key;}glDraw(GL3.buf.fix,gl.TRIANGLES);}
- // tool + holder
- if(tl&&SIMSTATE.sh.tool){const[x,y,z]=SIM.pos,r=tl.dia/2,len=stickOf(tl),HD=HOLDERS[holderOf(tl)]||{d:1.5,len:2},G=GB(),steel=[0.80,0.82,0.85],flute=[0.93,0.72,0.28],dark=[0.30,0.32,0.35];
-  const ball=tl.type==='ball',bz=ball?z+r:z;if(ball)G.sphere(x,y,bz,r,flute);G.cyl(x,y,bz,z+Math.min(len,Math.max(tl.loc||tl.dia*3,r)),r,r,flute,ball?2:3);G.cyl(x,y,z+Math.min(len,Math.max(tl.loc||tl.dia*3,r)),z+len,r*0.96,r*0.96,steel,0);
-  G.cyl(x,y,z+len,z+len+HD.len*0.45,HD.d*0.32,HD.d/2,dark,1);G.cyl(x,y,z+len+HD.len*0.45,z+len+HD.len,HD.d/2,HD.d/2,[0.42,0.45,0.48],2);const[a,cc,n]=G.out();glDraw(glMesh('tool',a,cc,n),gl.TRIANGLES);}
+ // fixture (realistic models; collision still uses simple boxes)
+ if(SIMSTATE.sh.fix){const key=JSON.stringify([S.fixture,sr,SIM.bot,SIM.top,S.stock]);if(GL3.fixKey!==key){const G=GB();try{glFixture(G,sr,SIM.bot,SIM.top);}catch(e){console.warn(e);}const[a,cc,n]=G.out();glMesh('fix',a,cc,n);GL3.fixKey=key;}glDraw(GL3.buf.fix,gl.TRIANGLES);}
+ // tool + holder + spindle
+ if(tl&&SIMSTATE.sh.tool){const[x,y,z]=SIM.pos,key=tl.id+':'+holderOf(tl)+':'+stickOf(tl)+':'+tl.dia+':'+tl.type;if(GL3.toolKey!==key){const G=GB();const zt=glTool(G,tl,0,0,0);glHolder(G,tl,0,0,zt,{spH:1.4});GL3.toolGeo=G.out();GL3.toolKey=key;}
+  const[a0,cc,n]=GL3.toolGeo,a=new Float32Array(a0.length);for(let k=0;k<a0.length;k+=3){a[k]=a0[k]+x;a[k+1]=a0[k+1]+y;a[k+2]=a0[k+2]+z;}glDraw(glMesh('tool',a,cc,n),gl.TRIANGLES);}
  // toolpath lines (depth tested, pulled slightly toward camera)
  const sh=SIMSTATE.sh,CSx=CS();if(sh.path||sh.rapid){const key=CSx.length+':'+(CSx[0]||[]).join(',');if(GL3.pathKey!==key){const cut=[],rap=[],cutAt=new Int32Array(CSx.length+1),rapAt=new Int32Array(CSx.length+1);for(let k=0;k<CSx.length;k++){const q=CSx[k];cutAt[k]=cut.length/3;rapAt[k]=rap.length/3;(q[6]===0?rap:cut).push(q[0],q[1],q[2],q[3],q[4],q[5]);}cutAt[CSx.length]=cut.length/3;rapAt[CSx.length]=rap.length/3;
    GL3.cutB=glMesh('cut',new Float32Array(cut),new Float32Array(cut.length));GL3.rapB=glMesh('rap',new Float32Array(rap),new Float32Array(rap.length));GL3.cutAt=cutAt;GL3.rapAt=rapAt;GL3.pathKey=key;}
@@ -1100,7 +1179,7 @@ document.addEventListener('change',e=>{
  if(el.dataset.op&&el.dataset.k==='cycle'){const oo=S.ops.find(x=>x.id===el.dataset.op);if(oo)oo.cycAuto=false;}
  if(el.dataset.op){const o=S.ops.find(x=>x.id===el.dataset.op);let k=el.dataset.k;if(k==='type'||k==='cycle')OPEN.add(o.id);if(k==='chamferSz'){o.chamfer=v;o.zBot=-v;}else o[k]=v;
   if(['type','tool','feat','zBot','zTop'].includes(k)&&o.auto)applyFeeds(o);if(['rpm','feed','plunge'].includes(k))o.auto=false;if(['doc','woc'].includes(k))o.docFix=true;regen();if(['type','cycle','rings'].includes(k))setTimeout(renderOps,180);return;}
- if(el.dataset.tl){const x=toolById(el.dataset.tl);x[el.dataset.k]=el.dataset.k==='num'||el.dataset.k==='flutes'?Math.round(v):v;$('#tlPic').innerHTML=toolSVG(x,{dims:true,holder:true});S.ops.forEach(o=>o.tool===x.id&&o.auto&&applyFeeds(o));buildProgram();if(el.dataset.k==='type'||el.dataset.k==='holder'||el.dataset.k==='stick')editTool(x.id);return;}
+ if(el.dataset.tl){const x=toolById(el.dataset.tl);x[el.dataset.k]=el.dataset.k==='num'||el.dataset.k==='flutes'?Math.round(v):v;$('#tlPic').innerHTML=toolSVG(x,{dims:true,holder:true});pv3Draw('tl3d','tool');S.ops.forEach(o=>o.tool===x.id&&o.auto&&applyFeeds(o));buildProgram();if(el.dataset.k==='type'||el.dataset.k==='holder'||el.dataset.k==='stick')editTool(x.id);return;}
  if(el.dataset.c){if(el.dataset.c.startsWith('hd'))CALC.hd.o=1;setPath(CALC,el.dataset.c,v);rCalc();const d=$$('details.acc');return;}
 });
 document.addEventListener('click',e=>{
