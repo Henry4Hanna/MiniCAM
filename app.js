@@ -2903,7 +2903,7 @@ if('serviceWorker' in navigator&&/github\.io$|^localhost$/.test(location.hostnam
 /* ================= boot ================= */
 try{LANG=localStorage.getItem('trakLang')||'vi';}catch(_){}
 const had=restore();
-if(!had||!S.raw){WARN=[];S.raw={loops:[],circles:[],opens:[]};S.feats=[];S.ops=[];S.dwg=null;S.dxfName='';S.src='';S.ref=null;S.geom=null;}
+if(!had||!S.raw||S.dxfName==='demo-bracket.dxf'){WARN=[];S.raw={loops:[],circles:[],opens:[]};S.feats=[];S.ops=[];S.dwg=null;S.dxfName='';S.src='';S.ref=null;S.geom=null;}
 else{try{applyZero();}catch(e){}}
 buildProgram();render();
 if(/debug/.test(location.search))window.__mc={get S(){return S},get SIM(){return SIM},MG(){return modelGrid()},DT(){return devTarget()},DS(){return devStats()},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();},PD(){return PDFDOC}};
