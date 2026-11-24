@@ -870,7 +870,9 @@ function _hexRGB(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseIn
 function cellColor(z,lum,ow){if(ow!=null&&ow>=0&&SIMSTATE.color!=='depth'&&SIM.top-z>0.0005){const o=S.ops[ow];const col=SIMSTATE.color==='tool'?TOOLCOL[Math.max(0,S.tools.findIndex(x=>x.id===(o&&o.tool)))%TOOLCOL.length]:OPCOL[ow%OPCOL.length];const c=hexRGB(col),b=hexRGB(mat().color);return[Math.min(255,(c[0]*0.62+b[0]*0.38)*lum),Math.min(255,(c[1]*0.62+b[1]*0.38)*lum),Math.min(255,(c[2]*0.62+b[2]*0.38)*lum)];}const base=hexRGB(mat().color),depth=(SIM.top-z)/Math.max(0.01,SIM.top-SIM.bot);const cut=SIM.top-z>0.0005;
  let r=base[0],g=base[1],b=base[2];if(cut){const k=Math.min(1,depth);r=r*(1-0.25*k)+40*0.25*k;g=g*(1-0.2*k)+90*0.2*k;b=b*(1-0.1*k)+200*0.1*k;}else{r=r*0.92+36*0.08;g=g*0.92+87*0.08;b=b*0.92+214*0.08;}
  return[Math.min(255,r*lum),Math.min(255,g*lum),Math.min(255,b*lum)];}
-function simDraw(){if(SIMSTATE.axis==='4'){sim4Draw();return;}
+let SPINA=0;const spinOn=()=>{if(SIMSTATE.playing)SPINA+=0.35;};
+function spinSpokes(g,cx,cy,r,ry){g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=Math.max(1.5,r*0.12);for(let k=0;k<3;k++){const a=SPINA+k*2.0944;g.beginPath();g.moveTo(cx+Math.cos(a)*r*0.15,cy+Math.sin(a)*(ry??r)*0.15);g.lineTo(cx+Math.cos(a)*r*0.92,cy+Math.sin(a)*(ry??r)*0.92);g.stroke();}}
+function simDraw(){spinOn();if(SIMSTATE.axis==='4'){sim4Draw();return;}
  const cv=$('#svc');if(!cv||!SIM)return;const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;if(!W)return;cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
  const{nx,ny,h,res,sr}=SIM;const s=CS()[Math.min(SIM.i,CS().length-1)];const ti=s?s[7]:-1,tl=S.tools[ti];
  if(SIMSTATE.mode==='top'){
@@ -882,7 +884,7 @@ function simDraw(){if(SIMSTATE.axis==='4'){sim4Draw();return;}
   simPaths(g,(x,y,z)=>[X(x),Y(y)]);
   if(SIMSTATE.sh.fix&&['vise','softjaw'].includes(S.fixture.type)){g.fillStyle=S.fixture.type==='softjaw'?'rgba(201,162,74,.85)':'rgba(60,111,209,.85)';const jl=Math.max(sr[2]-sr[0]+0.8,S.fixture.vise||6)/res*sc,xc=(X(sr[0])+X(sr[2]))/2,jw=0.7/res*sc;g.fillRect(xc-jl/2,Y(sr[1]),jl,jw);g.fillRect(xc-jl/2,Y(sr[3])-jw,jl,jw);}
   simMarks(g,(x,y,z)=>[X(x),Y(y)]);
-  if(tl&&SIMSTATE.sh.tool){g.beginPath();g.arc(X(SIM.pos[0]),Y(SIM.pos[1]),tl.dia/2/res*sc,0,7);g.fillStyle='rgba(255,106,19,.35)';g.fill();g.strokeStyle='#ff6a13';g.lineWidth=2;g.stroke();}
+  if(tl&&SIMSTATE.sh.tool){const tr=tl.dia/2/res*sc;g.beginPath();g.arc(X(SIM.pos[0]),Y(SIM.pos[1]),tr,0,7);g.fillStyle='rgba(255,106,19,.35)';g.fill();g.strokeStyle='#ff6a13';g.lineWidth=2;g.stroke();spinSpokes(g,X(SIM.pos[0]),Y(SIM.pos[1]),Math.max(4,tr));}
  }else if(SIMSTATE.sh.gl&&glReady()){simGL(g,W,H,dpr,tl);
  }else{
   const st=Math.max(1,Math.ceil(Math.max(nx,ny)/(SIMSTATE.playing?120:(SIMSTATE.hd?230:170)))),cx=(sr[0]+sr[2])/2,cy=(sr[1]+sr[3])/2,zc=(SIM.top+SIM.bot)/2;
@@ -903,7 +905,8 @@ function simDraw(){if(SIMSTATE.axis==='4'){sim4Draw();return;}
   simPaths(g,P);SIM._P=P;
   if(tl&&SIMSTATE.sh.tool){const[x,y,z]=SIM.pos,r=tl.dia/2,len=stickOf(tl);{const H=HOLDERS[holderOf(tl)],hr=H.d/2,hb=P(x,y,z+len),ht=P(x,y,z+len+H.len),hx=hr*sc,hy=Math.max(1,hr*sc*cp);const gh=g.createLinearGradient(hb[0]-hx,0,hb[0]+hx,0);gh.addColorStop(0,'#2b2f34');gh.addColorStop(.35,'#c9ced3');gh.addColorStop(.6,'#8a9198');gh.addColorStop(1,'#25292d');g.globalAlpha=.92;g.fillStyle=gh;g.fillRect(hb[0]-hx,ht[1],2*hx,hb[1]-ht[1]);g.beginPath();g.ellipse(hb[0],hb[1],hx,hy,0,0,Math.PI);g.fill();g.fillStyle='#d5d9dd';g.beginPath();g.ellipse(ht[0],ht[1],hx,hy,0,0,7);g.fill();g.globalAlpha=1;}const b0=P(x,y,z),t0=P(x,y,z+len);const rx=r*sc,ry=r*sc*cp;const grd=g.createLinearGradient(b0[0]-rx,0,b0[0]+rx,0);grd.addColorStop(0,'#555');grd.addColorStop(.35,'#f2f4f6');grd.addColorStop(.6,'#aab0b6');grd.addColorStop(1,'#444');
    const ey=Math.max(1,ry);g.fillStyle=grd;g.fillRect(b0[0]-rx,t0[1],2*rx,b0[1]-t0[1]);g.beginPath();g.ellipse(b0[0],b0[1],rx,ey,0,0,Math.PI);g.fill();g.fillStyle='#e3e7ea';g.beginPath();g.ellipse(t0[0],t0[1],rx,ey,0,0,7);g.fill();
-   g.strokeStyle='#ff6a13';g.lineWidth=2;g.beginPath();g.ellipse(b0[0],b0[1],rx,Math.max(1,ry),0,0,7);g.stroke();}
+   for(let k=0;k<4;k++){const a=SPINA+k*Math.PI/2;if(Math.cos(a)<0)continue;const xs=b0[0]+rx*Math.sin(a),xt=t0[0]+rx*Math.sin(a+0.9);g.strokeStyle='rgba(60,64,70,'+(0.25+0.45*Math.cos(a))+')';g.lineWidth=1.5;g.beginPath();g.moveTo(xs,b0[1]);g.lineTo(xt,t0[1]);g.stroke();}
+   g.strokeStyle='#ff6a13';g.lineWidth=2;g.beginPath();g.ellipse(b0[0],b0[1],rx,Math.max(1,ry),0,0,7);g.stroke();spinSpokes(g,b0[0],b0[1],rx,Math.max(1,ry));}
  }
  if(SIMSTATE.mode!=='top'&&SIM._P)simMarks(g,SIM._P);
  if(SIMSTATE.sh.dev&&SIM._P){const dv=devStats();if(dv){const vi=LANG==='vi',P=SIM._P;const mk=(pt,col,lab)=>{if(!pt)return;const q=P(pt[0],pt[1],pt[2]);g.save();g.lineWidth=3;g.strokeStyle=col;g.beginPath();g.arc(q[0],q[1],13,0,7);g.stroke();g.fillStyle=col;g.font='700 12px system-ui';g.fillText(lab,q[0]+15,q[1]+4);g.restore();};
@@ -1112,7 +1115,8 @@ function sim4Draw(){const cv=$('#svc');if(!cv||!SIM||!SIM.rot)return;const dpr=M
  quads.sort((a,b)=>b[0]-a[0]);for(const q of quads){const p=q[1];g.beginPath();g.moveTo(p[0][0],p[0][1]);for(let k=1;k<p.length;k++)g.lineTo(p[k][0],p[k][1]);g.closePath();g.fillStyle=q[2];g.strokeStyle=q[2];g.lineWidth=0.6;g.fill();g.stroke();}
  const s=SEGS4[Math.min(SIM.i,SEGS4.length-1)],tl=s?S.tools[s[7]]:null;
  if(tl&&SIMSTATE.sh.tool){const[x,z,a]=SIM.pos,th=a*Math.PI/180,u=[0,Math.sin(th),Math.cos(th)];const tip=P(x,z*u[1],z*u[2]),top=P(x,(z+1.2)*u[1],(z+1.2)*u[2]);g.lineCap='round';g.strokeStyle='#b9c0c6';g.lineWidth=Math.max(3,tl.dia*sc);g.beginPath();g.moveTo(tip[0],tip[1]);g.lineTo(top[0],top[1]);g.stroke();
-  g.strokeStyle='#ff6a13';g.lineWidth=2;g.beginPath();g.arc(tip[0],tip[1],Math.max(3,tl.dia*sc/2),0,7);g.stroke();}
+  {const L_=Math.hypot(top[0]-tip[0],top[1]-tip[1])||1,ux=(top[0]-tip[0])/L_,uy=(top[1]-tip[1])/L_,w=Math.max(3,tl.dia*sc)/2;for(let k=0;k<4;k++){const a=SPINA+k*Math.PI/2;if(Math.cos(a)<0)continue;const off=Math.sin(a)*w;g.strokeStyle='rgba(60,64,70,.7)';g.lineWidth=1.5;g.beginPath();g.moveTo(tip[0]-uy*off,tip[1]+ux*off);g.lineTo(tip[0]+ux*L_*0.5-uy*Math.sin(a+0.8)*w,tip[1]+uy*L_*0.5+ux*Math.sin(a+0.8)*w);g.stroke();}}
+  g.strokeStyle='#ff6a13';g.lineWidth=2;g.beginPath();g.arc(tip[0],tip[1],Math.max(3,tl.dia*sc/2),0,7);g.stroke();spinSpokes(g,tip[0],tip[1],Math.max(3,tl.dia*sc/2));}
  const o=s&&s[9]>=0?S.ops[s[9]]:null,info=$('#simInfo');if(info)info.textContent=(o?(s[9]+1)+' '+opLabel(o.type,o)+' · ':'')+(tl?'T'+tl.num+' · ':'')+'X'+fl(SIM.pos[0],3)+' Z'+fl(SIM.pos[1],3)+' A'+(+SIM.pos[2]).toFixed(1)+'° · '+Math.round(SIM.i/Math.max(1,SEGS4.length)*100)+'%';
  const cr=$('#simCrash');if(cr){const hc=(SIM.hcrash||[]).length;cr.style.display=SIM.crash.length||hc?'':'none';cr.textContent=SIM.crash.length?t('crash'):(LANG==='vi'?'⚠ Đầu kẹp chạm phôi':'⚠ Holder hits stock');}const sb=$('#simScrub');if(sb&&document.activeElement!==sb)sb.value=SIM.i;drawCube();}
 
