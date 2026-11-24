@@ -26,7 +26,7 @@ function parseDXF(txt,tol){
     if(sec==='ENTITIES'){if(c===0){if(cur)ents.push(cur);cur={type:v,g:[]};}else if(cur)cur.g.push([c,v]);}
   }
   const gv=(e,c,d)=>{const f=e.g.find(x=>x[0]===c);return f?parseFloat(f[1]):d;};
-  const pieces=[],circles=[],skipped={};
+  const pieces=[],circles=[],skipped={},texts=[],dims=[];
   for(let k=0;k<ents.length;k++){const e=ents[k];
     switch(e.type){
       case 'LINE':pieces.push({pts:[[gv(e,10,0),gv(e,20,0)],[gv(e,11,0),gv(e,21,0)]],closed:false});break;
@@ -39,10 +39,12 @@ function parseDXF(txt,tol){
         const closed=(fl&1)===1||(pts.length>2&&dist(pts[0],pts[pts.length-1])<tol);if(closed&&dist(pts[0],pts[pts.length-1])<tol)pts.pop();if(pts.length>1)pieces.push({pts,closed});break;}
       case 'ELLIPSE':{const cx=gv(e,10,0),cy=gv(e,20,0),mx=gv(e,11,1),my=gv(e,21,0),ra=gv(e,40,1),p0=gv(e,41,0);let sw=gv(e,42,TAU)-p0;while(sw<=1e-9)sw+=TAU;const a=hyp(mx,my),b=a*ra,rot=Math.atan2(my,mx),n=Math.max(24,Math.ceil(sw/TAU*120)),pts=[];const full=Math.abs(sw-TAU)<1e-6;for(let i=0;i<=(full?n-1:n);i++){const t=p0+sw*i/n,c=Math.cos(t),s=Math.sin(t);pts.push([cx+a*c*Math.cos(rot)-b*s*Math.sin(rot),cy+a*c*Math.sin(rot)+b*s*Math.cos(rot)]);}pieces.push({pts,closed:full});break;}
       case 'VERTEX':case 'SEQEND':break;
+      case 'TEXT':case 'MTEXT':case 'ATTRIB':{const tx=e.g.filter(x=>x[0]===3).map(x=>x[1]).join('')+((e.g.find(x=>x[0]===1)||[])[1]||'');texts.push({text:tx,x:gv(e,10,0),y:gv(e,20,0),h:gv(e,40,0.1)});skipped[e.type]=(skipped[e.type]||0)+1;break;}
+      case 'DIMENSION':{dims.push({text:(e.g.find(x=>x[0]===1)||[])[1]||'',val:gv(e,42,null),x:gv(e,11,gv(e,10,0)),y:gv(e,21,gv(e,20,0)),kind:(gv(e,70,0)|0)&7});skipped[e.type]=(skipped[e.type]||0)+1;break;}
       default:skipped[e.type]=(skipped[e.type]||0)+1;
     }
   }
-  return{units,pieces,circles,skipped};
+  return{units,pieces,circles,skipped,texts,dims};
 }
 function chain(open,tol){
   const used=new Array(open.length).fill(false),out=[];const near=(a,b)=>Math.abs(a[0]-b[0])<tol&&Math.abs(a[1]-b[1])<tol;
@@ -379,6 +381,19 @@ function arcFit(prog,tol){tol=tol||0.0005;const out=[];let pos=null,run=[];
   if(b.g!==undefined&&b.x!=null)pos=[b.x,b.y??(pos?pos[1]:0),b.z??(pos?pos[2]:0)];else if(b.g!==undefined&&pos){pos=[pos[0],pos[1],b.z??pos[2]];}
   else if(b.t==='cycle'){pos=[b.pts[b.pts.length-1][0],b.pts[b.pts.length-1][1],b.clear];}else if(b.t==='g43'){pos=[b.x,b.y,null];}else if(b.t==='tool'||b.t==='index')pos=null;}
  flush();return out;}
+/* ---------- single-stroke engraving font (AutoCAM strokefont, 4×6 grid) ---------- */
+const FONT_SRC={A:"0,0 0,4 2,6 4,4 4,0|0,3 4,3",B:"0,0 0,6 3,6 4,5 4,4 3,3 0,3|3,3 4,2 4,1 3,0 0,0",C:"4,1 3,0 1,0 0,1 0,5 1,6 3,6 4,5",D:"0,0 0,6 3,6 4,5 4,1 3,0 0,0",E:"4,0 0,0 0,6 4,6|0,3 3,3",F:"0,0 0,6 4,6|0,3 3,3",G:"4,5 3,6 1,6 0,5 0,1 1,0 3,0 4,1 4,3 2,3",H:"0,0 0,6|4,0 4,6|0,3 4,3",I:"1,0 3,0|2,0 2,6|1,6 3,6",J:"0,1 1,0 3,0 4,1 4,6",K:"0,0 0,6|4,6 0,2|1,3 4,0",L:"0,6 0,0 4,0",M:"0,0 0,6 2,3 4,6 4,0",N:"0,0 0,6 4,0 4,6",O:"1,0 0,1 0,5 1,6 3,6 4,5 4,1 3,0 1,0",P:"0,0 0,6 3,6 4,5 4,4 3,3 0,3",Q:"1,0 0,1 0,5 1,6 3,6 4,5 4,1 3,0 1,0|2,2 4,0",R:"0,0 0,6 3,6 4,5 4,4 3,3 0,3|2,3 4,0",S:"4,5 3,6 1,6 0,5 0,4 1,3 3,3 4,2 4,1 3,0 1,0 0,1",T:"0,6 4,6|2,6 2,0",U:"0,6 0,1 1,0 3,0 4,1 4,6",V:"0,6 2,0 4,6",W:"0,6 1,0 2,3 3,0 4,6",X:"0,0 4,6|0,6 4,0",Y:"0,6 2,3 4,6|2,3 2,0",Z:"0,6 4,6 0,0 4,0",
+ "0":"1,0 0,1 0,5 1,6 3,6 4,5 4,1 3,0 1,0|0,1 4,5","1":"1,5 2,6 2,0|1,0 3,0","2":"0,5 1,6 3,6 4,5 4,4 0,0 4,0","3":"0,5 1,6 3,6 4,5 4,4 3,3 1,3|3,3 4,2 4,1 3,0 1,0 0,1","4":"3,0 3,6 0,2 4,2","5":"4,6 0,6 0,3 3,3 4,2 4,1 3,0 0,0","6":"4,5 3,6 1,6 0,5 0,1 1,0 3,0 4,1 4,2 3,3 0,3","7":"0,6 4,6 1,0","8":"1,3 0,4 0,5 1,6 3,6 4,5 4,4 3,3 1,3 0,2 0,1 1,0 3,0 4,1 4,2 3,3","9":"4,3 1,3 0,4 0,5 1,6 3,6 4,5 4,1 3,0 1,0 0,1",
+ "-":"1,3 3,3",".":"2,0 2,0.4","/":"0,0 4,6","#":"1,0 1,6|3,0 3,6|0,2 4,2|0,4 4,4","+":"2,1 2,5|0,3 4,3",":":"2,1 2,1.4|2,4 2,4.4","(":"3,6 2,5 2,1 3,0",")":"1,6 2,5 2,1 1,0","_":"0,0 4,0"};
+const GLYPHS={};for(const k in FONT_SRC)GLYPHS[k]=FONT_SRC[k].split('|').map(st=>st.split(' ').map(p=>p.split(',').map(Number)));
+const DEACC=t=>String(t).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D');
+function textStrokes(text,x,y,h,ang){const k=h/6,ca=Math.cos((ang||0)*Math.PI/180),sa=Math.sin((ang||0)*Math.PI/180),out=[];[...DEACC(text).toUpperCase()].forEach((ch,i)=>{for(const st of GLYPHS[ch]||[])out.push(st.map(([gx,gy])=>{const u=(i*6+gx)*k,v=gy*k;return[x+u*ca-v*sa,y+u*sa+v*ca];}));});return out;}
+function textWidth(text,h){const n=String(text).length;return n?(n*6-2)*h/6:0;}
+function genEngrave(op,ctx,mb){const h=op.th||0.25,txt=op.text||'MINI CAM',w=textWidth(txt,h);let x=op.x0??0,y=op.y0??0;if(op.align==='center'){x-=w/2;y-=h/2;}
+ const z=op.zBot??-0.01,R=(op.zTop||0)+(ctx.retract||0.1);mb.retract(ctx.clear);let first=true;
+ for(const st of textStrokes(txt,x,y,h,op.ang||0)){if(first){mb.rapid(st[0][0],st[0][1]);first=false;}else{mb.retract(R);mb.rapid(st[0][0],st[0][1]);}mb.rapid(null,null,R);mb.feed(null,null,z,op.plunge);
+  for(let k=1;k<st.length;k++)mb.feed(st[k][0],st[k][1],z,op.feed);mb.retract(R);}
+ mb.retract(ctx.clear);}
 /* ---------- toolpath generation (IR) ---------- */
 function MB(clear){this.o=[];this.p=[0,0,clear];this.clear=clear;}
 MB.prototype.rapid=function(x,y,z){x=x??this.p[0];y=y??this.p[1];z=z??this.p[2];if(Math.abs(x-this.p[0])+Math.abs(y-this.p[1])+Math.abs(z-this.p[2])<1e-7)return;this.o.push({g:0,x,y,z});this.p=[x,y,z];};
@@ -761,6 +776,7 @@ function genOp(op,ctx){
       case 'rotRough':genRotRough(op,ctx,mb,W);break;
       case 'swarf':genSwarf(op,ctx,mb,W);break;
       case 'surfRough':case 'surfFinish':gen3D(op,ctx,mb,W);break;
+      case 'engrave':genEngrave(op,ctx,mb);break;
       default:genHoles(op,ctx,mb,W);
     }
   }catch(e){W.push('err:'+e.message);}
@@ -891,6 +907,6 @@ function postLathe(prog,cfg){const sie=cfg.post==='siemens',mm=cfg.units==='mm',
     let s='';if(b.g!==mg){s+=(sie?['G0','G1'][b.g]:['G00','G01'][b.g])+' ';mg=b.g;}s+='X'+fmt(b.x)+' Z'+fmt(b.z);if(b.g===1)s+=' F'+fr(b.f);out.push(s);}
   out.push(sie?'G0 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ):'G00 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ));out.push(sie?'M9':'M09');out.push(sie?'M5':'M05');out.push('M30');if(!sie)out.push('%');return out.join('\n');}
 
-const API={mprops,drillCycle,deflection,tabCheck,opLoads,sideForce,fixtureHold,arcFit,MPROPS,latheProfileFromGeom,rProf,genLathe,postLathe,postSiemens,simSegs4,meshCylMap,meshHeightmap,ROTARIES,parseSTL,meshLevels,parseSTEP,levelsTo25D,area,pip,bbox,perim,dist,parseDXF,buildGeom,scaleGeom,geomBox,classify,makeField,iso,layers,feeds,genOp,post,simSegs,cycleTime,circlePts,MATERIALS,MACHINES,TAPS,arcPts};
+const API={textStrokes,textWidth,mprops,drillCycle,deflection,tabCheck,opLoads,sideForce,fixtureHold,arcFit,MPROPS,latheProfileFromGeom,rProf,genLathe,postLathe,postSiemens,simSegs4,meshCylMap,meshHeightmap,ROTARIES,parseSTL,meshLevels,parseSTEP,levelsTo25D,area,pip,bbox,perim,dist,parseDXF,buildGeom,scaleGeom,geomBox,classify,makeField,iso,layers,feeds,genOp,post,simSegs,cycleTime,circlePts,MATERIALS,MACHINES,TAPS,arcPts};
 if(typeof module!=='undefined'&&module.exports)module.exports=API;else root.CAM=API;
 })(this);
