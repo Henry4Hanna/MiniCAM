@@ -501,7 +501,7 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
     <div class="ovl bl"><span class="pill" id="pvInfo"></span></div>
     <div class="ovl tl"><div class="seg" id="pvMode"><button data-pv="2d" class="${VIEW.mode!=='3d'?'on':''}">${t('view2d')}</button><button data-pv="3d" class="${VIEW.mode==='3d'?'on':''}">${t('model3d')}</button></div></div></div>
    ${axCard()}${sideCard()}
-   <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${t('features')}</h2>${S.geom?`<button class="btn sm" data-act="stl">${IC.save}${t('exportStl')}</button>`:''}</div><p class="sub" style="margin:4px 0 8px;font-size:13px">${VIEW.mode==='3d'?t('fromDrawing'):''}</p><div class="feats">${S.feats.map(f=>`<button class="feat ${(S.excl||[]).includes(f.id)?'off':''}" data-feat="${f.id}"><i class="dot" style="background:${FEATCOL[f.kind]}"></i>${esc(featLabel(f))}${f.tap?' · '+esc(f.tap):''}${f.kind!=='profile'&&f.depth!==undefined?' · '+(f.depth==null?t('through'):'↧'+fl(f.depth,3)):''}</button>`).join('')||'<span class="sub">—</span>'}</div></div>
+   <div class="card"><h2 style="margin:0">${t('features')}</h2>${S.geom?`<div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-act="stl">${IC.save}${t('exportStl')}</button><button class="btn sm" data-act="step">${IC.save}${LANG==='vi'?'Xuất STEP':'Export STEP'}</button></div>`:''}<p class="sub" style="margin:4px 0 8px;font-size:13px">${VIEW.mode==='3d'?t('fromDrawing'):''}</p><div class="feats">${S.feats.map(f=>`<button class="feat ${(S.excl||[]).includes(f.id)?'off':''}" data-feat="${f.id}"><i class="dot" style="background:${FEATCOL[f.kind]}"></i>${esc(featLabel(f))}${f.tap?' · '+esc(f.tap):''}${f.kind!=='profile'&&f.depth!==undefined?' · '+(f.depth==null?t('through'):'↧'+fl(f.depth,3)):''}</button>`).join('')||'<span class="sub">—</span>'}</div></div>
 
    <div class="row"><button class="btn pri" data-act="import" style="flex:1 1 220px;min-height:56px;justify-content:flex-start">${IC.file}<span style="display:grid;text-align:left;line-height:1.15">${t('importAny')}<small style="font-weight:500;opacity:.85;font-size:12.5px">${t('fmts')}</small></span></button><button class="btn" data-act="demo">${t('demo')}</button><button class="btn" data-act="img">${IC.img}${t('refImg')}</button></div>
    <div class="row"><label class="chip">${t('dxfUnits')} <select id="dxfU"><option value="auto">${t('auto')}</option><option value="in">in</option><option value="mm">mm</option></select></label><label class="chip">${t('pdfScale')} 1 : <input id="pdfSc" inputmode="decimal" value="${S.pdfScale||1}" style="width:48px;border:0;background:none;font:inherit;font-size:16px"></label></div>
@@ -1054,7 +1054,7 @@ document.addEventListener('click',e=>{
   case'copyG':copyText(GCODE);break;
   case'saveG':{const ext=S.ext||'gcd',base=(S.hdr.name||'PART').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,20)||'PART';const body=GCODE.replace(/\n/g,'\r\n');
    if(ext==='txt')saveFile(base+'.txt',body);else saveFile(base+'.zip',makeZip([{name:base+'.'+ext,data:new TextEncoder().encode(body)}]),true);break;}
-  case'stl':exportSTL();break;
+  case'stl':exportSTL();break;case'step':exportSTEP();break;
   case'simPrev':{const c=CS();const cur=SIM.i>0?c[Math.min(SIM.i,c.length)-1][9]:-1;let k=SIM.i;while(k>0&&c[k-1][9]===cur)k--;const prevOp=k>0?c[k-1][9]:-1;if(prevOp>=0){while(k>0&&c[k-1][9]===prevOp)k--;}SIMSTATE.playing=false;updPlay();simJump(k);break;}
   case'simEnd':SIMSTATE.playing=false;updPlay();simJump(CS().length);break;
   case'moReset':if(S.mo)delete S.mo[mach0().id];S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();persist();render();break;
@@ -2057,16 +2057,43 @@ function drawModel3D(cv){
    const w=[P(ax,ay,z),P(bx,by,z),P(bx,by,nz),P(ax,ay,nz)];polys.push([(w[0][2]+w[2][2])/2+1e-4,w,col(isNaN(Hn(i+di,j+dj))?mc:topC(nz),l)]);}}
  polys.sort((a,b)=>b[0]-a[0]);for(const p of polys){const q=p[1];g.beginPath();g.moveTo(q[0][0],q[0][1]);for(let k=1;k<4;k++)g.lineTo(q[k][0],q[k][1]);g.closePath();g.fillStyle=p[2];g.strokeStyle=p[2];g.lineWidth=0.7;g.fill();g.stroke();}
  const info=$('#pvInfo');if(info)info.textContent=fl(sr[2]-sr[0],3)+' × '+fl(sr[3]-sr[1],3)+' × '+fl(-bot,3)+' '+ulab();}
-function exportSTL(){
- const M=modelGrid(),{h,nx,ny,res,sr,bot}=M,k=K(),T=[];const Hn=(i,j)=>i<0||j<0||i>=nx||j>=ny?NaN:h[j*nx+i];
- const q=(a,b,c,d)=>{T.push([a,b,c],[a,c,d]);};
- for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const z=h[j*nx+i];if(isNaN(z))continue;const x0=sr[0]+i*res,x1=x0+res,y0=sr[1]+j*res,y1=y0+res;
-  q([x0,y0,z],[x1,y0,z],[x1,y1,z],[x0,y1,z]);q([x0,y0,bot],[x0,y1,bot],[x1,y1,bot],[x1,y0,bot]);
-  for(const[di,dj,a,b] of [[0,-1,[x0,y0],[x1,y0]],[0,1,[x1,y1],[x0,y1]],[-1,0,[x0,y1],[x0,y0]],[1,0,[x1,y0],[x1,y1]]]){let nz=Hn(i+di,j+dj);if(isNaN(nz))nz=bot;if(nz>=z-1e-6)continue;q([a[0],a[1],nz],[b[0],b[1],nz],[b[0],b[1],z],[a[0],a[1],z]);}}
- const buf=new ArrayBuffer(84+T.length*50/2),dv=new DataView(buf);const n=T.length/3;const out=new ArrayBuffer(84+n*50),o=new DataView(out);o.setUint32(80,n,true);
- for(let t_=0;t_<n;t_++){const a=T[3*t_],b=T[3*t_+1],c=T[3*t_+2];const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];let nx_=uy*vz-uz*vy,ny_=uz*vx-ux*vz,nz_=ux*vy-uy*vx;const L=Math.hypot(nx_,ny_,nz_)||1;
-  const off=84+t_*50;[nx_/L,ny_/L,nz_/L,...a.map(v=>v*k),...b.map(v=>v*k),...c.map(v=>v*k)].forEach((v,m)=>o.setFloat32(off+m*4,v,true));}
- const base=(S.hdr.name||'PART').replace(/[^\w-]/g,'_');saveFile(base+'.zip',makeZip([{name:base+'_'+ulab()+'.stl',data:new Uint8Array(out)}]),true);}
+function modelQuads(){
+ const M=modelGrid(),{h,nx,ny,res,sr,bot}=M,Q=[];const H=(i,j)=>i<0||j<0||i>=nx||j>=ny?NaN:h[j*nx+i];const X=i=>sr[0]+i*res,Y=j=>sr[1]+j*res;
+ const rects=(key)=>{const used=new Uint8Array(nx*ny),out=[];for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const k0=key(i,j);if(k0==null||used[j*nx+i])continue;let i2=i;while(i2+1<nx&&!used[j*nx+i2+1]&&key(i2+1,j)===k0)i2++;let j2=j;
+   for(;;){if(j2+1>=ny)break;let ok=true;for(let q=i;q<=i2;q++)if(used[(j2+1)*nx+q]||key(q,j2+1)!==k0){ok=false;break;}if(!ok)break;j2++;}
+   for(let r=j;r<=j2;r++)for(let q=i;q<=i2;q++)used[r*nx+q]=1;out.push([i,j,i2+1,j2+1,k0]);}return out;};
+ for(const[i0,j0,i1,j1,z] of rects((i,j)=>{const z=H(i,j);return isNaN(z)?null:z;}))Q.push([[X(i0),Y(j0),z],[X(i1),Y(j0),z],[X(i1),Y(j1),z],[X(i0),Y(j1),z]]);
+ for(const[i0,j0,i1,j1] of rects((i,j)=>isNaN(H(i,j))?null:1))Q.push([[X(i0),Y(j0),bot],[X(i0),Y(j1),bot],[X(i1),Y(j1),bot],[X(i1),Y(j0),bot]]);
+ const wall=(i,j,di,dj)=>{const z=H(i,j);if(isNaN(z))return null;let nz=H(i+di,j+dj);if(isNaN(nz))nz=bot;return nz>=z-1e-6?null:z+'|'+nz;};
+ for(const dj of[-1,1])for(let j=0;j<ny;j++){let i=0;while(i<nx){const k=wall(i,j,0,dj);if(k==null){i++;continue;}let e=i;while(e+1<nx&&wall(e+1,j,0,dj)===k)e++;const[z,nz]=k.split('|').map(Number);
+   if(dj<0){const y=Y(j),a=[X(i),y],b=[X(e+1),y];Q.push([[...a,nz],[...b,nz],[...b,z],[...a,z]]);}else{const y=Y(j+1),a=[X(e+1),y],b=[X(i),y];Q.push([[...a,nz],[...b,nz],[...b,z],[...a,z]]);}i=e+1;}}
+ for(const di of[-1,1])for(let i=0;i<nx;i++){let j=0;while(j<ny){const k=wall(i,j,di,0);if(k==null){j++;continue;}let e=j;while(e+1<ny&&wall(i,e+1,di,0)===k)e++;const[z,nz]=k.split('|').map(Number);
+   if(di<0){const x=X(i),a=[x,Y(e+1)],b=[x,Y(j)];Q.push([[...a,nz],[...b,nz],[...b,z],[...a,z]]);}else{const x=X(i+1),a=[x,Y(j)],b=[x,Y(e+1)];Q.push([[...a,nz],[...b,nz],[...b,z],[...a,z]]);}j=e+1;}}
+ return Q;}
+function qNorm(q){const[a,b,c]=q;const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];let x=uy*vz-uz*vy,y=uz*vx-ux*vz,z=ux*vy-uy*vx;const L=Math.hypot(x,y,z)||1;return[x/L,y/L,z/L];}
+function partBase(){return(S.hdr.name||'PART').replace(/[^\w-]/g,'_');}
+function stlBytes(Q,k){const n=Q.length*2,out=new ArrayBuffer(84+n*50),o=new DataView(out);o.setUint32(80,n,true);let t_=0;
+ for(const q of Q)for(const tri of[[q[0],q[1],q[2]],[q[0],q[2],q[3]]]){const nn=qNorm(tri),off=84+t_*50;[...nn,...tri[0].map(v=>v*k),...tri[1].map(v=>v*k),...tri[2].map(v=>v*k)].forEach((v,m)=>o.setFloat32(off+m*4,v,true));t_++;}
+ return new Uint8Array(out);}
+function exportSTL(){const Q=modelQuads(),b=partBase();saveFile(b+'.zip',makeZip([{name:b+'_'+ulab()+'.stl',data:stlBytes(Q,K())}]),true);}
+function stepText(Q,name){const L=[];let id=0;const E=s=>{L.push('#'+(++id)+'='+s+';');return'#'+id;};const R=v=>{let s=(Math.abs(v)<5e-7?0:v).toFixed(4);return s;};const mm=25.4;
+ E("APPLICATION_CONTEXT('automotive design')");const ctx='#1';E("APPLICATION_PROTOCOL_DEFINITION('international standard','automotive_design',2000,"+ctx+")");
+ const pc=E("PRODUCT_CONTEXT(''," + ctx + ",'mechanical')"),pr=E("PRODUCT('"+name+"','"+name+"','',("+pc+"))");E("PRODUCT_RELATED_PRODUCT_CATEGORY('part',$,("+pr+"))");
+ const pf=E("PRODUCT_DEFINITION_FORMATION('','',"+pr+")"),pdc=E("PRODUCT_DEFINITION_CONTEXT('part definition',"+ctx+",'design')"),pd=E("PRODUCT_DEFINITION('design','',"+pf+","+pdc+")"),pds=E("PRODUCT_DEFINITION_SHAPE('','',"+pd+")");
+ const lu=E("( LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI.,.METRE.) )"),au=E("( NAMED_UNIT(*) PLANE_ANGLE_UNIT() SI_UNIT($,.RADIAN.) )"),su=E("( NAMED_UNIT(*) SI_UNIT($,.STERADIAN.) SOLID_ANGLE_UNIT() )");
+ const un=E("UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-03),"+lu+",'distance_accuracy_value','')");
+ const gc=E("( GEOMETRIC_REPRESENTATION_CONTEXT(3) GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT(("+un+")) GLOBAL_UNIT_ASSIGNED_CONTEXT(("+lu+","+au+","+su+")) REPRESENTATION_CONTEXT('','3D') )");
+ const P=new Map(),pt=v=>{const k=v.map(x=>R(x*mm)).join(',');if(!P.has(k))P.set(k,E("CARTESIAN_POINT('',("+k+"))"));return P.get(k);};
+ const D=new Map(),dir=v=>{const k=v.map(x=>R(x).replace(/0+$/,'0')).join(',');if(!D.has(k))D.set(k,E("DIRECTION('',("+k+"))"));return D.get(k);};
+ const PL=new Map(),plane=(n,p)=>{const r=n.map(Math.round);const d=r[0]*p[0]+r[1]*p[1]+r[2]*p[2];const k=r.join(',')+'@'+R(d*mm);if(PL.has(k))return PL.get(k);const ref=Math.abs(r[2])>0.5?[1,0,0]:[0,0,1];
+  const ax=E("AXIS2_PLACEMENT_3D('',"+pt(p)+","+dir(r)+","+dir(ref)+")");const pl=E("PLANE(''," + ax + ")");PL.set(k,pl);return pl;};
+ const F=[];for(const q of Q){const n=qNorm(q),lp=E("POLY_LOOP('',("+q.map(pt).join(',')+"))"),fb=E("FACE_OUTER_BOUND(''," + lp + ",.T.)");F.push(E("FACE_SURFACE('',("+fb+"),"+plane(n,q[0])+",.T.)"));}
+ const sh=E("CLOSED_SHELL('',("+F.join(',')+"))"),br=E("FACETED_BREP('"+name+"',"+sh+")");
+ const o=E("AXIS2_PLACEMENT_3D('',"+pt([0,0,0])+","+dir([0,0,1])+","+dir([1,0,0])+")");
+ const rep=E("FACETED_BREP_SHAPE_REPRESENTATION('"+name+"',("+o+","+br+"),"+gc+")");E("SHAPE_DEFINITION_REPRESENTATION("+pds+","+rep+")");
+ const now=new Date().toISOString().slice(0,19);
+ return"ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('MINI CAM MODEL'),'2;1');\nFILE_NAME('"+name+".stp','"+now+"',('RYAN NGUYEN'),(''),'MINI CAM','MINI CAM','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));\nENDSEC;\nDATA;\n"+L.join('\n')+"\nENDSEC;\nEND-ISO-10303-21;\n";}
+function exportSTEP(){const Q=modelQuads(),b=partBase();saveFile(b+'.zip',makeZip([{name:b+'.step',data:new TextEncoder().encode(stepText(Q,b.toUpperCase()))}]),true);}
 /* ================= setup sheet PDF ================= */
 function b64(s_){const b=atob(s_),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
 function makePDF(pages,pw,ph,m){const enc=new TextEncoder(),ch=[];let len=0;const offs=[];const add=x=>{const u=typeof x==='string'?enc.encode(x):x;ch.push(u);len+=u.length;};
