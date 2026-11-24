@@ -356,7 +356,8 @@ function importDXF(txt,name,uSel){
  const p=C.parseDXF(txt,0.0002);let units=uSel&&uSel!=='auto'?uSel:p.units;
  const g0=C.buildGeom(p,0.0002);const b=C.geomBox(g0);const ext=Math.max(b[2]-b[0],b[3]-b[1]);
  if(!units)units=ext>40?'mm':'in';const sc=units==='mm'?1/25.4:units==='cm'?1/2.54:units==='m'?39.37:1;
- S.raw=C.scaleGeom(g0,sc,0,0);S.dxfName=name;S.excl=[];S.dwg={texts:(p.texts||[]).map(x=>({text:x.text,x:x.x*sc,y:x.y*sc,h:x.h*sc})).slice(0,400),dims:(p.dims||[]).map(d=>({text:d.text,val:d.val!=null?d.val*sc:null})).slice(0,300)};
+ S.raw=C.scaleGeom(g0,sc,0,0);S.rawUnits=units==='mm'||units==='cm'||units==='m'?'mm':'in';S.dxfName=name;S.excl=[];
+ {const tx=(p.texts||[]).map(x=>x.text).join(' ').toUpperCase();const m=tx.match(/(\d*\.?\d+)\s*[X×]\s*(\d*\.?\d+)\s*[X×]\s*(\d*\.?\d+)/)||tx.match(/(?:THICK(?:NESS)?|DAY|T)\s*[=:]?\s*()()(\d*\.?\d+)/);if(m){const T=parseFloat(m[3])*sc;if(T>0.005&&T<20)S.stock.part=+T.toFixed(4);}}S.dwg={texts:(p.texts||[]).map(x=>({text:x.text,x:x.x*sc,y:x.y*sc,h:x.h*sc})).slice(0,400),dims:(p.dims||[]).map(d=>({text:d.text,val:d.val!=null?d.val*sc:null})).slice(0,300)};
  const bb=C.geomBox(S.raw);const w=bb[2]-bb[0],h=bb[3]-bb[1];S.stock.x=+(w+0.25).toFixed(3);S.stock.y=+(h+0.25).toFixed(3);
  applyZero();syncStock();autoProgram();
  const sk=Object.keys(p.skipped).filter(k=>!['TEXT','MTEXT','DIMENSION','HATCH','POINT','LEADER','SOLID','ATTDEF','VIEWPORT'].includes(k));
@@ -463,7 +464,7 @@ function autoProgram(){
  for(const f of holes){if(f.dia>0.5){const tl=findTool(x=>x.type==='flat'&&x.dia<=f.dia*0.7&&x.dia>=f.dia*0.3)||findTool(x=>x.type==='flat'&&x.dia<f.dia*0.9);if(tl)S.ops.push(newOp('circ',f.id,tl.id,{zBot:blind(f)?-f.depth:-(th+0.02),leave:0}));}}
  const drillHoles=holes.filter(f=>f.dia<=0.5);
  if(spot)for(const f of drillHoles){const dch=Math.min(f.dia+0.02,spot.dia*0.9);S.ops.push(newOp('spot',f.id,spot.id,{zBot:-(dch/2)/Math.tan((spot.tipAngle||90)/2*Math.PI/180),cycle:'G82',dwell:0.2}));}
- for(const f of drillHoles){const tap=C.TAPS.find(x=>Math.abs(x[3]-f.dia)<0.003)&&(S.src!=='pdf'||(S.tapOnly||[]).some(d=>Math.abs(d-f.dia)<0.001))?C.TAPS.find(x=>Math.abs(x[3]-f.dia)<0.003):null;const dr=ensureTool({type:'drill',desc:(tap?tap[4]+' ':'')+'Ø'+f.dia.toFixed(4)+' drill',dia:f.dia,flutes:2,mat:'hss',coat:'black',tipAngle:118,loc:Math.max(th+0.5,f.dia*8),oal:Math.max(th+1.5,f.dia*12)});
+ for(const f of drillHoles){const tap=C.TAPS.find(x=>Math.abs(x[3]-f.dia)<0.003&&(S.rawUnits==='mm'?/^M/.test(x[0]):S.rawUnits==='in'?!/^M/.test(x[0]):true))&&(S.src!=='pdf'||(S.tapOnly||[]).some(d=>Math.abs(d-f.dia)<0.001))?C.TAPS.find(x=>Math.abs(x[3]-f.dia)<0.003):null;const dr=ensureTool({type:'drill',desc:(tap?tap[4]+' ':'')+'Ø'+f.dia.toFixed(4)+' drill',dia:f.dia,flutes:2,mat:'hss',coat:'black',tipAngle:118,loc:Math.max(th+0.5,f.dia*8),oal:Math.max(th+1.5,f.dia*12)});
   const zb=blind(f)?-(f.depth+0.3*f.dia):-(th+0.3*f.dia+0.03);const dc=C.drillCycle(Math.abs(zb),f.dia,m),cyc=D.drillCycle==='auto'?dc.cycle:D.drillCycle;
   S.ops.push(newOp('drill',f.id,dr.id,{zBot:zb,cycle:cyc,cycAuto:D.drillCycle==='auto',peck:(cyc==='G83'||cyc==='G73')?(dc.peck||+(f.dia*0.75).toFixed(4)):0}));
   if(tap){const tp=ensureTool({type:'tap',desc:tap[0]+' spiral point tap',dia:tap[1],flutes:3,mat:'hss',coat:'none',pitch:tap[2],loc:Math.max(0.75,tap[1]*3),oal:Math.max(2.2,tap[1]*9)});f.tap=tap[0];S.ops.push(newOp('tap',f.id,tp.id,{zBot:blind(f)?-Math.max(tap[2]*3,f.depth-3*tap[2]):-(th+0.05)}));}}
@@ -1426,8 +1427,11 @@ async function importPDF(buf,name){
  if(!det[best]){S.ref=pages[0].ref;throw new Error(LANG==='vi'?'Không tìm thấy hình chiếu chi tiết trong PDF':'no part view found in the PDF');}
  pdfUse(best,true);if(pages.length>1)setTimeout(pdfPicker,60);}
 function pdfThread(notes){const out=[];const re=/(\d+)\s*X\s+(#?\d+(?:\/\d+)?-\d+|M\d+(?:\.\d+)?\s*[xX×]\s*\d+(?:\.\d+)?)/g;let m;while((m=re.exec(notes))){const nm=m[2].replace(/\s/g,'').replace('×','x');const tp=C.TAPS.find(x=>x[0].toLowerCase()===nm.toLowerCase()||x[0].toLowerCase()==='#'+nm.toLowerCase());if(tp){const rest=notes.slice(m.index,m.index+80);const dm=rest.match(/(\d*\.\d+)\s*MIN/i);out.push({n:+m[1],tap:tp,depth:dm?parseFloat(dm[1]):null});}}return out;}
-function pdfUse(i,quiet){const D=PDFDOC;if(!D||!D.det[i])return;const r=D.det[i];S.ref=D.pages[i].ref;S.pdfPage=i;
+function pdfUse(i,quiet){const D=PDFDOC;if(!D||!D.det[i])return;let r=D.det[i];S.ref=D.pages[i].ref;S.pdfPage=i;
  const thr=pdfThread(D.notes);if(!r.thick){const o=D.det.find(x=>x&&x.thick);if(o)r.thick=o.thick;}const g={loops:r.geom.loops.map(l=>l.map(p=>[+p[0].toFixed(4),+p[1].toFixed(4)])),circles:r.geom.circles.map(c=>({x:+c.x.toFixed(4),y:+c.y.toFixed(4),r:c.r})),opens:[]};
+ // metric sheet → numbers were millimetres
+ const metric=(/MILLIMET|\bMM\b|毫米/i.test(D.notes)&&!/\bINCH/i.test(D.notes))||(r.W>40&&!/\bINCH/i.test(D.notes));S.rawUnits=metric?'mm':'in';
+ let gm=g;if(metric){gm=C.scaleGeom(g,1/25.4,0,0);g.loops=gm.loops;g.circles=gm.circles;r={...r,W:r.W/25.4,H:r.H/25.4,thick:r.thick?r.thick/25.4:r.thick};}
  // tapped holes from the callout (e.g. 7X 10-32 UNF-2B): matching count of same-size holes → tap-drill size
  const tapped=[];thr.forEach(t=>{const cand=g.circles.filter(c=>!c._t&&2*c.r>t.tap[3]*0.8&&2*c.r<t.tap[1]*1.35);if(cand.length>=t.n){cand.forEach(c=>{c.r=t.tap[3]/2;c._t=1;if(t.depth!=null)c.depth=+(t.depth+3*t.tap[2]).toFixed(4);});tapped.push({dia:t.tap[3],depth:t.depth!=null?+(t.depth+3*t.tap[2]).toFixed(4):undefined});}});g.circles.forEach(c=>delete c._t);
  g.circles.forEach(c=>{c.r=+c.r.toFixed(4);});

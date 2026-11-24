@@ -26,8 +26,10 @@ function parseDXF(txt,tol){
     if(sec==='ENTITIES'){if(c===0){if(cur)ents.push(cur);cur={type:v,g:[]};}else if(cur)cur.g.push([c,v]);}
   }
   const gv=(e,c,d)=>{const f=e.g.find(x=>x[0]===c);return f?parseFloat(f[1]):d;};
+  // layer name sets the depth: DEPTH_0.375 / D0.375 / SAU_0.5 → that depth; THRU / XUYEN → through
+  const lyrDepth=e=>{const ly=((e.g.find(x=>x[0]===8)||[])[1]||'').toUpperCase();if(/THRU|XUYEN|THROUGH/.test(ly))return null;const m=ly.match(/(?:DEPTH|SAU|DEEP|^D)[ _-]*(\d*\.?\d+)/);return m?parseFloat(m[1]):undefined;};
   const pieces=[],circles=[],skipped={},texts=[],dims=[];
-  for(let k=0;k<ents.length;k++){const e=ents[k];
+  for(let k=0;k<ents.length;k++){const e=ents[k];const dep=lyrDepth(e);const np=pieces.length,nc=circles.length;
     switch(e.type){
       case 'LINE':pieces.push({pts:[[gv(e,10,0),gv(e,20,0)],[gv(e,11,0),gv(e,21,0)]],closed:false});break;
       case 'CIRCLE':circles.push({x:gv(e,10,0),y:gv(e,20,0),r:gv(e,40,0)});break;
@@ -43,17 +45,18 @@ function parseDXF(txt,tol){
       case 'DIMENSION':{dims.push({text:(e.g.find(x=>x[0]===1)||[])[1]||'',val:gv(e,42,null),x:gv(e,11,gv(e,10,0)),y:gv(e,21,gv(e,20,0)),kind:(gv(e,70,0)|0)&7});skipped[e.type]=(skipped[e.type]||0)+1;break;}
       default:skipped[e.type]=(skipped[e.type]||0)+1;
     }
+    if(dep!==undefined){for(let q=np;q<pieces.length;q++)pieces[q].depth=dep;for(let q=nc;q<circles.length;q++)circles[q].depth=dep;}
   }
   return{units,pieces,circles,skipped,texts,dims};
 }
 function chain(open,tol){
   const used=new Array(open.length).fill(false),out=[];const near=(a,b)=>Math.abs(a[0]-b[0])<tol&&Math.abs(a[1]-b[1])<tol;
-  for(let i=0;i<open.length;i++){if(used[i])continue;used[i]=true;let c=open[i].slice(),grown=true;
+  for(let i=0;i<open.length;i++){if(used[i])continue;used[i]=true;let c=open[i].slice(),grown=true;const d0=open[i].d;
     while(grown){grown=false;for(let j=0;j<open.length;j++){if(used[j])continue;const p=open[j],e=c[c.length-1],s=c[0];
       if(near(e,p[0])){c=c.concat(p.slice(1));}else if(near(e,p[p.length-1])){c=c.concat(p.slice().reverse().slice(1));}
       else if(near(s,p[p.length-1])){c=p.slice(0,-1).concat(c);}else if(near(s,p[0])){c=p.slice().reverse().slice(0,-1).concat(c);}else continue;
       used[j]=true;grown=true;}}
-    const closed=c.length>2&&near(c[0],c[c.length-1]);if(closed)c.pop();out.push({pts:c,closed});}
+    const closed=c.length>2&&near(c[0],c[c.length-1]);if(closed)c.pop();if(d0!==undefined)c.d=d0;out.push({pts:c,closed});}
   return out;
 }
 function dedupe(p,tol){const o=[];for(const q of p){if(!o.length||dist(o[o.length-1],q)>tol*0.01)o.push(q);}if(o.length>1&&dist(o[0],o[o.length-1])<tol*0.01)o.pop();return o;}
@@ -61,11 +64,11 @@ function asCircle(p,tol){if(p.length<12)return null;const b=bbox(p),cx=(b[0]+b[2
 function circlePts(c,tol){const p=arcPts(c.x,c.y,c.r,0,TAU,tol||0.0005);p.pop();return p;}
 /* raw geometry in drawing units -> {loops,circles,opens} */
 function buildGeom(parsed,tol){
-  const closed=[],open=[];for(const p of parsed.pieces)(p.closed?closed:open).push(p.pts);
+  const closed=[],open=[];let anyD=false;for(const p of parsed.pieces){const a=p.pts.slice();if(p.depth!==undefined){a.d=p.depth;anyD=true;}(p.closed?closed:open).push(a);}
   const opens=[];for(const c of chain(open,tol*4)){if(c.closed)closed.push(c.pts);else opens.push(c.pts);}
-  const loops=[],circles=parsed.circles.map(c=>({...c}));
-  for(let p of closed){p=dedupe(p,tol);if(p.length<3)continue;const c=asCircle(p,tol);if(c)circles.push(c);else loops.push(p);}
-  return{loops,circles,opens};
+  const loops=[],ld=[],circles=parsed.circles.map(c=>({...c}));
+  for(let p0 of closed){const d=p0.d;let p=dedupe(p0,tol);if(p.length<3)continue;const c=asCircle(p,tol);if(c){if(d!==undefined)c.depth=d;circles.push(c);}else{loops.push(p);ld.push(d);}}
+  const g={loops,circles,opens};if(anyD)g.ld=ld;return g;
 }
 function scaleGeom(g,s,dx,dy){const f=q=>[q[0]*s+dx,q[1]*s+dy];const o={loops:g.loops.map(p=>p.map(f)),circles:g.circles.map(c=>{const n={x:c.x*s+dx,y:c.y*s+dy,r:c.r*s};if('depth' in c)n.depth=c.depth==null?null:c.depth*s;return n;}),opens:g.opens.map(p=>p.map(f))};if(g.ld)o.ld=g.ld.map(d=>d===undefined?undefined:d==null?null:d*s);if(g.thick)o.thick=g.thick*s;return o;}
 function geomBox(g){const b=[1e18,1e18,-1e18,-1e18];g.loops.forEach(p=>bbox(p,b));g.opens.forEach(p=>bbox(p,b));g.circles.forEach(c=>bbox([[c.x-c.r,c.y-c.r],[c.x+c.r,c.y+c.r]],b));return b[0]>b[2]?[0,0,0,0]:b;}
