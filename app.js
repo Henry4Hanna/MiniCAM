@@ -554,7 +554,7 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
 
    <div class="row"><button class="btn pri" data-act="import" style="flex:1 1 220px;min-height:56px;justify-content:flex-start">${IC.file}<span style="display:grid;text-align:left;line-height:1.15">${t('importAny')}<small style="font-weight:500;opacity:.85;font-size:12.5px">${t('fmts')}</small></span></button><button class="btn" data-act="img">${IC.img}${t('refImg')}</button></div>
    <div class="row" style="gap:6px;align-items:center"><b style="font-size:14px">${LANG==='vi'?'Chi tiết mẫu:':'Demo parts:'}</b>${[['demo','2.5D','#2457d6'],['demo3','3D','#1c9b5f'],['demo4',LANG==='vi'?'Trục 4':'4th axis','#0a9bb0'],['demo5',LANG==='vi'?'5 trục':'5-axis','#8b4fd6']].map(([a,l,c])=>`<button class="btn sm" data-act="${a}" style="border-color:${c};color:${c};font-weight:700">${l}</button>`).join('')}</div>
-   <div class="row"><label class="chip">${t('dxfUnits')} <select id="dxfU"><option value="auto">${t('auto')}</option><option value="in">in</option><option value="mm">mm</option></select></label><label class="chip">${t('pdfScale')} 1 : <input id="pdfSc" inputmode="decimal" value="${S.pdfScale||1}" style="width:48px;border:0;background:none;font:inherit;font-size:16px"></label></div>
+   <div class="row"><label class="chip">${t('dxfUnits')} <select id="dxfU"><option value="auto">${t('auto')}</option><option value="in">in</option><option value="mm">mm</option></select></label><label class="chip">${t('pdfScale')} 1 : <input id="pdfSc" inputmode="decimal" value="${S.pdfScale||1}" style="width:48px;border:0;background:none;font:inherit;font-size:16px"></label>${PDFDOC?`<button class="btn sm" data-act="pdfPick">PDF · ${LANG==='vi'?'trang':'sheet'} ${(S.pdfPage||0)+1}/${PDFDOC.pages.length}</button>`:''}</div>${S.pdfInfo&&S.src==='pdf'?`<p class="sub" style="margin:6px 0 0;font-size:12.5px">PDF: ${fl(S.pdfInfo.W,3)} × ${fl(S.pdfInfo.H,3)}${S.pdfInfo.thick?' × '+fl(S.pdfInfo.thick,3):''} · ${LANG==='vi'?'tỉ lệ':'scale'} ${esc(S.pdfInfo.how||'')}</p>`:''}
    <p class="sub" style="margin:0;font-size:13.5px">${S.src==='pdf'?t('pdfNote'):S.src==='mesh'?t('meshNote'):t('dwgNote')}${S.dxfName?' · <b>'+esc(S.dxfName)+'</b>':''}</p>
    ${S.ref?`<img src="${S.ref}" alt="" style="max-width:100%;border-radius:12px;border:1px solid var(--line)">`:''}
    <div class="card"><h2>${t('gcode')}</h2><div id="codeBox"></div></div>
@@ -1235,6 +1235,7 @@ document.addEventListener('change',e=>{
 document.addEventListener('click',e=>{
  if(e.target.closest('.sw'))return;
  const b=e.target.closest('button,[data-tog],[data-simop]');if(!b)return;const d=b.dataset;
+ if(d.pdfpg){closeSheet();pdfUse(+d.pdfpg);return;}
  if(d.tab){S.tab=d.tab;render();persist();return;}
  if(d.l){LANG=d.l;try{localStorage.setItem('trakLang',LANG);}catch(_){}render();return;}
  if(d.u){S.units=d.u;syncStock();buildProgram();render();return;}
@@ -1285,6 +1286,7 @@ document.addEventListener('click',e=>{
   case'addOp':{const f=S.feats.find(x=>x.kind!=='holes')||S.feats[0];const tl=findTool(x=>x.type==='flat');if(!tl)break;const o=newOp(f&&f.kind==='holes'?'drill':'contour',f?f.id:null,tl.id,{zBot:-0.25});if(SU()==='op2')o.setup='op2';S.ops.push(o);OPEN.add(o.id);regen();renderOps();break;}
   case'copyG':copyText(GCODE);break;
   case'saveG':postGate();break;
+  case'pdfPick':pdfPicker();break;
   case'gateForce':{closeSheet&&closeSheet();const ext=S.ext||'gcd',base=(S.hdr.name||'PART').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,20)||'PART';const body=GCODE.replace(/\n/g,'\r\n');
    if(S.ops.some(o=>o.on&&opSU(o)==='op2')){const keep=SU(),F=[];for(const su of['op1','op2']){S.setup=su;buildProgram();F.push({name:base+'_'+su.toUpperCase()+'.'+ext,data:new TextEncoder().encode(GCODE.replace(/\n/g,'\r\n'))});}S.setup=keep;buildProgram();saveFile(base+'.zip',makeZip(F),true);toast(LANG==='vi'?'Đã lưu OP1 + OP2 (2 chương trình)':'Saved OP1 + OP2 (2 programs)');break;}
    if(ext==='txt')saveFile(base+'.txt',body);else saveFile(base+'.zip',makeZip([{name:base+'.'+ext,data:new TextEncoder().encode(body)}]),true);break;}
@@ -1335,7 +1337,7 @@ $('#fileDxf').addEventListener('change',async e=>{const f=e.target.files[0];if(!
   else if(/^image\//.test(f.type)||['jpg','jpeg','png','heic','webp'].includes(ext)){$('#fileImg').files;setRef(f);return;}
   else if(ext==='stl'){toast('STL…');const T=C.parseSTL(await f.arrayBuffer());const M=C.meshLevels(T,1e-3);S.meshT=T;importMesh(M,f.name,uSel,null);}
   else if(ext==='step'||ext==='stp'){toast('STEP…');S.meshT=null;const txt=await f.text();const M=C.parseSTEP(txt,1e-3);if(!M.levels.length)throw new Error('no flat faces found');importMesh(M,f.name,uSel,M.unit);}
-  else if(ext==='pdf'){toast('PDF…');S.meshT=null;await importPDF(await f.arrayBuffer(),f.name);}
+  else if(ext==='pdf'){toast('PDF…');S.meshT=null;await importPDF(await f.arrayBuffer(),f.name);if(PDFDOC){S.tab='program';render();persist();return;}}
   else{S.meshT=null;importDXF(await f.text(),f.name,uSel);S.src='dxf';}
   buildProgram();
  }catch(err){WARN.push(f.name+': '+err.message);}
@@ -1351,16 +1353,28 @@ function importMesh(M,name,uSel,unit){
  finishImport(name);meshAnalyze();if(g.ignored)WARN.push(g.ignored+' '+t('ignoredFaces'));}
 function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('cannot load '+src));document.head.appendChild(s);});}
 async function loadPDFjs(){if(window.pdfjsLib)return;const B='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';await loadScript(B+'pdf.worker.min.js');await loadScript(B+'pdf.min.js');window.pdfjsLib.GlobalWorkerOptions.workerSrc=B+'pdf.worker.min.js';}
-async function importPDF(buf,name){
- await loadPDFjs();const L=window.pdfjsLib,doc=await L.getDocument({data:new Uint8Array(buf),isEvalSupported:false}).promise,page=await doc.getPage(1);
- const vp=page.getViewport({scale:2}),cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);await page.render({canvasContext:cx,viewport:vp}).promise;S.ref=cv.toDataURL('image/jpeg',0.8);
- const ol=await page.getOperatorList(),O=L.OPS,sc=(S.pdfScale||1)/72;let m=[1,0,0,1,0,0];const st=[];const mul=(a,b)=>[a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]];
- const P=(x,y)=>[(m[0]*x+m[2]*y+m[4])*sc,(m[1]*x+m[3]*y+m[5])*sc];const pieces=[];let cur=null,last=[0,0];
- const flush=c=>{if(cur&&cur.length>1)pieces.push({pts:cur,closed:!!c});cur=null;};
- const bez=(p0,p1,p2,p3)=>{for(let i=1;i<=10;i++){const t_=i/10,u=1-t_;const x=u*u*u*p0[0]+3*u*u*t_*p1[0]+3*u*t_*t_*p2[0]+t_*t_*t_*p3[0],y=u*u*u*p0[1]+3*u*u*t_*p1[1]+3*u*t_*t_*p2[1]+t_*t_*t_*p3[1];cur.push([x,y]);}};
+let PDFDOC=null;
+async function pdfPage(doc,L,n){const page=await doc.getPage(n);const ol=await page.getOperatorList(),O=L.OPS,sc=1/72;let m=[1,0,0,1,0,0];
+ let gs={lw:1,col:'k',dash:false};const st=[];const mul=(a,b)=>[a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]];
+ const P=(x,y)=>[(m[0]*x+m[2]*y+m[4])*sc,(m[1]*x+m[3]*y+m[5])*sc];const pieces=[];let path=[],cur=null,last=[0,0];
+ const flush=c=>{if(cur&&cur.length>1)path.push({pts:cur,closed:!!c});cur=null;};
+ const bez=(p0,p1,p2,p3)=>{for(let i=1;i<=10;i++){const t_=i/10,u=1-t_;cur.push([u*u*u*p0[0]+3*u*u*t_*p1[0]+3*u*t_*t_*p2[0]+t_*t_*t_*p3[0],u*u*u*p0[1]+3*u*u*t_*p1[1]+3*u*t_*t_*p2[1]+t_*t_*t_*p3[1]]);}};
+ const colOf=a=>{let r,g,b;if(typeof a[0]==='string'&&a[0][0]==='#'){const h=a[0];r=parseInt(h.slice(1,3),16);g=parseInt(h.slice(3,5),16);b=parseInt(h.slice(5,7),16);}else{[r,g,b]=a;}return Math.max(r,g,b)<40?'k':'c';};
+ const paint=(stroke)=>{flush();const lw=gs.lw*Math.sqrt(Math.abs(m[0]*m[3]-m[1]*m[2]));if(stroke)path.forEach(q=>pieces.push({...q,lw:+lw.toFixed(3),col:gs.col,dash:gs.dash}));path=[];};
+ const SK=new Set([O.stroke,O.closeStroke,O.fillStroke,O.eoFillStroke,O.closeFillStroke,O.closeEOFillStroke]),FL=new Set([O.fill,O.eoFill,O.endPath]);
  for(let i=0;i<ol.fnArray.length;i++){const fn=ol.fnArray[i],a=ol.argsArray[i];
-  if(fn===O.save)st.push(m.slice());else if(fn===O.restore){m=st.pop()||[1,0,0,1,0,0];}else if(fn===O.transform)m=mul(m,a);
-  else if(fn===O.paintFormXObjectBegin){st.push(m.slice());if(a&&a[0])m=mul(m,a[0]);}else if(fn===O.paintFormXObjectEnd){m=st.pop()||m;}
+  if(fn===O.save)st.push([m.slice(),{...gs}]);else if(fn===O.restore){const q=st.pop();if(q){m=q[0];gs=q[1];}}else if(fn===O.transform)m=mul(m,a);
+  else if(fn===O.paintFormXObjectBegin){st.push([m.slice(),{...gs}]);if(a&&a[0])m=mul(m,a[0]);}else if(fn===O.paintFormXObjectEnd){const q=st.pop();if(q){m=q[0];gs=q[1];}}
+  else if(fn===O.setLineWidth)gs.lw=a[0];else if(fn===O.setDash)gs.dash=!!(a[0]&&a[0].length);else if(fn===O.setStrokeRGBColor)gs.col=colOf(a);
+  else if(fn===O.setGState&&a&&a[0]){for(const[k,v]of a[0]){if(k==='LW')gs.lw=v;if(k==='D')gs.dash=!!(v&&v[0]&&v[0].length);}}
+  else if(SK.has(fn))paint(true);else if(FL.has(fn))paint(false);
+  else if(fn===O.constructPath&&typeof a[0]==='number'){ // pdf.js 4+: [paintOp,[pathData],minMax]
+   const d=a[1]&&a[1][0];if(d&&d.length!=null){let k=0;while(k<d.length){const op=d[k++];
+    if(op===0){flush();last=P(d[k],d[k+1]);cur=[last];k+=2;}else if(op===1){if(!cur)cur=[last];last=P(d[k],d[k+1]);cur.push(last);k+=2;}
+    else if(op===2){if(!cur)cur=[last];const p1=P(d[k],d[k+1]),p2=P(d[k+2],d[k+3]),p3=P(d[k+4],d[k+5]);bez(last,p1,p2,p3);last=p3;k+=6;}
+    else if(op===3){if(!cur)cur=[last];const q1=P(d[k],d[k+1]),p3=P(d[k+2],d[k+3]);bez(last,[last[0]+2/3*(q1[0]-last[0]),last[1]+2/3*(q1[1]-last[1])],[p3[0]+2/3*(q1[0]-p3[0]),p3[1]+2/3*(q1[1]-p3[1])],p3);last=p3;k+=4;}
+    else if(op===4){if(cur&&cur.length>2&&C.dist(cur[0],cur[cur.length-1])<1e-6)cur.pop();flush(true);}else break;}}
+   flush();if(SK.has(a[0]))paint(true);else if(FL.has(a[0])||a[0]!=null)paint(false);}
   else if(fn===O.constructPath){const ops=a[0],c=a[1];let k=0;
    for(const op of ops){
     if(op===O.moveTo){flush();last=P(c[k],c[k+1]);cur=[last];k+=2;}
@@ -1369,15 +1383,45 @@ async function importPDF(buf,name){
     else if(op===O.curveTo2){if(!cur)cur=[last];const p2=P(c[k],c[k+1]),p3=P(c[k+2],c[k+3]);bez(last,last,p2,p3);last=p3;k+=4;}
     else if(op===O.curveTo3){if(!cur)cur=[last];const p1=P(c[k],c[k+1]),p3=P(c[k+2],c[k+3]);bez(last,p1,p3,p3);last=p3;k+=4;}
     else if(op===O.closePath){if(cur&&cur.length>2&&C.dist(cur[0],cur[cur.length-1])<1e-6)cur.pop();flush(true);}
-    else if(op===O.rectangle){flush();const x=c[k],y=c[k+1],w=c[k+2],h=c[k+3];pieces.push({pts:[P(x,y),P(x+w,y),P(x+w,y+h),P(x,y+h)],closed:true});k+=4;}}
+    else if(op===O.rectangle){flush();const x=c[k],y=c[k+1],w=c[k+2],h=c[k+3];path.push({pts:[P(x,y),P(x+w,y),P(x+w,y+h),P(x,y+h)],closed:true});k+=4;}}
    flush();}}
- if(!pieces.length)throw new Error(LANG==='vi'?'PDF không có nét vector (có thể là bản scan) — đã gắn làm hình tham khảo':'no vector lines (scanned?) — kept as reference image');
- const g=C.buildGeom({pieces,circles:[]},0.0005);const v=page.view,pw=(v[2]-v[0])*sc,ph=(v[3]-v[1])*sc;
- let loops=g.loops.filter(p=>{const b=C.bbox(p);return(b[2]-b[0])<pw*0.8&&(b[3]-b[1])<ph*0.8&&Math.max(b[2]-b[0],b[3]-b[1])>0.02;});
- let circles=g.circles.filter(c=>c.r>0.01&&c.r<Math.min(pw,ph)*0.4);
- if(loops.length){const big=loops.reduce((a,b)=>Math.abs(C.area(b))>Math.abs(C.area(a))?b:a);const bb=C.bbox(big),e=0.01;const inside=q=>q[0]>=bb[0]-e&&q[0]<=bb[2]+e&&q[1]>=bb[1]-e&&q[1]<=bb[3]+e;
-  const bigCircle=circles.reduce((a,c)=>!a||c.r>a.r?c:a,null);if(!(bigCircle&&Math.PI*bigCircle.r**2>Math.abs(C.area(big)))){loops=loops.filter(p=>p.every(inside));circles=circles.filter(c=>inside([c.x-c.r,c.y-c.r])&&inside([c.x+c.r,c.y+c.r]));}}
- S.raw={loops,circles,opens:[]};S.src='pdf';finishImport(name);}
+ const v=page.view,pw=(v[2]-v[0])*sc,ph=(v[3]-v[1])*sc;const tc=await page.getTextContent();const texts=[];
+ tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const T=it.transform,h=Math.hypot(T[0],T[1])||1,ux=T[0]/h,uy=T[1]/h;let off=0;it.str.split(/(\s+)/).forEach(w=>{const cw=(it.width||0)*(w.length/Math.max(1,it.str.length));if(w.trim())texts.push({s:w,x:(T[4]+ux*(off+cw/2)-v[0])*sc,y:(T[5]+uy*(off+cw/2)-v[1])*sc});off+=cw;});});
+ pieces.forEach(q=>{q.pts=q.pts.map(p=>[p[0]-v[0]*sc,p[1]-v[1]*sc]);});
+ const vp=page.getViewport({scale:2}),cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);await page.render({canvasContext:cx,viewport:vp}).promise;
+ const tcv=document.createElement('canvas');tcv.width=300;tcv.height=Math.round(300*cv.height/cv.width);tcv.getContext('2d').drawImage(cv,0,0,tcv.width,tcv.height);
+ return{n,pw,ph,pieces,texts,ref:cv.toDataURL('image/jpeg',0.8),thumb:tcv.toDataURL('image/jpeg',0.7)};}
+async function importPDF(buf,name){
+ await loadPDFjs();const L=window.pdfjsLib,doc=await L.getDocument({data:new Uint8Array(buf),isEvalSupported:false}).promise;const N=Math.min(doc.numPages,12);const pages=[];
+ for(let n=1;n<=N;n++){try{pages.push(await pdfPage(doc,L,n));}catch(e){}}
+ if(!pages.some(p=>p.pieces.length)){if(pages[0])S.ref=pages[0].ref;throw new Error(LANG==='vi'?'PDF không có nét vector (có thể là bản scan) — đã gắn làm hình tham khảo':'no vector lines (scanned?) — kept as reference image');}
+ const det=C.pdfRescale(pages.map(p=>{try{const r=C.pdfDetect(p.pieces,p.texts,p.pw,p.ph,{scale:S.pdfScale||1});return r.main>=0?r:null;}catch(e){return null;}}));
+ const notes=[].concat(...det.map(r=>r?r.notes:[])).join(' ');
+ const score=r=>r?r.geom.loops.length*3+r.geom.circles.length+(r.sure?0.5:0):-1;let best=0;det.forEach((r,i)=>{if(score(r)>score(det[best]))best=i;});
+ PDFDOC={name,pages:pages.map(p=>({n:p.n,ref:p.ref,thumb:p.thumb})),det,notes};
+ if(!det[best]){S.ref=pages[0].ref;throw new Error(LANG==='vi'?'Không tìm thấy hình chiếu chi tiết trong PDF':'no part view found in the PDF');}
+ pdfUse(best,true);if(pages.length>1)setTimeout(pdfPicker,60);}
+function pdfThread(notes){const out=[];const re=/(\d+)\s*X\s+(#?\d+(?:\/\d+)?-\d+|M\d+(?:\.\d+)?\s*[xX×]\s*\d+(?:\.\d+)?)/g;let m;while((m=re.exec(notes))){const nm=m[2].replace(/\s/g,'').replace('×','x');const tp=C.TAPS.find(x=>x[0].toLowerCase()===nm.toLowerCase()||x[0].toLowerCase()==='#'+nm.toLowerCase());if(tp){const rest=notes.slice(m.index,m.index+80);const dm=rest.match(/(\d*\.\d+)\s*MIN/i);out.push({n:+m[1],tap:tp,depth:dm?parseFloat(dm[1]):null});}}return out;}
+function pdfUse(i,quiet){const D=PDFDOC;if(!D||!D.det[i])return;const r=D.det[i];S.ref=D.pages[i].ref;S.pdfPage=i;
+ const thr=pdfThread(D.notes);if(!r.thick){const o=D.det.find(x=>x&&x.thick);if(o)r.thick=o.thick;}const g={loops:r.geom.loops.map(l=>l.map(p=>[+p[0].toFixed(4),+p[1].toFixed(4)])),circles:r.geom.circles.map(c=>({x:+c.x.toFixed(4),y:+c.y.toFixed(4),r:c.r})),opens:[]};
+ // tapped holes from the callout (e.g. 7X 10-32 UNF-2B): matching count of same-size holes → tap-drill size
+ const tapped=[];thr.forEach(t=>{const cand=g.circles.filter(c=>!c._t&&2*c.r>t.tap[3]*0.8&&2*c.r<t.tap[1]*1.35);if(cand.length>=t.n){cand.forEach(c=>{c.r=t.tap[3]/2;c._t=1;});tapped.push({dia:t.tap[3],depth:t.depth!=null?+(t.depth+3*t.tap[2]).toFixed(4):undefined});}});g.circles.forEach(c=>delete c._t);
+ g.circles.forEach(c=>{c.r=+c.r.toFixed(4);});
+ S.raw=g;S.src='pdf';S.pdfInfo={page:i+1,of:D.pages.length,W:r.W,H:r.H,how:r.how,thick:r.thick};if(r.thick)S.stock.part=r.thick;
+ finishImport(D.name);
+ // pocket depths from "2X .500" style callouts on this sheet (deepest → biggest pocket)
+ {const N=r.notes||[],dp=[];for(let j=0;j<N.length-1;j++)if(/^\d+X$/i.test(N[j])&&/^\d*\.\d+[^\d°]?$/.test(N[j+1])){const v=parseFloat(N[j+1]);if(v>0.02&&(!r.thick||v<r.thick)&&!dp.includes(v))dp.push(v);}
+  const pk=S.feats.filter(f=>f.kind==='pocket').sort((a,b)=>Math.abs(C.area(b.loop))-Math.abs(C.area(a.loop)));dp.sort((a,b)=>b-a);
+  if(pk.length&&dp.length===pk.length){pk.forEach((f,j)=>f.depth=dp[j]);tapped.push(1);}}
+ if(tapped.length){tapped.filter(t=>t.dia).forEach(t=>S.feats.filter(f=>f.kind==='holes'&&Math.abs(f.dia-t.dia)<0.0006).forEach(f=>{if(t.depth!=null)f.depth=t.depth;}));autoProgram();}
+ buildProgram();VIEW.fitted=false;
+ if(!quiet){S.tab='program';render();persist();}
+ toast((LANG==='vi'?'Trang ':'Sheet ')+(i+1)+': '+fl(r.W,3)+' × '+fl(r.H,3)+(r.thick?' × '+fl(r.thick,3):'')+' · '+S.feats.length+' '+t('features').toLowerCase());}
+function pdfPicker(){const D=PDFDOC;if(!D)return;const vi=LANG==='vi';
+ openSheet(`<div class="grab"></div><h2 style="margin:0 0 4px">${vi?'Bản vẽ PDF — chọn trang':'PDF drawing — pick a sheet'}</h2><p class="sub" style="margin:0 0 10px;font-size:13px">${vi?'App đã bỏ khung, khung tên, logo, hình 3D và đường kích thước; tự đọc tỉ lệ từ kích thước ghi trên bản vẽ.':'Border, title block, logo, iso view and dimension lines are ignored; the scale is read from the numbers on the drawing.'}</p>
+ <div style="display:grid;gap:10px">${D.pages.map((p,i)=>{const r=D.det[i];const nh=r?r.geom.circles.length:0,nl=r?Math.max(0,r.geom.loops.length-1):0;
+  return`<button class="btn" data-pdfpg="${i}" style="display:flex;gap:10px;align-items:center;text-align:left;padding:8px;${S.pdfPage===i?'outline:2px solid var(--acc)':''}"><img src="${p.thumb}" style="width:120px;border-radius:6px;border:1px solid var(--line);background:#fff;flex:none"><span style="font-size:14px;line-height:1.35"><b>${vi?'Trang':'Sheet'} ${i+1}</b>${S.pdfPage===i?' ✓':''}<br>${r?`${fl(r.W,3)} × ${fl(r.H,3)}${r.thick?' × '+fl(r.thick,3):''}<br><span class="sub">${nl} ${vi?'hốc/biên trong':'inner shapes'} · ${nh} ${vi?'lỗ':'holes'}<br>${vi?'tỉ lệ':'scale'}: ${esc(r.how||'')}</span>`:`<span class="sub">${vi?'không thấy hình chiếu':'no view found'}</span>`}</span></button>`;}).join('')}</div>`);}
+
 $('#fileImg').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),s=Math.min(1,1400/Math.max(im.width,im.height));c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);S.ref=c.toDataURL('image/jpeg',0.85);render();};im.src=r.result;};r.readAsDataURL(f);e.target.value='';});
 $('#fileJson').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const tx=await f.text();e.target.value='';if(/\.csv$/i.test(f.name)){const n=importCSVTools(tx);toast(n?(LANG==='vi'?'Đã nhập '+n+' dao từ CSV':'Imported '+n+' tools from CSV'):t('jsonBad'));if(n){buildProgram();render();}return;}let j;try{j=JSON.parse(tx);}catch(_){toast(t('jsonBad'));return;}
  const n=importJSON(j);toast(n?t('jsonOk')+': '+n:t('jsonBad'));if(n){buildProgram();render();}});

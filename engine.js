@@ -70,6 +70,78 @@ function buildGeom(parsed,tol){
 function scaleGeom(g,s,dx,dy){const f=q=>[q[0]*s+dx,q[1]*s+dy];const o={loops:g.loops.map(p=>p.map(f)),circles:g.circles.map(c=>{const n={x:c.x*s+dx,y:c.y*s+dy,r:c.r*s};if('depth' in c)n.depth=c.depth==null?null:c.depth*s;return n;}),opens:g.opens.map(p=>p.map(f))};if(g.ld)o.ld=g.ld.map(d=>d==null?null:d*s);if(g.thick)o.thick=g.thick*s;return o;}
 function geomBox(g){const b=[1e18,1e18,-1e18,-1e18];g.loops.forEach(p=>bbox(p,b));g.opens.forEach(p=>bbox(p,b));g.circles.forEach(c=>bbox([[c.x-c.r,c.y-c.r],[c.x+c.r,c.y+c.r]],b));return b[0]>b[2]?[0,0,0,0]:b;}
 
+
+
+/* outer boundary of a set of line pieces that touch / T-join (drawing views): planar graph, walk the outside face */
+function outerFace(polys,tol){ // -> {outer, faces}
+tol=tol||0.004;const V=[],key=new Map(),q=x=>Math.round(x/tol);
+  const vid=p=>{const k=q(p[0])+','+q(p[1]);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const h=key.get((q(p[0])+dx)+','+(q(p[1])+dy));if(h!=null&&dist(V[h],p)<tol*1.5)return h;}V.push([p[0],p[1]]);key.set(k,V.length-1);return V.length-1;};
+  let S=[];polys.forEach(P=>{for(let i=0;i<P.length-1;i++){const a=vid(P[i]),b=vid(P[i+1]);if(a!==b)S.push([a,b]);}});
+  // split at T-junctions
+  const out=[];for(const[a,b]of S){const A=V[a],B=V[b],L=dist(A,B);const on=[];V.forEach((p,i)=>{if(i===a||i===b)return;const t=((p[0]-A[0])*(B[0]-A[0])+(p[1]-A[1])*(B[1]-A[1]))/(L*L);if(t<=0.0001||t>=0.9999)return;const x=A[0]+t*(B[0]-A[0]),y=A[1]+t*(B[1]-A[1]);if(Math.hypot(p[0]-x,p[1]-y)<tol)on.push([t,i]);});on.sort((u,v)=>u[0]-v[0]);let c=a;for(const[,i]of on){out.push([c,i]);c=i;}out.push([c,b]);}
+  const adj=V.map(()=>[]);const seen=new Set();out.forEach(([a,b])=>{if(a===b)return;const k=a<b?a+'_'+b:b+'_'+a;if(seen.has(k))return;seen.add(k);adj[a].push(b);adj[b].push(a);});
+  // every face: for directed edge u->v, next = edge at v with the smallest clockwise turn from the way back (keeps the face on the left)
+  const used=new Set(),faces=[];const ang=(u,v)=>Math.atan2(V[v][1]-V[u][1],V[v][0]-V[u][0]);
+  for(let u=0;u<V.length;u++)for(const v0 of adj[u]){if(used.has(u+'>'+v0))continue;let a=u,b=v0;const F=[];let g=0;
+    while(g++<50000){used.add(a+'>'+b);F.push(V[a]);const back=ang(b,a);let nx=null,bt=1e9;for(const n of adj[b]){let t=(back-ang(b,n)+4*Math.PI)%(2*Math.PI);if(t<1e-9)t=2*Math.PI;if(t<bt){bt=t;nx=n;}}a=b;b=nx;if(a===u&&b===v0)break;if(used.has(a+'>'+b))break;}
+    if(F.length>=3)faces.push(F);}
+  const sa=F=>{let s=0;for(let i=0;i<F.length;i++){const p=F[i],q=F[(i+1)%F.length];s+=p[0]*q[1]-q[0]*p[1];}return s/2;};
+  let outer=null,oa=0;faces.forEach(F=>{const A=sa(F);if(A<oa){oa=A;outer=F;}});
+  return{outer:outer?outer.slice().reverse():null,faces:faces.filter(F=>sa(F)>0),islands:faces.filter(F=>F!==outer&&sa(F)<0).map(F=>F.slice().reverse())};}
+/* ---------- PDF drawing: find the views, drop border / title block / iso view / dimensions, read the scale ---------- */
+function pdfDetect(pieces,texts,pw,ph,opt){opt=opt||{};const TB=/^(MATERIAL|DRAWN|CHECKED|APPROVED|TOLERANCES|SCALE|SHEET|SIZE|REV|NOTES|PROPRIETARY|CONFIDENTIAL|FINISH|DIMENSIONS)/i;
+  const tw=texts.filter(t=>TB.test(t.s)&&t.y<ph*0.45);let zone=null;if(tw.length>=3){zone=[1e9,1e9,-1e9,-1e9];tw.forEach(t=>{zone[0]=Math.min(zone[0],t.x);zone[1]=Math.min(zone[1],t.y);zone[2]=Math.max(zone[2],t.x);zone[3]=Math.max(zone[3],t.y);});zone=[zone[0]-1.6,0,pw,zone[3]+0.5];}
+  const inZone=b=>zone&&(b[0]+b[2])/2>zone[0]&&(b[1]+b[3])/2<zone[3];
+  const angOff=P=>{let tot=0,off=0;for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1],L=dist(a,b);tot+=L;let ang=Math.abs(Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI)%90;ang=Math.min(ang,90-ang);if(ang>8&&L>0.05)off+=L;}return[tot,off];};
+  // usable pieces: not the frame, not the title block, not tiny arrowheads
+  // keep the visible-outline line weight (thickest common black, solid stroke); dims, centre lines and balloons are thinner / dashed / coloured
+  {const W={};pieces.forEach(pc=>{if(pc.lw==null||pc.col==='c'||pc.dash)return;const k=Math.round(pc.lw*20)/20;W[k]=(W[k]||0)+1;});const ks=Object.keys(W).map(Number).sort((a,b)=>b-a),mx=Math.max(0,...Object.values(W));const vis=ks.find(k=>W[k]>=mx*0.2);
+   if(ks.length>1&&vis!=null)pieces=pieces.filter(pc=>pc.lw==null||(Math.round(pc.lw*20)/20>=vis-0.001&&pc.col!=='c'&&!pc.dash));}
+  const PC=[];pieces.forEach(pc=>{const P=pc.closed?pc.pts.concat([pc.pts[0]]):pc.pts;if(P.length<2)return;const b=bbox(P),w=b[2]-b[0],h=b[3]-b[1];if(w>pw*0.6||h>ph*0.6)return;if(b[0]<0.3||b[1]<0.3||b[2]>pw-0.3||b[3]>ph-0.3)return;if(inZone(b))return;if(pc.closed&&P.length<=5&&Math.max(w,h)<0.16&&!(Math.abs(w-h)<0.01&&P.length>4))return;const[len,off]=angOff(P);PC.push({pc,P,b,len,off,closed:!!pc.closed});});
+  // cluster pieces that touch (end to end, or end on a point)
+  const eps=0.012,par=PC.map((_,i)=>i),f=i=>par[i]===i?i:(par[i]=f(par[i])),U=(i,j)=>{par[f(i)]=f(j);};const ends=PC.map(q=>q.closed?[]:[q.P[0],q.P[q.P.length-1]]);
+  const cell=0.05,grid=new Map();PC.forEach((q,i)=>q.P.forEach(pt=>{const k=Math.round(pt[0]/cell)+','+Math.round(pt[1]/cell);if(!grid.has(k))grid.set(k,[]);grid.get(k).push([i,pt]);}));
+  const deg=PC.map(()=>[0,0]);
+  PC.forEach((q,i)=>ends[i].forEach((e,ei)=>{const gx=Math.round(e[0]/cell),gy=Math.round(e[1]/cell);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const L=grid.get((gx+dx)+','+(gy+dy));if(!L)continue;for(const[j,pt]of L){if(j===i)continue;if(Math.hypot(pt[0]-e[0],pt[1]-e[1])<eps){U(i,j);deg[i][ei]=1;}}}}));
+  const CL=new Map();PC.forEach((q,i)=>{const r=f(i);if(!CL.has(r))CL.set(r,[]);CL.get(r).push(i);});
+  const views=[];for(const idx of CL.values()){const b=[1e9,1e9,-1e9,-1e9];let len=0,off=0,ne=0,nd=0;idx.forEach(i=>{const q=PC[i];b[0]=Math.min(b[0],q.b[0]);b[1]=Math.min(b[1],q.b[1]);b[2]=Math.max(b[2],q.b[2]);b[3]=Math.max(b[3],q.b[3]);len+=q.len;off+=q.off;if(!q.closed){ne+=2;nd+=2-deg[i][0]-deg[i][1];}});
+    const w=b[2]-b[0],h=b[3]-b[1];if(Math.max(w,h)<0.3||Math.min(w,h)<0.04)continue;const closedFrac=ne?1-nd/ne:1;if(closedFrac<0.75)continue;if(off/len>0.3)continue;views.push({idx,b,w,h,area:w*h,len});}
+  views.forEach(v=>{v.kids=views.filter(o=>o!==v&&o.b[0]>=v.b[0]&&o.b[2]<=v.b[2]&&o.b[1]>=v.b[1]&&o.b[3]<=v.b[3]).length+PC.filter(q=>q.closed&&q.b[0]>v.b[0]&&q.b[2]<v.b[2]&&q.b[1]>v.b[1]&&q.b[3]<v.b[3]).length;});
+  for(let i=views.length-1;i>=0;i--){const v=views[i];if(views.some(o=>o!==v&&o.area>v.area&&v.b[0]>=o.b[0]-0.01&&v.b[2]<=o.b[2]+0.01&&v.b[1]>=o.b[1]-0.01&&v.b[3]<=o.b[3]+0.01))views.splice(i,1);}
+  views.sort((a,b)=>b.area*(1+0.25*Math.min(b.kids,8))-a.area*(1+0.25*Math.min(a.kids,8)));
+  if(!views.length)return{views:[],main:-1};const mi=Math.max(0,Math.min(views.length-1,opt.view|0)),M=views[mi];
+  // numbers on the sheet (dimension values)
+  const nums=[];texts.forEach(t=>{const m=String(t.s).replace(/,/g,'.').match(/^[Ø⌀]?(\d*\.\d+|\d+\.?\d*)(?:CL|"|°)?$/);if(m){const v=parseFloat(m[1]);if(v>0.02&&v<200&&!/°/.test(t.s))nums.push({v,x:t.x,y:t.y});}});
+  let k=0,how='';const W=M.w,H=M.h;
+  const near=q=>q.x>M.b[0]-2.5&&q.x<M.b[2]+2.5&&q.y>M.b[1]-2.5&&q.y<M.b[3]+2.5;const dn=nums.filter(q=>near(q)&&/\./.test(String(q.v))||near(q)&&q.v>=1&&texts.some(t=>t.x===q.x&&t.y===q.y&&/\./.test(t.s)));
+  for(const a of dn)for(const b of dn){if(a===b)continue;const k1=a.v/W,k2=b.v/H;if(Math.abs(k1-k2)/k1<0.02){const sc=a.v+b.v;if(!k||sc>how.sc){k=(k1+k2)/2;how={sc,txt:a.v+' × '+b.v,sure:1};}}}
+  let scaleTxt=null;texts.forEach(t=>{const m=String(t.s).match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);if(m)scaleTxt=parseFloat(m[2])/parseFloat(m[1]);});
+  const joined=texts.map(t=>t.s).join(' ');const ms=joined.match(/SCALE:?\s*(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)/i);if(ms)scaleTxt=parseFloat(ms[2])/parseFloat(ms[1]);
+  if(!k&&scaleTxt){k=scaleTxt;how={txt:'SCALE 1:'+(+scaleTxt.toFixed(3))};}
+  if(!k){for(const a of nums){const kk=a.v/W;if(scaleTxt&&Math.abs(kk-scaleTxt)/scaleTxt<0.03){k=kk;how={txt:String(a.v)};}}}
+  if(!k){k=opt.scale||1;how={txt:'1:1'};}
+  // thickness from a thin neighbour view that shares a side length
+  let thick=null;for(const v of views){if(v===M)continue;if(Math.abs(v.w-W)/W<0.02&&v.h<H*0.7)thick=v.h*k;else if(Math.abs(v.h-H)/H<0.02&&v.w<W*0.7)thick=v.w*k;if(thick){const n=nums.find(q=>Math.abs(q.v-thick)/thick<0.04);if(n)thick=n.v;thick=+thick.toFixed(4);break;}}
+  // geometry inside the main view, scaled to real size, origin at the view's lower-left
+  const inM=b=>b[0]>=M.b[0]-0.005&&b[1]>=M.b[1]-0.005&&b[2]<=M.b[2]+0.005&&b[3]<=M.b[3]+0.005;const T=q=>[(q[0]-M.b[0])*k,(q[1]-M.b[1])*k];
+  const mine=new Set(M.idx);const sub=PC.filter((q,i)=>mine.has(i)||inM(q.b)).map(q=>q.pc);const g=buildGeom({pieces:sub,circles:[]},0.004);
+  const pf=outerFace(PC.filter((q,i)=>mine.has(i)||inM(q.b)).map(q=>q.P),0.004);const full=b=>Math.abs(b[0]-M.b[0])<0.02&&Math.abs(b[2]-M.b[2])<0.02&&Math.abs(b[1]-M.b[1])<0.02&&Math.abs(b[3]-M.b[3])<0.02;
+  const fz=pf?pf.faces.filter(F=>{const b=bbox(F),A=Math.abs(area(F)),pr=perim(F,true);if(full(b))return false;if(A<0.004||A/pr<0.012)return false;if(asCircle(dedupe(F,0.001),0.002))return false;return true;}):[];
+  const okF=F=>{const b=bbox(F),A=Math.abs(area(F)),pr=perim(F,true);return !full(b)&&A>=0.004&&A/pr>=0.012&&!asCircle(dedupe(F,0.001),0.002);};
+  const isl=pf?pf.islands.filter(okF):[];const cen=F=>{const b=bbox(F);let x=0,y=0;F.forEach(q=>{x+=q[0];y+=q[1];});return[x/F.length,y/F.length];};
+  const fz2=fz.filter(F=>!isl.some(I=>pip(cen(F),I)));
+  const loops0=(pf&&pf.outer?[pf.outer]:[]).concat(isl,fz2);
+  g.loops.forEach(p=>{const b=bbox(p);if(!okF(p)||!inM(b))return;if(!loops0.some(F=>{const c=bbox(F);return Math.abs(c[0]-b[0])<0.005&&Math.abs(c[2]-b[2])<0.005&&Math.abs(c[1]-b[1])<0.005&&Math.abs(c[3]-b[3])<0.005;}))loops0.push(p);});
+  const loops=loops0.filter(p=>inM(bbox(p))&&Math.max(bbox(p)[2]-bbox(p)[0],bbox(p)[3]-bbox(p)[1])>0.02).map(p=>p.map(T));
+  let cs=g.circles.filter(c=>c.r>0.004&&inM([c.x-c.r,c.y-c.r,c.x+c.r,c.y+c.r])).map(c=>({x:(c.x-M.b[0])*k,y:(c.y-M.b[1])*k,r:c.r*k}));
+  // concentric circles (tap drill + thread major): keep the small one, remember the major
+  cs.sort((a,b)=>a.r-b.r);const keep=[];for(const c of cs){const o=keep.find(q=>Math.hypot(q.x-c.x,q.y-c.y)<0.01);if(o){o.major=c.r*2;continue;}keep.push(c);}
+  const notes=texts.filter(t=>!(zone&&t.x>zone[0]&&t.y<zone[3])).map(t=>t.s);
+  return{views:views.map(v=>({b:v.b,w:v.w*k,h:v.h*k,kids:v.kids})),main:mi,k,how:how.txt,sure:!!how.sure,pw:W,ph:H,thick,W:W*k,H:H*k,geom:{loops,circles:keep,opens:[]},notes,zone};}
+
+/* several sheets of one part: a sheet whose scale came only from the title block borrows the size from a sheet that had real W × H numbers */
+function pdfRescale(rs){const ref=rs.find(r=>r&&r.sure&&r.pw);if(!ref)return rs;return rs.map(r=>{if(!r||r.sure||!r.pw||!r.geom)return r;const asp=r.pw/r.ph,ra=ref.pw/ref.ph;if(Math.abs(asp-ra)/ra>0.02)return r;const f=(ref.W/r.pw)/r.k;const S=q=>[q[0]*f,q[1]*f];
+  return{...r,k:r.k*f,W:r.W*f,H:r.H*f,how:'= '+(+ref.W.toFixed(3))+' × '+(+ref.H.toFixed(3))+' (sheet '+(rs.indexOf(ref)+1)+')',thick:r.thick||ref.thick,geom:{loops:r.geom.loops.map(l=>l.map(S)),circles:r.geom.circles.map(c=>({...c,x:c.x*f,y:c.y*f,r:c.r*f,major:c.major&&c.major*f})),opens:[]},views:r.views.map(v=>({...v,w:v.w*f,h:v.h*f}))};});}
 /* classify into machining features (program coordinates) */
 function classify(g,tol){
   tol=tol||0.0005;
@@ -1037,6 +1109,6 @@ function postLathe(prog,cfg){const sie=cfg.post==='siemens',mm=cfg.units==='mm',
     let s='';if(b.g!==mg){s+=(sie?['G0','G1'][b.g]:['G00','G01'][b.g])+' ';mg=b.g;}s+='X'+fmt(b.x)+' Z'+fmt(b.z);if(b.g===1)s+=' F'+fr(b.f);out.push(s);}
   out.push(sie?'G0 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ):'G00 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ));out.push(sie?'M9':'M09');out.push(sie?'M5':'M05');out.push('M30');if(!sie)out.push('%');return out.join('\n').toUpperCase();}
 
-const API={feedOpt,meshHoles,decideAxes,textStrokes,textWidth,mprops,drillCycle,deflection,tabCheck,opLoads,sideForce,fixtureHold,arcFit,MPROPS,latheProfileFromGeom,rProf,genLathe,postLathe,postSiemens,simSegs4,meshCylMap,meshHeightmap,ROTARIES,parseSTL,meshLevels,parseSTEP,levelsTo25D,area,pip,bbox,perim,dist,parseDXF,buildGeom,scaleGeom,geomBox,classify,makeField,iso,layers,feeds,genOp,post,simSegs,cycleTime,circlePts,MATERIALS,MACHINES,TAPS,arcPts};
+const API={pdfDetect,pdfRescale,outerFace,feedOpt,meshHoles,decideAxes,textStrokes,textWidth,mprops,drillCycle,deflection,tabCheck,opLoads,sideForce,fixtureHold,arcFit,MPROPS,latheProfileFromGeom,rProf,genLathe,postLathe,postSiemens,simSegs4,meshCylMap,meshHeightmap,ROTARIES,parseSTL,meshLevels,parseSTEP,levelsTo25D,area,pip,bbox,perim,dist,parseDXF,buildGeom,scaleGeom,geomBox,classify,makeField,iso,layers,feeds,genOp,post,simSegs,cycleTime,circlePts,MATERIALS,MACHINES,TAPS,arcPts};
 if(typeof module!=='undefined'&&module.exports)module.exports=API;else root.CAM=API;
 })(this);
