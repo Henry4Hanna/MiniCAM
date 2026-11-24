@@ -451,7 +451,8 @@ function autoProgram(){
   f._tool=tl.id;S.ops.push(newOp(useC?'pocket':'adaptive',f.id,tl.id,useC?{zBot:-pdep(f),leave:D.finLeave,doc:D.roughDoc,docFix:true}:{zBot:-pdep(f),leave:D.finLeave}));}
  const pb=profiles.length?C.bbox(profiles[0].loop):[0,0,0,0];
  for(const f of profiles){const tl=findTool(x=>x.type==='flat'&&x.dia<=0.5&&(x.loc||1)>=Math.min(th+0.05,1.2))||findTool(x=>x.type==='flat');if(!tl)continue;f._tool=tl.id;
-  if(useC){const gap=stockGap(f.loop),st=tl.dia*0.75,rings=Math.max(1,Math.ceil((gap+0.03-tl.dia-D.finLeave)/st)+1);
+  const fb=C.bbox(f.loop),irr=Math.abs(C.area(f.loop))/Math.max(1e-6,(fb[2]-fb[0])*(fb[3]-fb[1]))<0.8||stockGap(f.loop)>3*tl.dia;
+  if(useC&&!irr){const gap=stockGap(f.loop),st=tl.dia*0.75,rings=Math.max(1,Math.ceil((gap+0.03-tl.dia-D.finLeave)/st)+1);
    S.ops.push(newOp('contour',f.id,tl.id,{zBot:-(th+0.02),leave:D.finLeave,doc:D.roughDoc,docFix:true,rings,woc:+st.toFixed(4),lead:'arc'}));}
   else S.ops.push(newOp('adaptive',f.id,tl.id,{zBot:-(th+0.02),leave:D.finLeave}));}
  for(const f of pockets)if(f._tool){const tl=toolById(f._tool);S.ops.push(newOp('contour',f.id,f._tool,{zBot:-pdep(f),doc:finDoc(tl,pdep(f)),docFix:true}));}
@@ -461,7 +462,7 @@ function autoProgram(){
  for(const f of holes){if(f.dia>0.5){const tl=findTool(x=>x.type==='flat'&&x.dia<=f.dia*0.7&&x.dia>=f.dia*0.3)||findTool(x=>x.type==='flat'&&x.dia<f.dia*0.9);if(tl)S.ops.push(newOp('circ',f.id,tl.id,{zBot:blind(f)?-f.depth:-(th+0.02),leave:0}));}}
  const drillHoles=holes.filter(f=>f.dia<=0.5);
  if(spot)for(const f of drillHoles){const dch=Math.min(f.dia+0.02,spot.dia*0.9);S.ops.push(newOp('spot',f.id,spot.id,{zBot:-(dch/2)/Math.tan((spot.tipAngle||90)/2*Math.PI/180),cycle:'G82',dwell:0.2}));}
- for(const f of drillHoles){const tap=C.TAPS.find(x=>Math.abs(x[3]-f.dia)<0.003);const dr=ensureTool({type:'drill',desc:(tap?tap[4]+' ':'')+'Ø'+f.dia.toFixed(4)+' drill',dia:f.dia,flutes:2,mat:'hss',coat:'black',tipAngle:118,loc:Math.max(th+0.5,f.dia*8),oal:Math.max(th+1.5,f.dia*12)});
+ for(const f of drillHoles){const tap=C.TAPS.find(x=>Math.abs(x[3]-f.dia)<0.003)&&(S.src!=='pdf'||(S.tapOnly||[]).some(d=>Math.abs(d-f.dia)<0.001))?C.TAPS.find(x=>Math.abs(x[3]-f.dia)<0.003):null;const dr=ensureTool({type:'drill',desc:(tap?tap[4]+' ':'')+'Ø'+f.dia.toFixed(4)+' drill',dia:f.dia,flutes:2,mat:'hss',coat:'black',tipAngle:118,loc:Math.max(th+0.5,f.dia*8),oal:Math.max(th+1.5,f.dia*12)});
   const zb=blind(f)?-(f.depth+0.3*f.dia):-(th+0.3*f.dia+0.03);const dc=C.drillCycle(Math.abs(zb),f.dia,m),cyc=D.drillCycle==='auto'?dc.cycle:D.drillCycle;
   S.ops.push(newOp('drill',f.id,dr.id,{zBot:zb,cycle:cyc,cycAuto:D.drillCycle==='auto',peck:(cyc==='G83'||cyc==='G73')?(dc.peck||+(f.dia*0.75).toFixed(4)):0}));
   if(tap){const tp=ensureTool({type:'tap',desc:tap[0]+' spiral point tap',dia:tap[1],flutes:3,mat:'hss',coat:'none',pitch:tap[2],loc:Math.max(0.75,tap[1]*3),oal:Math.max(2.2,tap[1]*9)});f.tap=tap[0];S.ops.push(newOp('tap',f.id,tp.id,{zBot:blind(f)?-Math.max(tap[2]*3,f.depth-3*tap[2]):-(th+0.05)}));}}
@@ -1376,21 +1377,21 @@ async function pdfPage(doc,L,n){const page=await doc.getPage(n);const ol=await p
  const flush=c=>{if(cur&&cur.length>1)path.push({pts:cur,closed:!!c});cur=null;};
  const bez=(p0,p1,p2,p3)=>{for(let i=1;i<=10;i++){const t_=i/10,u=1-t_;cur.push([u*u*u*p0[0]+3*u*u*t_*p1[0]+3*u*t_*t_*p2[0]+t_*t_*t_*p3[0],u*u*u*p0[1]+3*u*u*t_*p1[1]+3*u*t_*t_*p2[1]+t_*t_*t_*p3[1]]);}};
  const colOf=a=>{let r,g,b;if(typeof a[0]==='string'&&a[0][0]==='#'){const h=a[0];r=parseInt(h.slice(1,3),16);g=parseInt(h.slice(3,5),16);b=parseInt(h.slice(5,7),16);}else{[r,g,b]=a;}return Math.max(r,g,b)<40?'k':'c';};
- const paint=(stroke)=>{flush();const lw=gs.lw*Math.sqrt(Math.abs(m[0]*m[3]-m[1]*m[2]));if(stroke)path.forEach(q=>pieces.push({...q,lw:+lw.toFixed(3),col:gs.col,dash:gs.dash}));path=[];};
- const SK=new Set([O.stroke,O.closeStroke,O.fillStroke,O.eoFillStroke,O.closeFillStroke,O.closeEOFillStroke]),FL=new Set([O.fill,O.eoFill,O.endPath]);
+ const paint=(stroke,fill)=>{flush();const lw=gs.lw*Math.sqrt(Math.abs(m[0]*m[3]-m[1]*m[2]));if(stroke)path.forEach(q=>pieces.push({...q,lw:+lw.toFixed(3),col:gs.col,dash:gs.dash,fill:!!fill}));path=[];};
+ const SK=new Set([O.stroke,O.closeStroke,O.fillStroke,O.eoFillStroke,O.closeFillStroke,O.closeEOFillStroke]),FS=new Set([O.fillStroke,O.eoFillStroke,O.closeFillStroke,O.closeEOFillStroke]),FL=new Set([O.fill,O.eoFill,O.endPath]);
  for(let i=0;i<ol.fnArray.length;i++){const fn=ol.fnArray[i],a=ol.argsArray[i];
   if(fn===O.save)st.push([m.slice(),{...gs}]);else if(fn===O.restore){const q=st.pop();if(q){m=q[0];gs=q[1];}}else if(fn===O.transform)m=mul(m,a);
   else if(fn===O.paintFormXObjectBegin){st.push([m.slice(),{...gs}]);if(a&&a[0])m=mul(m,a[0]);}else if(fn===O.paintFormXObjectEnd){const q=st.pop();if(q){m=q[0];gs=q[1];}}
   else if(fn===O.setLineWidth)gs.lw=a[0];else if(fn===O.setDash)gs.dash=!!(a[0]&&a[0].length);else if(fn===O.setStrokeRGBColor)gs.col=colOf(a);
   else if(fn===O.setGState&&a&&a[0]){for(const[k,v]of a[0]){if(k==='LW')gs.lw=v;if(k==='D')gs.dash=!!(v&&v[0]&&v[0].length);}}
-  else if(SK.has(fn))paint(true);else if(FL.has(fn))paint(false);
+  else if(SK.has(fn))paint(true,FS.has(fn));else if(FL.has(fn))paint(false);
   else if(fn===O.constructPath&&typeof a[0]==='number'){ // pdf.js 4+: [paintOp,[pathData],minMax]
    const d=a[1]&&a[1][0];if(d&&d.length!=null){let k=0;while(k<d.length){const op=d[k++];
     if(op===0){flush();last=P(d[k],d[k+1]);cur=[last];k+=2;}else if(op===1){if(!cur)cur=[last];last=P(d[k],d[k+1]);cur.push(last);k+=2;}
     else if(op===2){if(!cur)cur=[last];const p1=P(d[k],d[k+1]),p2=P(d[k+2],d[k+3]),p3=P(d[k+4],d[k+5]);bez(last,p1,p2,p3);last=p3;k+=6;}
     else if(op===3){if(!cur)cur=[last];const q1=P(d[k],d[k+1]),p3=P(d[k+2],d[k+3]);bez(last,[last[0]+2/3*(q1[0]-last[0]),last[1]+2/3*(q1[1]-last[1])],[p3[0]+2/3*(q1[0]-p3[0]),p3[1]+2/3*(q1[1]-p3[1])],p3);last=p3;k+=4;}
     else if(op===4){if(cur&&cur.length>2&&C.dist(cur[0],cur[cur.length-1])<1e-6)cur.pop();flush(true);}else break;}}
-   flush();if(SK.has(a[0]))paint(true);else if(FL.has(a[0])||a[0]!=null)paint(false);}
+   flush();if(SK.has(a[0]))paint(true,FS.has(a[0]));else if(FL.has(a[0])||a[0]!=null)paint(false);}
   else if(fn===O.constructPath){const ops=a[0],c=a[1];let k=0;
    for(const op of ops){
     if(op===O.moveTo){flush();last=P(c[k],c[k+1]);cur=[last];k+=2;}
@@ -1411,10 +1412,12 @@ async function importPDF(buf,name){
  await loadPDFjs();const L=window.pdfjsLib,doc=await L.getDocument({data:new Uint8Array(buf),isEvalSupported:false}).promise;const N=Math.min(doc.numPages,12);const pages=[];
  for(let n=1;n<=N;n++){try{pages.push(await pdfPage(doc,L,n));}catch(e){}}
  if(!pages.some(p=>p.pieces.length)){if(pages[0])S.ref=pages[0].ref;throw new Error(LANG==='vi'?'PDF không có nét vector (có thể là bản scan) — đã gắn làm hình tham khảo':'no vector lines (scanned?) — kept as reference image');}
- const det=C.pdfRescale(pages.map(p=>{try{const r=C.pdfDetect(p.pieces,p.texts,p.pw,p.ph,{scale:S.pdfScale||1});return r.main>=0?r:null;}catch(e){return null;}}));
+ const isoOnly=p=>{const tx=(p.lines||[]).map(q=>q.s).join(' ');return/ISO(METRIC)?\s*VIEW|3D\s*VIEWS?|PICTORIAL/i.test(tx)&&!/(FRONT|TOP|SIDE|END|RIGHT|LEFT|BOTTOM)\s*VIEW|SECTION\s+[A-Z]|ELEVATION|PLAN VIEW/i.test(tx);};
+ const det=C.pdfRescale(pages.map(p=>{if(isoOnly(p))return null;try{const r=C.pdfDetect(p.pieces,p.texts,p.pw,p.ph,{scale:S.pdfScale||1});return r.main>=0?r:null;}catch(e){return null;}}));
+ if(!det.some(Boolean)&&pages.some(isoOnly)){S.ref=pages[0].ref;throw new Error(LANG==='vi'?'PDF này chỉ có hình 3D (isometric) để xem — app cần bản vẽ 2D có hình chiếu (FRONT / TOP VIEW). Hãy mở file bản vẽ 2D; hình 3D đã gắn làm hình tham khảo.':'This PDF only has 3D (isometric) pictures — the app needs a 2D drawing with projected views (FRONT / TOP VIEW). Open the 2D drawing; the 3D sheet is kept as a reference image.');}
  const notes=[].concat(...det.map(r=>r?r.notes:[])).join(' ');
  const score=r=>r?r.geom.loops.length*3+r.geom.circles.length+(r.sure?0.5:0):-1;let best=0;det.forEach((r,i)=>{if(score(r)>score(det[best]))best=i;});
- PDFDOC={name,pages:pages.map(p=>({n:p.n,ref:p.ref,thumb:p.thumb,lines:p.lines})),det,notes};
+ PDFDOC={name,pages:pages.map(p=>({n:p.n,ref:p.ref,thumb:p.thumb,lines:p.lines,np:p.pieces.length,nf:p.pieces.filter(q=>q.fill).length})),det,notes};
  if(!det[best]){S.ref=pages[0].ref;throw new Error(LANG==='vi'?'Không tìm thấy hình chiếu chi tiết trong PDF':'no part view found in the PDF');}
  pdfUse(best,true);if(pages.length>1)setTimeout(pdfPicker,60);}
 function pdfThread(notes){const out=[];const re=/(\d+)\s*X\s+(#?\d+(?:\/\d+)?-\d+|M\d+(?:\.\d+)?\s*[xX×]\s*\d+(?:\.\d+)?)/g;let m;while((m=re.exec(notes))){const nm=m[2].replace(/\s/g,'').replace('×','x');const tp=C.TAPS.find(x=>x[0].toLowerCase()===nm.toLowerCase()||x[0].toLowerCase()==='#'+nm.toLowerCase());if(tp){const rest=notes.slice(m.index,m.index+80);const dm=rest.match(/(\d*\.\d+)\s*MIN/i);out.push({n:+m[1],tap:tp,depth:dm?parseFloat(dm[1]):null});}}return out;}
@@ -1423,26 +1426,32 @@ function pdfUse(i,quiet){const D=PDFDOC;if(!D||!D.det[i])return;const r=D.det[i]
  // tapped holes from the callout (e.g. 7X 10-32 UNF-2B): matching count of same-size holes → tap-drill size
  const tapped=[];thr.forEach(t=>{const cand=g.circles.filter(c=>!c._t&&2*c.r>t.tap[3]*0.8&&2*c.r<t.tap[1]*1.35);if(cand.length>=t.n){cand.forEach(c=>{c.r=t.tap[3]/2;c._t=1;if(t.depth!=null)c.depth=+(t.depth+3*t.tap[2]).toFixed(4);});tapped.push({dia:t.tap[3],depth:t.depth!=null?+(t.depth+3*t.tap[2]).toFixed(4):undefined});}});g.circles.forEach(c=>delete c._t);
  g.circles.forEach(c=>{c.r=+c.r.toFixed(4);});
- S.dwg=pdfDwg(D,i);
+ S.dwg=pdfDwg(D,i);if(S.dwg.title&&S.dwg.title.matKey&&S.dwg.title.matKey!==S.mat){S.mat=S.dwg.title.matKey;setTimeout(()=>toast((LANG==='vi'?'Vật liệu theo bản vẽ: ':'Material from the drawing: ')+S.dwg.title.material),900);}
  // a pocket edge drawn a hair inside the outline (edge chamfer line) means the pocket runs out through that side
  const RUN=0.25;if(g.loops.length>1){const ob=C.bbox(g.loops[0]),e=0.03;for(let j=1;j<g.loops.length;j++){let open=false;g.loops[j]=g.loops[j].map(p=>{let x=p[0],y=p[1];if(Math.abs(x-ob[0])<e){x=ob[0]-RUN;open=true;}else if(Math.abs(x-ob[2])<e){x=ob[2]+RUN;open=true;}if(Math.abs(y-ob[1])<e){y=ob[1]-RUN;open=true;}else if(Math.abs(y-ob[3])<e){y=ob[3]+RUN;open=true;}return[x,y];});}}
- S.raw=g;S.src='pdf';S.pdfInfo={page:i+1,of:D.pages.length,W:r.W,H:r.H,how:r.how,thick:r.thick};if(r.thick)S.stock.part=r.thick;
+ S.tapOnly=tapped.map(t=>t.dia).filter(Boolean);S.raw=g;S.src='pdf';S.pdfInfo={page:i+1,of:D.pages.length,W:r.W,H:r.H,how:r.how,thick:r.thick};if(r.thick)S.stock.part=r.thick;
  // pocket depths from "2X .500" style callouts on this sheet (deepest → biggest pocket); kept in the drawing so re-zeroing keeps them
  {const N=r.notes||[],dp=[];for(let j=0;j<N.length-1;j++)if(/^\d+X$/i.test(N[j])&&/^\d*\.\d+[^\d°]?$/.test(N[j+1])){const v=parseFloat(N[j+1]);if(v>0.02&&(!r.thick||v<r.thick)&&!dp.includes(v))dp.push(v);}
   const idx=g.loops.map((l,j)=>j).slice(1).sort((a,b)=>Math.abs(C.area(g.loops[b]))-Math.abs(C.area(g.loops[a])));dp.sort((a,b)=>b-a);
   if(idx.length&&dp.length===idx.length){g.ld=g.loops.map(()=>null);idx.forEach((j,k)=>g.ld[j]=dp[k]);}}
+ {const allTxt=(D.pages[i].lines||[]).map(q=>q.s).join('\n');
+  // a round loop around a hole that the drawing calls a BOSS is raised material, not a pocket
+  if(/\bBOSS\b/i.test(allTxt)){for(let j2=g.loops.length-1;j2>=1;j2--){const l=g.loops[j2],cx=l.reduce((a,q)=>a+q[0],0)/l.length,cy=l.reduce((a,q)=>a+q[1],0)/l.length,rs=l.map(q=>Math.hypot(q[0]-cx,q[1]-cy)),rm=rs.reduce((a,b)=>a+b,0)/rs.length;
+   if(rm<0.6&&rs.every(r_=>Math.abs(r_-rm)<rm*0.15)&&g.circles.some(c=>Math.hypot(c.x-cx,c.y-cy)<rm*0.3&&c.r<rm)){g.loops.splice(j2,1);if(g.ld)g.ld.splice(j2,1);}}}
+  // "pockets … .04 deep" note → depth for pockets that have none
+  const pm=allTxt.replace(/\n/g,' ').match(/POCKETS?[^.\d]{0,40}?~?\s*(\d*\.\d+)\s*(?:"|IN)?\s*DEEP/i);if(pm&&g.loops.length>1){const dv=parseFloat(pm[1]);if(dv>0&&(!r.thick||dv<r.thick)){g.ld=g.ld||g.loops.map(()=>undefined);for(let j2=1;j2<g.loops.length;j2++)if(g.ld[j2]==null)g.ld[j2]=dv;g.ld[0]=null;}}}
  finishImport(D.name);
  buildProgram();VIEW.fitted=false;
  if(!quiet){S.tab='program';render();persist();}
  toast((LANG==='vi'?'Trang ':'Sheet ')+(i+1)+': '+fl(r.W,3)+' × '+fl(r.H,3)+(r.thick?' × '+fl(r.thick,3):'')+' · '+S.feats.length+' '+t('features').toLowerCase());}
-function pdfTitle(L){const out={},near=(re,below)=>{const l=L.find(q=>re.test(q.s));if(!l)return null;const isLab=q=>/^(MATERIAL|DRAWN|CHECKED|APPROVED|SIZE|REV|SCALE|SHEET|PART|FINISH|SURFACE|TOLERANCES|ANGLES|DIMENSIONS|NOTES)\b/i.test(q.s);
+function pdfTitle(L){const out={},near=(re,below)=>{const l=L.find(q=>re.test(q.s));if(!l)return null;{const m_=l.s.match(/^[^:]{2,20}:\s*(.+)$/);if(m_&&m_[1].trim().length>1&&!re.test(m_[1]))return m_[1].trim();}const isLab=q=>/^(MATERIAL|DRAWN|CHECKED|APPROVED|SIZE|REV|SCALE|SHEET|PART|FINISH|SURFACE|TOLERANCES|ANGLES|DIMENSIONS|NOTES)\b/i.test(q.s);
   const lx=l.x+(l.w||0);let r=L.filter(q=>q!==l&&!isLab(q)&&Math.abs(q.y-l.y)<0.25&&q.x>lx-0.02&&q.x<lx+3.5).sort((a,b)=>Math.abs(a.y-l.y)*3+(a.x-lx)-(Math.abs(b.y-l.y)*3+(b.x-lx)))[0];
   if(!r||below)r=L.filter(q=>q!==l&&!isLab(q)&&q.y<l.y-0.05&&q.y>l.y-0.4&&Math.abs(q.x-l.x)<0.8).sort((a,b)=>(l.y-a.y)-(l.y-b.y))[0]||r;return r?r.s:null;};
  out.part=near(/^PART\s*(#|NO|NUMBER)|^P\/N|^DWG\.?\s*NO/i);out.rev=near(/^REV(ISION)?\b/i,true);if(out.rev&&out.rev.length>4)out.rev=null;out.material=near(/^MAT(ERIA)?L\b|^MAT'L/i);
  const fn=L.find(q=>/^FINISH\b/i.test(q.s));if(fn)out.finish=near(/^FINISH\b/i);
- if(out.material)for(const[re,k]of MATWORDS)if(re.test(out.material)){out.matKey=k;break;}
+ if(out.material)for(const[re,k]of MATWORDS)if(re.test(out.material.toUpperCase())){out.matKey=k;break;}
  const tol={},ang=L.find(q=>/^ANGLES?\b/i.test(q.s));L.forEach(q=>{const m=q.s.match(/^(X{1,4})\s*=\s*±?\s*(\d*\.?\d+)?/i);if(!m)return;let v=m[2]?parseFloat(m[2]):null;if(v==null){const r=L.filter(o=>Math.abs(o.y-q.y)<0.06&&o.x>q.x&&o.x<q.x+0.8&&/^±?\s*\d*\.?\d+°?$/.test(o.s)).sort((a,b)=>a.x-b.x)[0];if(r)v=parseFloat(r.s.replace(/[±°\s]/g,''));}
-  if(v==null)return;if(ang&&Math.abs(q.x-ang.x)<0.3&&q.y<ang.y)tol.ang=v;else tol['x'+m[1].length]=v;});if(Object.keys(tol).length){out.tol={};['x1','x2','x3','x4','ang'].forEach(k=>{if(tol[k]!=null)out.tol[k]=tol[k];});}
+  if(v==null)return;if(ang&&Math.abs(q.x-ang.x)<0.3&&q.y<ang.y)tol.ang=v;else tol['x'+m[1].length]=v;});L.forEach(q=>{const m=q.s.match(/^TOL(?:ERANCE)?S?\.?\s*:?\s*±\s*(\d*\.\d+)/i);if(m&&!tol.x2){tol.x2=tol.x3=parseFloat(m[1]);}});if(Object.keys(tol).length){out.tol={};['x1','x2','x3','x4','ang'].forEach(k=>{if(tol[k]!=null)out.tol[k]=tol[k];});}
  const sf=L.find(q=>/^SURFACE\s+FINISH/i.test(q.s));if(sf){const r=L.find(q=>q!==sf&&/^\d+(\.\d+)?$/.test(q.s)&&q.y<sf.y&&q.y>sf.y-0.3&&Math.abs(q.x-sf.x)<0.6);if(r)out.ra=r.s;}
  Object.keys(out).forEach(k=>out[k]==null&&delete out[k]);return out;}
 function pdfDwg(D,i){const keep=[],seen=new Set();const order=[i].concat(D.pages.map((_,j)=>j).filter(j=>j!==i));
@@ -1506,7 +1515,7 @@ function applyShop(o,tl){let m=LKIND[o.type];if(o.type==='contour'&&(o.leave||0)
 /* ================= DRAWING (AutoCAM drawcheck / datums / command) ================= */
 const DNUM='(\\d*\\.\\d+|\\d+(?:\\.\\d+)?)';
 function dclean(t){t=String(t||'').replace(/%%[cC]/g,'Ø').replace(/%%[dD]/g,'°').replace(/%%[pP]/g,'±');t=t.replace(/\\[A-Za-z][^;]*;/g,'').replace(/[{}]/g,'').replace(/\\P/g,' ');return t.split(/\s+/).join(' ').trim();}
-const MATWORDS=[[/6061/,'al6061'],[/7075/,'al7075'],[/2024/,'al2024'],[/5052/,'al5052'],[/MIC-?6/,'mic6'],[/\b303\b/,'ss303'],[/\b304\b/,'ss304'],[/\b316\b/,'ss316'],[/17-?4/,'ss174'],[/4140|4130/,'s4140'],[/4340/,'s4340'],[/12L14/,'s12l14'],[/1018|A36|MILD/,'s1018'],[/1045/,'s1045'],[/\bA2\b/,'a2'],[/BRASS|C360/,'brass'],[/BRONZE|C932|932/,'brz932'],[/COPPER|C110/,'cu110'],[/DELRIN|ACETAL|POM/,'delrin'],[/TI-?6AL|TITANIUM|GR\s*5/,'ti64'],[/INCONEL|718/,'in718'],[/CAST IRON|GRAY IRON|CI\b/,'ci']];
+const MATWORDS=[[/6061/,'al6061'],[/7075/,'al7075'],[/2024/,'al2024'],[/5052/,'al5052'],[/MIC-?6/,'mic6'],[/\b303\b/,'ss303'],[/\b304\b/,'ss304'],[/\b316\b/,'ss316'],[/17-?4/,'ss174'],[/4140|4130/,'s4140'],[/4340/,'s4340'],[/12L14/,'s12l14'],[/1018|A36|MILD/,'s1018'],[/1045/,'s1045'],[/\bA2\b/,'a2'],[/BRASS|C360/,'brass'],[/BRONZE|C932|932/,'brz932'],[/COPPER|C110/,'cu110'],[/DELRIN|ACETAL|POM/,'delrin'],[/PLASTIC|NYLON|\bABS\b|PETG|\bPLA\b|POLY|MOLDED|GLASS-?FILLED|UHMW|PEEK|HDPE/,'delrin'],[/TI-?6AL|TITANIUM|GR\s*5/,'ti64'],[/INCONEL|718/,'in718'],[/CAST IRON|GRAY IRON|CI\b/,'ci']];
 function dTitle(texts){const U=texts.map(x=>dclean(x).toUpperCase());const out={};
  const after=(pats,cut)=>{for(let i=0;i<U.length;i++)for(const p of pats){const m=U[i].match(new RegExp(p+'\\s*[:#.]?\\s*(.*)'));if(m){let v=m[1].trim();if(!v&&i+1<U.length)v=U[i+1].trim();if(cut)v=v.split(cut)[0].trim();if(v)return v;}}return null;};
  out.part=after(['\\bPART\\s*(?:NO|NUMBER|#)','\\bP/N\\b','\\bDWG\\.?\\s*(?:NO|NUMBER)','\\bDRAWING\\s*(?:NO|NUMBER)'],/\s{2,}|\bREV\b/);
