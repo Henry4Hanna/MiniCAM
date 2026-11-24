@@ -738,6 +738,20 @@ function gen3Dextra(op,ctx,mb,W){
       const fd={F,nx,ny,x0,y0,h:res,nearest:(x,y)=>[x,y,0],sample:(x,y)=>z-CLs(x,y),signed:(x,y)=>z-CLs(x,y)};
       for(const lp of iso(fd,1e-4,0.0005)){if(perim(lp,true)<tl.dia*0.5)continue;mb.retract(R);mb.rapid(lp[0][0],lp[0][1]);mb.rapid(null,null,z+0.05);mb.feed(null,null,z,op.plunge);for(const q of lp.concat([lp[0]]))mb.feed(q[0],q[1],z,op.feed);}}
     mb.retract(ctx.clear);return;}
+  const sr0=ctx.stockRect;
+  if(op.type==='surfSpiral'){const cx=(sr0[0]+sr0[2])/2,cy=(sr0[1]+sr0[3])/2,Rm=Math.hypot(sr0[2]-sr0[0],sr0[3]-sr0[1])/2,st=Math.max(op.woc||tl.dia*0.12,0.004);let run=[];const flush=()=>{if(run.length>1){const red=rdp(run,0.0004);mb.retract(R);mb.rapid(red[0][0],red[0][1]);mb.rapid(null,null,red[0][2]+0.05);mb.feed(null,null,red[0][2],op.plunge);for(const q of red)mb.feed(q[0],q[1],q[2],op.feed);}run=[];};
+    mb.retract(ctx.clear);for(let th=0;;){const rr=Rm-st*th/(2*Math.PI);if(rr<=0)break;const x=cx+rr*Math.cos(th),y=cy+rr*Math.sin(th);if(x<sr0[0]||x>sr0[2]||y<sr0[1]||y>sr0[3])flush();else run.push([x,y,CLs(x,y)]);th+=Math.max(0.002,res/Math.max(rr,res));}flush();mb.retract(ctx.clear);return;}
+  if(op.type==='surfSteep'){const thr=Math.tan((op.steepAng||40)*D2R),slope=(x,y)=>{const e=res;return Math.hypot(CLs(x+e,y)-CLs(x-e,y),CLs(x,y+e)-CLs(x,y-e))/(2*e);};
+    // shallow ground: parallel raster
+    const st=Math.max(op.woc||tl.dia*0.12,0.004);let fwd=true;mb.retract(ctx.clear);
+    for(let y=sr0[1];y<=sr0[3]+1e-9;y+=st){let run=[];const pts=[];for(let x=sr0[0];x<=sr0[2]+1e-9;x+=res)pts.push(x);if(!fwd)pts.reverse();
+      const flush=()=>{if(run.length>1){const red=rdp(run,0.0004);mb.retract(R);mb.rapid(red[0][0],red[0][1]);mb.rapid(null,null,red[0][2]+0.05);mb.feed(null,null,red[0][2],op.plunge);for(const q of red)mb.feed(q[0],q[1],q[2],op.feed);}run=[];};
+      for(const x of pts){if(slope(x,y)<thr)run.push([x,y,CLs(x,y)]);else flush();}flush();fwd=!fwd;}
+    // steep walls: waterline pieces
+    const sd=Math.max(op.doc||0.02,0.002);for(let z=op.zTop-sd;z>=op.zBot-1e-9;z-=sd){const F=new Float32Array(nx*ny);for(let k=0;k<F.length;k++)F[k]=z-Math.max(cl[k],op.zBot-1);const fd={F,nx,ny,x0,y0,h:res,nearest:(x,y)=>[x,y,0],sample:(x,y)=>z-CLs(x,y),signed:(x,y)=>z-CLs(x,y)};
+      for(const lp of iso(fd,1e-4,0.0005)){if(perim(lp,true)<tl.dia*0.5)continue;let run=[];const flush=()=>{if(run.length>1){mb.retract(R);mb.rapid(run[0][0],run[0][1]);mb.rapid(null,null,z+0.05);mb.feed(null,null,z,op.plunge);for(const q of run)mb.feed(q[0],q[1],z,op.feed);}run=[];};
+        for(const q of lp.concat([lp[0]])){if(slope(q[0],q[1])>=thr*0.9)run.push(q);else flush();}flush();}}
+    mb.retract(ctx.clear);return;}
   // radial
   const sr=ctx.stockRect,cx=(sr[0]+sr[2])/2,cy=(sr[1]+sr[3])/2,Rm=Math.hypot(sr[2]-sr[0],sr[3]-sr[1])/2,n=Math.max(8,Math.ceil(2*Math.PI*Rm/Math.max(op.woc||tl.dia*0.15,0.005)));mb.retract(ctx.clear);
   for(let k=0;k<n;k++){const an=2*Math.PI*k/n,pts=[];for(let d=Rm;d>=0;d-=res){const x=cx+Math.cos(an)*d,y=cy+Math.sin(an)*d;if(x<sr[0]||x>sr[2]||y<sr[1]||y>sr[3])continue;pts.push([d,CLs(x,y),x,y]);}
@@ -745,6 +759,40 @@ function gen3Dextra(op,ctx,mb,W){
     for(const q of red)mb.feed(cx+Math.cos(an)*q[0],cy+Math.sin(an)*q[0],q[1],op.feed);}
   mb.retract(ctx.clear);}
 
+
+/* ---------- thread milling (helical, internal or external) ---------- */
+function genThread(op,ctx,mb,W){const tl=ctx.tool,f=ctx.feat;if(f.kind!=='holes'){W.push('feature');return;}
+  const P=op.pitch||tl.pitch||0.05,maj=op.major||(f.dia+0.65*P*1.08),internal=op.ext!==true,depth=Math.abs(op.zBot-op.zTop),r=tl.dia/2,thr=0.6134*P;
+  if(internal&&r>=maj/2-thr-0.003){W.push('tooBig');return;}const n=Math.max(1,Math.round(op.passes||(thr>0.03?3:2)));const R=op.zTop+ctx.retract;
+  for(const p of nnOrder(f.pts,mb.p)){mb.retract(ctx.clear);mb.rapid(p[0],p[1]);mb.rapid(null,null,R);const zb=op.zBot;mb.feed(null,null,zb,op.plunge);
+    for(let k=1;k<=n;k++){const rr=internal?(maj/2-thr+thr*k/n)-r:(maj/2-thr*k/n)+r;const turns=Math.ceil(depth/P)+1,dir=internal?3:2;
+      // arc in, helix up (climb for right-hand internal = G03 bottom-up), arc out
+      const ex=p[0]+rr,ey=p[1];mb.arc(dir,p[0]+rr/2,p[1]+(internal?-rr/2:rr/2),zb,p[0]+rr/4,p[1]+(internal?-rr/4:rr/4),op.feed*0.5);mb.feed(ex,ey,zb,op.feed*0.5);
+      let z=zb;for(let t=0;t<turns;t++){for(let q=1;q<=4;q++){const a=q*Math.PI/2*(dir===3?1:-1);z=Math.min(op.zTop+P,z+P/4);mb.arc(dir,p[0]+Math.cos(a)*rr,p[1]+Math.sin(a)*rr,z,p[0],p[1],op.feed);}if(z>=op.zTop)break;}
+      mb.feed(p[0],p[1],z,op.feed);mb.feed(null,null,zb,op.feed);}
+    mb.feed(p[0],p[1],zb,op.feed);mb.rapid(null,null,R);}
+  mb.retract(ctx.clear);}
+/* ---------- probing (Renishaw Inspection Plus macros; Haas/Fanuc G65) ---------- */
+function genProbe(op,ctx,mb,W){const f=ctx.feat,sr=ctx.stockRect,mode=op.find||'face',wo=Math.max(1,Math.min(6,op.wcs||1)),ap=op.approach||0.2,L=[];
+  const S_=' S'+wo,tol=op.ptol?' T'+(+op.ptol).toFixed(4):'',stop=op.result==='report'?'':S_;let x=(sr[0]+sr[2])/2,y=(sr[1]+sr[3])/2,z=op.zTop||0;
+  if(mode==='bore'||mode==='boss'){if(f.kind!=='holes'&&mode==='bore'){W.push('feature');return;}const p=f.kind==='holes'?f.pts[0]:[x,y];x=p[0];y=p[1];}
+  else if(mode==='corner'){x=sr[0];y=sr[1];}
+  const D=mode==='bore'?(f.dia||0.5):mode==='boss'?(op.bossD||1):0;
+  mb.retract(ctx.clear);mb.rapid(mode==='corner'?x-ap:mode==='edgeX'?sr[0]-ap:x,mode==='corner'?y-ap:mode==='edgeY'?sr[1]-ap:y);
+  L.push('G65 P9832 (PROBE ON)');const zp=mode==='face'?z+ap:mode==='bore'?z-Math.min(0.25,(op.depth||0.25)):z-(op.depth||0.2);
+  L.push('G65 P9810 Z'+(mode==='face'||mode==='bore'?zp:z+ap).toFixed(4)+' F50. (PROTECTED MOVE)');
+  if(mode==='face')L.push('G65 P9811 Z'+z.toFixed(4)+stop+tol+' (MEASURE TOP Z)');
+  else if(mode==='edgeX'){L.push('G65 P9810 Z'+zp.toFixed(4)+' F50.');L.push('G65 P9811 X'+sr[0].toFixed(4)+stop+tol+' (MEASURE X EDGE)');}
+  else if(mode==='edgeY'){L.push('G65 P9810 Z'+zp.toFixed(4)+' F50.');L.push('G65 P9811 Y'+sr[1].toFixed(4)+stop+tol+' (MEASURE Y EDGE)');}
+  else if(mode==='corner'){L.push('G65 P9810 Z'+zp.toFixed(4)+' F50.');L.push('G65 P9815 X'+x.toFixed(4)+' Y'+y.toFixed(4)+' I'+(ap*2).toFixed(4)+' J'+(ap*2).toFixed(4)+stop+' (OUTSIDE CORNER)');}
+  else if(mode==='bore')L.push('G65 P9814 D'+D.toFixed(4)+stop+tol+' (BORE CENTER)');
+  else if(mode==='boss'){L.push('G65 P9814 D'+D.toFixed(4)+' Z'+zp.toFixed(4)+stop+tol+' (BOSS CENTER)');}
+  L.push('G65 P9810 Z'+(z+1).toFixed(4)+' F50.');L.push('G65 P9833 (PROBE OFF)');if(op.result==='report')L.push('M00 (CHECK PROBE RESULT #100-#199)');
+  mb.o.push({t:'raw',lines:L,probe:true});mb.retract(ctx.clear);}
+/* ---------- T-slot / keyseat / dovetail: single-level side cut ---------- */
+function genUndercut(op,ctx,mb,W){const f=ctx.feat,tl=ctx.tool;if(!['profile','pocket','island','open'].includes(f.kind)&&f.kind!=='holes'){W.push('feature');return;}
+  if(f.kind==='holes'){const rh=f.dia/2,r=tl.dia/2,dep=op.width||0.1;if(rh<(tl.shank||tl.dia*0.5)/2+0.01){W.push('tooBig');return;}for(const p of nnOrder(f.pts,mb.p)){mb.retract(ctx.clear);mb.rapid(p[0],p[1]);mb.rapid(null,null,op.zTop+ctx.retract);mb.feed(null,null,op.zBot,op.plunge);const rr=rh-r+dep;mb.feed(p[0]+rr,p[1],op.zBot,op.feed*0.4);mb.circle(3,p[0],p[1],op.zBot,op.zBot,op.feed);mb.feed(p[0],p[1],op.zBot,op.feed);mb.rapid(null,null,op.zTop+ctx.retract);}mb.retract(ctx.clear);return;}
+  genContour(op,ctx,mb,W,tl.dia/2-(op.width||0.1)+(op.leave||0),[op.zBot]);}
 /* ---------- moulding: profile swept along an open rail ---------- */
 function offsetPoly(P,d){const n=P.length,o=[];for(let i=0;i<n;i++){const a=P[Math.max(0,i-1)],b=P[i],c=P[Math.min(n-1,i+1)];let t1=[b[0]-a[0],b[1]-a[1]],t2=[c[0]-b[0],c[1]-b[1]];const l1=hyp(...t1)||1,l2=hyp(...t2)||1;t1=[t1[0]/l1,t1[1]/l1];t2=[t2[0]/l2,t2[1]/l2];if(i===0)t1=t2;if(i===n-1)t2=t1;
   let nx=-(t1[1]+t2[1]),ny=t1[0]+t2[0];const nl=hyp(nx,ny)||1;nx/=nl;ny/=nl;const cs=Math.max(0.3,nx*-t1[1]+ny*t1[0]);o.push([b[0]+nx*d/cs,b[1]+ny*d/cs]);}return o;}
@@ -837,7 +885,7 @@ function genOp(op,ctx){
       case 'rest':genRest(op,ctx,mb,W);break;
       case 'vcarve':genVcarve(op,ctx,mb,W);break;
       case 'flute':genFlute(op,ctx,mb,W);break;
-      case 'surfWater':case 'surfRadial':gen3Dextra(op,ctx,mb,W);break;
+      case 'surfWater':case 'surfRadial':case 'surfSpiral':case 'surfSteep':gen3Dextra(op,ctx,mb,W);break;
       case 'surfScallop':case 'surfMorph':genScallop(op,ctx,mb,W);break;
       case 'moulding':genMoulding(op,ctx,mb,W);break;
       case 'rotFinish':genRotFinish(op,ctx,mb,W);break;
@@ -854,6 +902,9 @@ function genOp(op,ctx){
       case 'swarf':genSwarf(op,ctx,mb,W);break;
       case 'surfRough':case 'surfFinish':gen3D(op,ctx,mb,W);break;
       case 'engrave':genEngrave(op,ctx,mb);break;
+      case 'thread':genThread(op,ctx,mb,W);break;
+      case 'probe':genProbe(op,ctx,mb,W);break;
+      case 'tslot':genUndercut(op,ctx,mb,W);break;
       default:genHoles(op,ctx,mb,W);
     }
   }catch(e){W.push('err:'+e.message);}
@@ -872,6 +923,7 @@ function post(prog,cfg){
   let mg=-1,mf=-1,first=true,cx=null,cy=null,cz=null,ca=null,cb=null,cc=null,inv=false,tcpc=false;const fa=v=>(+v).toFixed(3).replace(/\.?0+$/,'')||'0';
   for(const blk of prog){
     if(blk.t==='op'){line(cm(blk.name));continue;}
+    if(blk.t==='raw'){if(cfg.post==='prototrak'&&blk.probe){line(cm('PROBING NOT SUPPORTED ON PROTOTRAK'));continue;}blk.lines.forEach(l=>line(l));mg=-1;cx=cy=cz=null;continue;}
     if(blk.t==='index'){if(tcpc){line('G49');tcpc=false;}if(blk.wcs)line(blk.wcs);let s='G00';if(blk.a!=null)s+=' A'+fa(blk.a);if(blk.b!=null)s+=' B'+fa(blk.b);if(blk.c!=null)s+=' C'+fa(blk.c);if(s!=='G00')line(s);if(blk.dwo&&cfg.post==='haas')line('G254');ca=blk.a;cb=blk.b;cc=blk.c;mg=0;continue;}
     if(blk.t==='tcpc'){if(blk.on){line('G234 H'+blk.h);tcpc=true;}else{line('G49');tcpc=false;}continue;}
     if(blk.t==='dwoOff'){if(cfg.post==='haas')line('G255');continue;}
@@ -927,6 +979,7 @@ function postSiemens(prog,cfg){
   line(cm((cfg.name||'PART')+' - MINI CAM'));(cfg.header||[]).forEach(h=>line(cm(h)));line((mm?'G710':'G700')+' G17 G90 G40 G94');line('G54');
   let mg=-1,mf=-1,first=true,cx=null,cy=null,cz=null,ca=null,cb=null,cc=null,inv=false,tra=false;
   for(const b of prog){
+    if(b.t==='raw'){line(cm(b.probe?'PROBING: USE CYCLE977/978 - G65 MACROS NOT SUPPORTED':'RAW BLOCK'));continue;}
     if(b.t==='op'){line(cm(b.name));continue;}
     if(b.t==='tool'){if(!first){if(tra){line('TRAFOOF');tra=false;}line('G0 Z'+fmt(cfg.clear)+' M9');line('M5');line('G0 SUPA Z0 D0');}if(cfg.toolStop&&!first)line((cfg.stopCode==='M01'?'M1':'M0')+' '+cm('LOAD T'+b.tool.num));line(cm('T'+b.tool.num+' '+b.tool.desc));line('T'+b.tool.num);line('M6');line('D1');first=false;mg=-1;mf=-1;cx=cy=cz=null;continue;}
     if(b.t==='spin'){line('S'+Math.round(b.s)+' M3');continue;}

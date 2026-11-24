@@ -205,6 +205,7 @@ label.f input,label.f select,label.f textarea,.inp,.chip select,.chip input,.cv 
   <label class="ctxc"><i class="ic" id="matIc"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg></i><span class="cv"><small id="lblMat"></small><b id="valMat"></b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m7 10 5 5 5-5"/></svg><select id="selMat" aria-label="Material"></select></label>
   <div id="mtypes" class="mtypes"></div>
  </div>
+ <div class="row" id="undoBar" style="gap:4px;margin-right:6px"><button class="mini" id="btnUndo" title="Undo (Ctrl+Z)" style="width:34px;height:34px;border-radius:10px"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg></button><button class="mini" id="btnRedo" title="Redo (Ctrl+Y)" style="width:34px;height:34px;border-radius:10px"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 000 10h3"/></svg></button></div>
  <div class="seg" id="langSeg"><button data-l="vi">VI</button><button data-l="en">EN</button></div>
 </header>
 <nav class="tabs" id="tabs"></nav>
@@ -215,7 +216,7 @@ label.f input,label.f select,label.f textarea,.inp,.chip select,.chip input,.cv 
 <input type="file" id="fileDxf" accept=".dxf,.DXF,.dwg,.DWG,.stl,.STL,.step,.STEP,.stp,.STP,.pdf,.PDF,application/pdf,image/*" hidden>
 <input type="file" id="fileNest" accept=".dxf,.DXF" hidden>
 <input type="file" id="fileImg" accept="image/*" hidden>
-<input type="file" id="fileJson" accept=".json,.tools,application/json" hidden>
+<input type="file" id="fileJson" accept=".json,.tools,.camtools,.csv,application/json,text/csv" hidden>
 <script src="lessons.js"></script>
 <script src="engine.js"></script>
 <script src="app.js"></script>
