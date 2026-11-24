@@ -527,6 +527,7 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
    <div class="card"><h2>${t('gcode')}</h2><div id="codeBox"></div></div>
   </div>
   <div class="grid" style="align-content:start">
+   ${projCard()}
    <div class="card"><h2>${t('stock')}</h2>
     <div class="row" style="margin-bottom:10px"><div class="seg" id="unitSeg"><button data-u="in" class="${S.units==='in'?'on':''}">inch</button><button data-u="mm" class="${S.units==='mm'?'on':''}">mm</button></div></div>
     <div class="fields">${inp('sx',fl(S.stock.x),'data-b="stock.x" data-u="L"')}${inp('sy',fl(S.stock.y),'data-b="stock.y" data-u="L"')}${inp('sz',fl(S.stock.z),'data-b="stock.z" data-u="L"')}${inp('face',fl(S.stock.face),'data-b="stock.face" data-u="L"')}${inp('partT',fl(S.stock.part),'data-b="stock.part" data-u="L"')}${inp('sideA',fl((S.def||DEF0).side??0.125),'data-b="def.side" data-u="L"')}</div>
@@ -543,6 +544,7 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
     <p class="sub" style="margin:6px 0 0;font-size:13px"><span class="ro">${t('sz')} = ${fl(S.stock.part,3)} + ${fl(S.stock.face,3)} + ${fl(D.grip,3)} + ${fl(D.safety,3)} = <b>${fl(S.stock.part+S.stock.face+D.grip+D.safety,3)}</b></span> · ${t('axisNote')}</p>
     <button class="btn sm" style="margin-top:8px" data-act="auto">${IC.bolt}${t('autoProg')}</button>`;})()}</div>
    <div class="card" style="--cc:#ff6a13">${perfUI()}</div>
+   ${tplCard()}
    <div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">${t('ops')}</h2><div class="row"><button class="btn sm" data-act="auto">${IC.bolt}${t('autoProg')}</button><button class="btn sm" data-act="addOp">${IC.plus}</button></div></div><div class="ops" id="ops"></div></div>
   </div></div>`;
  renderOps();renderCode();initView();
@@ -719,15 +721,19 @@ function toolKernel(tl,res){const r=Math.max(tl.dia/2,tl.type==='cornerround'?(t
 function simInit(){if(SIMSTATE.axis==='4'){sim4Init();return;}
  const sr=stockRect(),W=sr[2]-sr[0],H=sr[3]-sr[1],res=Math.max(W,H)/(SIMSTATE.hd?440:280),nx=Math.ceil(W/res)+1,ny=Math.ceil(H/res)+1;
  const top=S.stock.face,bot=S.stock.face-S.stock.z;const h=new Float32Array(nx*ny).fill(top);
- SIM={sr,res,nx,ny,h,own:new Int16Array(nx*ny).fill(-1),top,bot,i:0,u:0,ker:{},crash:[],pos:[0,0,1],done:false,op:-1};SIMSTATE.dirty=false;
+ SIM={sr,res,nx,ny,h,own:new Int16Array(nx*ny).fill(-1),top,bot,i:0,u:0,ker:{},crash:[],pos:[0,0,1],done:false,op:-1};SIMSTATE.dirty=false;SIM.ev=[];SIMSTATE._evn=0;try{SIM.fx=simFixture(()=>[0,0,0],null,0).boxes.filter(b=>!b[6]&&b[5]>bot+0.002);}catch(_){SIM.fx=[];}
 }
-function holderHit(x,y,z,tl){const st=stickOf(tl),hz=z+st,R=HOLDERS[holderOf(tl)].d/2;if(hz>SIM.top+0.001)return;const{nx,ny,h,res,sr}=SIM;for(let a=0;a<12;a++){const px=x+R*Math.cos(a*0.5236),py=y+R*Math.sin(a*0.5236);const i=Math.round((px-sr[0])/res),j=Math.round((py-sr[1])/res);if(i<0||j<0||i>=nx||j>=ny)continue;if(h[j*nx+i]>hz+0.002){SIM.hcrash=SIM.hcrash||[];if(SIM.hcrash.length<200)SIM.hcrash.push([x,y,z]);return;}}}
+function holderHit(x,y,z,tl){const st=stickOf(tl),hz=z+st,R=HOLDERS[holderOf(tl)].d/2;if(hz>SIM.top+0.001)return;const{nx,ny,h,res,sr}=SIM;for(let a=0;a<12;a++){const px=x+R*Math.cos(a*0.5236),py=y+R*Math.sin(a*0.5236);const i=Math.round((px-sr[0])/res),j=Math.round((py-sr[1])/res);if(i<0||j<0||i>=nx||j>=ny)continue;if(h[j*nx+i]>hz+0.002){SIM.hcrash=SIM.hcrash||[];if(SIM.hcrash.length<200)SIM.hcrash.push([x,y,z]);simEv('holder',x,y,z);return;}}}
 function stampAt(x,y,z,ti,rapid,oi){const tl=S.tools[ti];if(!tl)return;if(!rapid)holderHit(x,y,z,tl);let k=SIM.ker[ti];if(!k)k=SIM.ker[ti]=toolKernel(tl,SIM.res);if(z>SIM.top+0.0001)return;
  const ci=Math.round((x-SIM.sr[0])/SIM.res),cj=Math.round((y-SIM.sr[1])/SIM.res),K=k.K,nx=SIM.nx,ny=SIM.ny,h=SIM.h;
- for(let q=0;q<K.length;q+=3){const j=cj+K[q],i=ci+K[q+1];if(i<0||j<0||i>=nx||j>=ny)continue;const zz=z+K[q+2],id=j*nx+i;if(zz<h[id]){if(rapid){if(h[id]-zz>0.002){SIM.crash.push([x,y,z]);return;}}else{h[id]=zz;SIM.own[id]=oi;}}}}
+ for(let q=0;q<K.length;q+=3){const j=cj+K[q],i=ci+K[q+1];if(i<0||j<0||i>=nx||j>=ny)continue;const zz=z+K[q+2],id=j*nx+i;if(zz<h[id]){if(rapid){if(h[id]-zz>0.002){SIM.crash.push([x,y,z]);simEv('rapid',x,y,z);return;}}else{h[id]=zz;SIM.own[id]=oi;}}}}
+function simEv(kind,x,y,z){const c=CS()[SIM.i];const last=SIM.ev[SIM.ev.length-1];if(last&&last.seg===SIM.i&&last.kind===kind)return;if(SIM.ev.length>=60)return;SIM.ev.push({kind,x,y,z,seg:SIM.i,op:c?c[9]:-1,g:c?c[6]:1});}
+function fixHit(x,y,z,ti){const tl=S.tools[ti];if(!tl)return;const r=tl.dia/2,L=stickOf(tl)+((HOLDERS[holderOf(tl)]||{}).len||2);for(const b of SIM.fx){if(x>b[0]-r&&x<b[3]+r&&y>b[1]-r&&y<b[4]+r&&z<b[5]-0.001&&z+L>b[2]){simEv('fix',x,y,z);return;}}}
+function simEvTxt(e){const vi=LANG==='vi',o=S.ops[e.op];return(o?(vi?'Bước ':'Op ')+(e.op+1)+' '+opLabel(o.type)+': ':'')+(e.kind==='rapid'?(vi?'G00 chạy nhanh xuyên qua phôi':'G00 rapid through the stock'):e.kind==='fix'?(vi?'dao chạm đồ gá':'tool hits the fixture'):(vi?'đầu kẹp chạm phôi':'holder hits the stock'))+` · X${fl(e.x,3)} Y${fl(e.y,3)} Z${fl(e.z,3)}`;}
+function simEvList(){const el=$('#simEvs');if(!el||!SIM)return;const E=SIM.ev||[];el.style.display=E.length?'':'none';el.innerHTML=E.length?`<h2 style="color:var(--bad)">⚠ ${LANG==='vi'?'Va chạm':'Collisions'} (${E.length})</h2>${E.slice(0,30).map((e,i)=>`<div class="row" style="gap:8px;padding:6px 0;border-top:1px solid var(--line);flex-wrap:nowrap"><b style="color:var(--bad);min-width:22px">${i+1}</b><span style="flex:1;font-size:14px">${esc(simEvTxt(e))}</span><button class="btn sm" data-simgo="${e.seg}">${LANG==='vi'?'Xem':'Show'}</button></div>`).join('')}<p class="sub" style="margin:8px 0 0;font-size:13px">${LANG==='vi'?'Sửa: nâng mặt phẳng an toàn (retract), đổi thứ tự bước, hoặc dời đồ gá / kẹp. Kiểm tra đồ gá dùng hình hộp gần đúng.':'Fix: raise the clearance plane, change the op order, or move the fixture / clamps. Fixture check uses approximate boxes.'}</p>`:'';}
 function simAdvance(dist){if(SIMSTATE.axis==='4'){sim4Advance(dist);return;} // walk along segments by distance (inch)
  let left=dist;const lim=SIM.limit!=null?SIM.limit:CS().length;while(left>0&&SIM.i<lim){const s=CS()[SIM.i];const L=Math.hypot(s[3]-s[0],s[4]-s[1],s[5]-s[2]);const rem=L*(1-SIM.u);const take=Math.min(rem,left);const u0=SIM.u,u1=L>0?SIM.u+take/L:1;
-  const n=Math.max(1,Math.ceil(take/(SIM.res*0.5)));for(let k=1;k<=n;k++){const u=u0+(u1-u0)*k/n;const x=s[0]+(s[3]-s[0])*u,y=s[1]+(s[4]-s[1])*u,z=s[2]+(s[5]-s[2])*u;if(s.length>10&&s[6]!==0)stamp5(x,y,z,s[10],s[11],s[12],s[7],s[9]);else stampAt(x,y,z,s[7],s[6]===0,s[9]);SIM.pos=[x,y,z];}
+  const n=Math.max(1,Math.ceil(take/(SIM.res*0.5)));for(let k=1;k<=n;k++){const u=u0+(u1-u0)*k/n;const x=s[0]+(s[3]-s[0])*u,y=s[1]+(s[4]-s[1])*u,z=s[2]+(s[5]-s[2])*u;if(s.length>10&&s[6]!==0)stamp5(x,y,z,s[10],s[11],s[12],s[7],s[9]);else stampAt(x,y,z,s[7],s[6]===0,s[9]);if(SIM.fx&&SIM.fx.length)fixHit(x,y,z,s[7]);SIM.pos=[x,y,z];}
   left-=take;SIM.u=u1;if(SIM.u>=1-1e-9){SIM.i++;SIM.u=0;}if(s[6]===0)left-=0;}
  if(SIM.i>=CS().length)SIM.done=true;}
 function rSim(){if(mach().type==='lathe'){rLatheSim();return;}if(['grind','cylgrind'].includes(mach().type)){rGrind();return;}if(mach().type==='wire'){rWire();return;}
@@ -742,9 +748,10 @@ function rSim(){if(mach().type==='lathe'){rLatheSim();return;}if(['grind','cylgr
   <div class="row" style="margin-top:10px;gap:8px;flex-wrap:nowrap"><i class="sico">${SIC.slow}</i><input type="range" id="simSpeed" min="0" max="6" step="0.1" value="${SIMSTATE.speed}" style="flex:1" aria-label="${t('speed')}"><i class="sico">${SIC.fast}</i></div>
   <input type="range" id="simScrub" min="0" max="${CS().length}" value="0" style="margin-top:6px">
   <div class="row" style="margin-top:6px"><span style="font-weight:600;font-size:14px">${t('colorBy')}</span><div class="seg" id="simColor">${[['op','byOp'],['tool','byTool'],['depth','byDepth']].map(([v,k])=>`<button data-sc="${v}" class="${SIMSTATE.color===v?'on':''}">${t(k)}</button>`).join('')}</div></div>
-  <div class="simbar tg" style="margin-top:10px">${[['path',LANG==='vi'?'Đường dao':'Toolpath','#2457d6'],['all',LANG==='vi'?'Toàn bộ':'Whole path','#5c6bc0'],['rapid',LANG==='vi'?'Chạy nhanh G0':'Rapids','#d93a3a'],['tool',LANG==='vi'?'Dao':'Tool','#ff6a13'],['fix',LANG==='vi'?'Đồ gá':'Fixture','#1c9b5f'],['cube',LANG==='vi'?'Khối xoay':'View cube','#6b737a']].map(k=>`<button class="ib sm ${SIMSTATE.sh[k[0]]?'on':''}" data-shw="${k[0]}" title="${k[1]}" aria-label="${k[1]}" style="--ic:${k[2]}">${SIC[k[0]]}<small>${k[1]}</small></button>`).join('')}<button class="ib sm ${SIMSTATE.stopEach?'on':''}" data-act="simEach" style="--ic:#8b4fd6" title="${LANG==='vi'?'Dừng sau mỗi bước':'Stop after each op'}">${SIC.each}<small>${LANG==='vi'?'Dừng mỗi bước':'Stop each op'}</small></button></div>
+  <div class="simbar tg" style="margin-top:10px">${[['path',LANG==='vi'?'Đường dao':'Toolpath','#2457d6'],['all',LANG==='vi'?'Toàn bộ':'Whole path','#5c6bc0'],['rapid',LANG==='vi'?'Chạy nhanh G0':'Rapids','#d93a3a'],['tool',LANG==='vi'?'Dao':'Tool','#ff6a13'],['fix',LANG==='vi'?'Đồ gá':'Fixture','#1c9b5f'],['cube',LANG==='vi'?'Khối xoay':'View cube','#6b737a']].map(k=>`<button class="ib sm ${SIMSTATE.sh[k[0]]?'on':''}" data-shw="${k[0]}" title="${k[1]}" aria-label="${k[1]}" style="--ic:${k[2]}">${SIC[k[0]]}<small>${k[1]}</small></button>`).join('')}<button class="ib sm ${SIMSTATE.stopCrash!==false?'on':''}" data-act="simStopCrash" style="--ic:#d93a3a" title="${LANG==='vi'?'Dừng khi va chạm':'Stop on collision'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg><small>${LANG==='vi'?'Dừng khi va chạm':'Stop on crash'}</small></button><button class="ib sm ${SIMSTATE.stopEach?'on':''}" data-act="simEach" style="--ic:#8b4fd6" title="${LANG==='vi'?'Dừng sau mỗi bước':'Stop after each op'}">${SIC.each}<small>${LANG==='vi'?'Dừng mỗi bước':'Stop each op'}</small></button></div>
   ${SIMSTATE.stopAt!=null?`<div style="margin-top:8px"><span class="pill" style="background:#8b4fd6;color:#fff">${LANG==='vi'?'Dừng sau bước':'Stop after op'} ${SIMSTATE.stopAt+1} <button data-act="simClrStop" style="border:0;background:none;color:#fff;font-weight:700;cursor:pointer">✕</button></span></div>`:''}
   <div class="legend" id="simLegend"></div></div>
+ <div class="card" id="simEvs" style="margin-top:12px;display:none;border-color:var(--bad)"></div>
  <div class="ops" id="simOps" style="margin-top:12px"></div>`;
  if(SIMSTATE.dirty||!SIM)simInit();
  const cv=$('#svc');const ro=new ResizeObserver(()=>simDraw());ro.observe(cv);
@@ -758,6 +765,7 @@ function rSim(){if(mach().type==='lathe'){rLatheSim();return;}if(['grind','cylgr
  $('#simOps').innerHTML=ops.map(i=>{const o=S.ops[i],tl=toolById(o.tool);return`<div class="op"><div class="oph" data-simop="${i}">${opIcon(o.type,OPCOL[i%OPCOL.length],i+1)}<span class="opt"><b>${esc(opLabel(o.type))}</b><span>T${tl.num} ${esc(tl.desc)}</span></span><button class="ib sm" data-simto="${i}" style="margin-left:auto;"${SIMSTATE.stopAt===i?'background:#8b4fd6;color:#fff':''}" title="${LANG==='vi'?'Chạy tới hết bước này':'Run to end of this op'}">${SIC.next}</button></div></div>`;}).join('');
  simLegend();simDraw();
 }
+function simMarks(g,P){const E=(SIM&&SIM.ev)||[];E.forEach((e,i)=>{const p=P(e.x,e.y,e.z);g.save();g.beginPath();g.arc(p[0],p[1],11,0,7);g.fillStyle='rgba(217,58,58,.25)';g.fill();g.lineWidth=2.5;g.strokeStyle='#d93a3a';g.stroke();g.beginPath();g.moveTo(p[0]-6,p[1]-6);g.lineTo(p[0]+6,p[1]+6);g.moveTo(p[0]+6,p[1]-6);g.lineTo(p[0]-6,p[1]+6);g.stroke();g.fillStyle='#d93a3a';g.font='700 12px system-ui';g.fillText(String(i+1),p[0]+12,p[1]-10);g.restore();});}
 function simLegend(){const el=$('#simLegend');if(!el)return;const used=[...new Set(CS().map(s=>s[9]))].filter(i=>i>=0);
  if(SIMSTATE.color==='op')el.innerHTML=used.map(i=>`<span><i class="dot" style="background:${OPCOL[i%OPCOL.length]}"></i>${i+1} ${esc(opLabel(S.ops[i].type))}</span>`).join('');
  else if(SIMSTATE.color==='tool'){const ts=[...new Set(used.map(i=>S.ops[i].tool))];el.innerHTML=ts.map(id=>{const k=S.tools.findIndex(x=>x.id===id),x=S.tools[k];return`<span><i class="dot" style="background:${TOOLCOL[k%TOOLCOL.length]}"></i>T${x.num} ${esc(x.desc)}</span>`;}).join('');}
@@ -765,7 +773,7 @@ function simLegend(){const el=$('#simLegend');if(!el)return;const used=[...new S
 function simJump(target){simInit();const sav=CS();let guard=0;while(SIM.i<target&&guard++<1e7){const s=CS()[SIM.i];simAdvance(Math.hypot(s[3]-s[0],s[4]-s[1],s[5]-s[2])*(1-SIM.u)+1e-9);}simDraw();}
 let simRAF=0,simLast=0;
 function simLoop(ts){if(!SIMSTATE.playing){return;}const dt=Math.min(0.1,(ts-(simLast||ts))/1000);simLast=ts;
- const ips=0.6*Math.pow(3,SIMSTATE.speed);simSetLimit();simAdvance(ips*dt);if(SIM.done||(SIM.limit!=null&&SIM.i>=SIM.limit)){const hitStop=!SIM.done;SIMSTATE.playing=false;if(hitStop&&SIMSTATE.stopAt!=null&&SIM.i>=opEnd(SIMSTATE.stopAt))SIMSTATE.stopAt=null;SIM.limit=null;updPlay();simDraw();if(hitStop){const nx=CS()[SIM.i];toast((LANG==='vi'?'Dừng sau bước ':'Stopped after op ')+(CS()[SIM.i-1]?CS()[SIM.i-1][9]+1:''));}rSimOpsMark();return;}
+ const ips=0.6*Math.pow(3,SIMSTATE.speed);simSetLimit();simAdvance(ips*dt);if(SIM.ev&&SIM.ev.length>SIMSTATE._evn){SIMSTATE._evn=SIM.ev.length;if(SIMSTATE.stopCrash!==false){SIMSTATE.playing=false;SIM.limit=null;updPlay();simDraw();simEvList();toast('⚠ '+simEvTxt(SIM.ev[SIM.ev.length-1]));return;}}if(SIM.done||(SIM.limit!=null&&SIM.i>=SIM.limit)){const hitStop=!SIM.done;SIMSTATE.playing=false;if(SIM.done){simDraw();try{SIMSTATE.snap=$('#svc').toDataURL('image/jpeg',0.85);}catch(_){}}if(hitStop&&SIMSTATE.stopAt!=null&&SIM.i>=opEnd(SIMSTATE.stopAt))SIMSTATE.stopAt=null;SIM.limit=null;updPlay();simDraw();if(hitStop){const nx=CS()[SIM.i];toast((LANG==='vi'?'Dừng sau bước ':'Stopped after op ')+(CS()[SIM.i-1]?CS()[SIM.i-1][9]+1:''));}rSimOpsMark();return;}
  if(ts-(simLoop.d||0)>(SIMSTATE.mode==='3d'?90:40)){simDraw();simLoop.d=ts;}
  simRAF=requestAnimationFrame(simLoop);}
 function opEnd(oi){const c=CS();let e=-1;for(let k=c.length-1;k>=0;k--)if(c[k][9]===oi){e=k+1;break;}return e;}
@@ -812,6 +820,7 @@ function simDraw(){if(SIMSTATE.axis==='4'){sim4Draw();return;}
   const X=x=>ox+(x-sr[0])/res*sc,Y=y=>oy+(ny-1-(y-sr[1])/res)*sc;
   simPaths(g,(x,y,z)=>[X(x),Y(y)]);
   if(SIMSTATE.sh.fix&&['vise','softjaw'].includes(S.fixture.type)){g.fillStyle=S.fixture.type==='softjaw'?'rgba(201,162,74,.85)':'rgba(60,111,209,.85)';const jl=Math.max(sr[2]-sr[0]+0.8,S.fixture.vise||6)/res*sc,xc=(X(sr[0])+X(sr[2]))/2,jw=0.7/res*sc;g.fillRect(xc-jl/2,Y(sr[1]),jl,jw);g.fillRect(xc-jl/2,Y(sr[3])-jw,jl,jw);}
+  simMarks(g,(x,y,z)=>[X(x),Y(y)]);
   if(tl&&SIMSTATE.sh.tool){g.beginPath();g.arc(X(SIM.pos[0]),Y(SIM.pos[1]),tl.dia/2/res*sc,0,7);g.fillStyle='rgba(255,106,19,.35)';g.fill();g.strokeStyle='#ff6a13';g.lineWidth=2;g.stroke();}
  }else{
   const st=Math.max(1,Math.ceil(Math.max(nx,ny)/(SIMSTATE.playing?120:(SIMSTATE.hd?230:170)))),cx=(sr[0]+sr[2])/2,cy=(sr[1]+sr[3])/2,zc=(SIM.top+SIM.bot)/2;
@@ -829,14 +838,15 @@ function simDraw(){if(SIMSTATE.axis==='4'){sim4Draw();return;}
   const drawQ=(L)=>{L.sort((a,b)=>b[0]-a[0]);for(const q of L){const p=q[1],c=q[2];g.beginPath();g.moveTo(p[0][0],p[0][1]);for(let k=1;k<p.length;k++)g.lineTo(p[k][0],p[k][1]);g.closePath();const col=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;g.fillStyle=col;g.strokeStyle=col;g.lineWidth=0.6;g.fill();g.stroke();}};
   for(const b of FX.pre)drawQ(b);drawQ(quads);for(const b of FX.post)drawQ(b);
   // upcoming path
-  simPaths(g,P);
+  simPaths(g,P);SIM._P=P;
   if(tl&&SIMSTATE.sh.tool){const[x,y,z]=SIM.pos,r=tl.dia/2,len=stickOf(tl);{const H=HOLDERS[holderOf(tl)],hr=H.d/2,hb=P(x,y,z+len),ht=P(x,y,z+len+H.len),hx=hr*sc,hy=Math.max(1,hr*sc*cp);const gh=g.createLinearGradient(hb[0]-hx,0,hb[0]+hx,0);gh.addColorStop(0,'#2b2f34');gh.addColorStop(.35,'#c9ced3');gh.addColorStop(.6,'#8a9198');gh.addColorStop(1,'#25292d');g.globalAlpha=.92;g.fillStyle=gh;g.fillRect(hb[0]-hx,ht[1],2*hx,hb[1]-ht[1]);g.beginPath();g.ellipse(hb[0],hb[1],hx,hy,0,0,Math.PI);g.fill();g.fillStyle='#d5d9dd';g.beginPath();g.ellipse(ht[0],ht[1],hx,hy,0,0,7);g.fill();g.globalAlpha=1;}const b0=P(x,y,z),t0=P(x,y,z+len);const rx=r*sc,ry=r*sc*cp;const grd=g.createLinearGradient(b0[0]-rx,0,b0[0]+rx,0);grd.addColorStop(0,'#555');grd.addColorStop(.35,'#f2f4f6');grd.addColorStop(.6,'#aab0b6');grd.addColorStop(1,'#444');
    const ey=Math.max(1,ry);g.fillStyle=grd;g.fillRect(b0[0]-rx,t0[1],2*rx,b0[1]-t0[1]);g.beginPath();g.ellipse(b0[0],b0[1],rx,ey,0,0,Math.PI);g.fill();g.fillStyle='#e3e7ea';g.beginPath();g.ellipse(t0[0],t0[1],rx,ey,0,0,7);g.fill();
    g.strokeStyle='#ff6a13';g.lineWidth=2;g.beginPath();g.ellipse(b0[0],b0[1],rx,Math.max(1,ry),0,0,7);g.stroke();}
  }
+ if(SIMSTATE.mode!=='top'&&SIM._P)simMarks(g,SIM._P);
  const o=s&&s[9]>=0?S.ops[s[9]]:null;const info=$('#simInfo');
  if(info)info.textContent=(o?(s[9]+1)+' '+opLabel(o.type)+' · ':'')+(tl?'T'+tl.num+' · ':'')+'X'+fl(SIM.pos[0],3)+' Y'+fl(SIM.pos[1],3)+' Z'+fl(SIM.pos[2],3)+' · '+Math.round(SIM.i/CS().length*100)+'%';
- const cr=$('#simCrash');if(cr){const hc=(SIM.hcrash||[]).length;cr.style.display=SIM.crash.length||hc?'':'none';cr.textContent=SIM.crash.length?t('crash'):(LANG==='vi'?'⚠ Đầu kẹp chạm phôi':'⚠ Holder hits stock');}const sb=$('#simScrub');if(sb&&document.activeElement!==sb)sb.value=SIM.i;drawCube();
+ const cr=$('#simCrash');if(cr){const hc=(SIM.hcrash||[]).length;const ne=(SIM.ev||[]).length;cr.style.display=ne||SIM.crash.length||hc?'':'none';cr.textContent='⚠ '+ne+' '+(LANG==='vi'?'va chạm':'collision'+(ne===1?'':'s'));}simEvList();const sb=$('#simScrub');if(sb&&document.activeElement!==sb)sb.value=SIM.i;drawCube();
 }
 
 function simPaths(g,P){const sh=SIMSTATE.sh,c=CS();if(!sh.path&&!sh.rapid)return;const a0=sh.all?0:SIM.i,a1=sh.all?c.length:Math.min(c.length,SIM.i+2500),st=Math.max(1,Math.ceil((a1-a0)/12000));
@@ -846,7 +856,7 @@ function simPaths(g,P){const sh=SIMSTATE.sh,c=CS();if(!sh.path&&!sh.rapid)return
  if(sh.rapid){g.globalAlpha=.75;g.strokeStyle='#d93a3a';g.lineWidth=1.2;g.setLineDash([5,4]);seg(false);g.setLineDash([]);}g.globalAlpha=1;}
 /* ----- fixture in 3D sim ----- */
 function simFixture(P,quads,stockD){const fx=S.fixture,sr=SIM.sr,bot=SIM.bot,W=sr[2]-sr[0],H=sr[3]-sr[1];
- const OUT={pre:[],post:[]};const box=(x0,y0,z0,x1,y1,z1,hex,under)=>{const c=hexRGB(hex),Q=[],F=(pts,l)=>{const pp=pts.map(p=>P(...p));Q.push([pp.reduce((s,p)=>s+p[2],0)/4,pp,c.map(v=>v*l)]);};
+ const OUT={pre:[],post:[],boxes:[]};const box=(x0,y0,z0,x1,y1,z1,hex,under)=>{OUT.boxes.push([Math.min(x0,x1),Math.min(y0,y1),Math.min(z0,z1),Math.max(x0,x1),Math.max(y0,y1),Math.max(z0,z1),!!under]);const c=hexRGB(hex),Q=[],F=(pts,l)=>{const pp=pts.map(p=>P(...p));Q.push([pp.reduce((s,p)=>s+p[2],0)/4,pp,c.map(v=>v*l)]);};
   F([[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]],1.05);F([[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1]],0.62);F([[x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1]],0.5);F([[x0,y0,z0],[x0,y1,z0],[x0,y1,z1],[x0,y0,z1]],0.55);F([[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[x1,y0,z1]],0.72);
   const cd=P((x0+x1)/2,(y0+y1)/2,(z0+z1)/2)[2];(!under&&cd<stockD?OUT.post:OUT.pre).push(Q);};
  const t=fx.type,ext=Math.max(0.6,Math.min(W,H)*0.25);
@@ -964,7 +974,7 @@ function rSetup(){
  $('#main').innerHTML=`<div class="noprint"><h1>${t('setupTitle')}</h1><p class="sub">${t('setupSub')}</p>
  <div class="card" style="margin-bottom:14px"><div class="fields">${hf('partName','name',h.name)}${hf('partNo','no',h.no)}${hf('rev','rev',h.rev)}${hf('qty','qty',h.qty)}${hf('customer','cust',h.cust)}${hf('programmer','prog',h.prog)}${hf('operator','oper',h.oper)}${hf('date','date',h.date)}</div>
  <label class="f" style="margin-top:10px">${both('notes')}<textarea data-b="hdr.notes" data-u="S">${esc(h.notes)}</textarea></label>
- <div class="row" style="margin-top:10px"><button class="btn go" data-act="savePdf">${IC.save}${t('savePdf')}</button><button class="btn" data-act="saveHtml">${IC.save}${t('saveHtml')}</button><button class="btn" data-act="print">${IC.print}${t('print')}</button></div></div></div>
+ <div class="row" style="margin-top:10px"><button class="btn go" data-act="savePdf">${IC.save}${t('savePdf')}</button><button class="btn" data-act="saveHtml">${IC.save}${t('saveHtml')}</button><button class="btn" data-act="print">${IC.print}${t('print')}</button></div></div>${quoteCard()}</div>
  <div class="ss">
   <div class="row" style="justify-content:space-between;align-items:flex-end"><div><h1>${esc(h.name||'PART')}</h1><div class="bi">SETUP SHEET / PHIẾU SETUP</div></div><div style="text-align:right;font-weight:700">${esc(h.no)} · Rev ${esc(h.rev)}</div></div>
   <div class="hdr">${[['partNo',h.no],['qty',h.qty],['customer',h.cust],['material',m.en+' / '+m.vi],['machine',mc.name],['programmer',h.prog],['operator',h.oper],['date',h.date],['cycle',Math.floor(CT/60)+':'+String(Math.round(CT%60)).padStart(2,'0')+' min']].map(([k,v])=>`<div><span>${esc(both(k))}</span><b>${esc(v)}</b></div>`).join('')}</div>
@@ -972,6 +982,7 @@ function rSetup(){
    <p style="margin:6px 0">X0 Y0: ${B(zDesc[0],zDesc[1])}<br>Z0: ${B('top of finished part','mặt trên chi tiết hoàn thiện')}</p></div>
    <div><div class="sec">${both('fixtures')} — ${esc(both(fx.type))}</div>${fixtureSVG(fx.type)}
    ${fc?`<p style="margin:6px 0">${both('stickout')}: <b>${fl(fc.so,3)}</b> · ${both('deep')}: <b>${fl(fc.deep,3)}</b></p>`:''}${fx.notes?`<p>${esc(fx.notes)}</p>`:''}</div></div>
+  ${(()=>{const m3=snap3D(),sn=SIMSTATE.snap;return m3||sn?`<div class="two">${m3?`<div><div class="sec">3D ${LANG==='vi'?'chi tiết':'part'} / ${LANG==='vi'?'Part':'Chi tiết'} 3D</div><img src="${m3}" style="width:100%;max-height:300px;object-fit:contain;border:1px solid #ccd;border-radius:6px"></div>`:''}${sn?`<div><div class="sec">${LANG==='vi'?'Mô phỏng / Simulation':'Simulation / Mô phỏng'}</div><img src="${sn}" style="width:100%;max-height:300px;object-fit:contain;border:1px solid #ccd;border-radius:6px"></div>`:''}</div>`:'';})()}
   ${S.ref?`<div class="sec">${both('refImg')}</div><img src="${S.ref}" style="max-width:100%;max-height:300px">`:''}
   <div class="sec">${both('tools')}</div>
   <div class="scroll"><table><thead><tr><th></th><th>T#</th><th>${B('Description','Mô tả')}</th><th class="n">Ø</th><th class="n">${B('Flutes','Me')}</th><th class="n">LOC</th><th>${B('Notes','Ghi chú')}</th></tr></thead><tbody>
@@ -997,6 +1008,7 @@ document.addEventListener('change',e=>{
  if(el.id==='postSel'){S.post=el.value;if(mach().type==='lathe'){rLathe();return;}regen();return;}if(el.id==='tsChk'){S.toolStop=el.checked;regen();return;}if(el.id==='tsSel'){S.toolStop=!!el.value;if(el.value)S.stopCode=el.value;persist();regen();return;}if(el.id==='wrapChk'){S.gwrap=el.checked;document.body.classList.toggle('gwrap',S.gwrap);persist();return;}if(el.id==='lnChk'){S.lineNums=el.checked;regen();return;}
  if(el.id==='rotSel'){S.rotary=el.value;regen();setTimeout(()=>rProgram(),200);return;}
  if(el.dataset.defsw){S.def={...DEF0,...(S.def||{})};S.def[el.dataset.defsw]=el.checked;if(el.dataset.defsw==='feedOpt'){buildProgram();persist();rProgram();return;}if(el.dataset.defsw==='stockAuto'||el.dataset.defsw==='stdRound'){syncStock();buildProgram();persist();rProgram();return;}autoProgram();buildProgram();rProgram();return;}
+ if(el.dataset.q){S.quote=S.quote||{};const v=parseFloat(String(el.value).replace(',','.'));if(!isNaN(v))S.quote[el.dataset.q]=v;persist();rSetup();return;}
  if(el.dataset.nb){S.nest[el.dataset.nb]=el.dataset.u==='S'?el.value:parseVal(el);if(el.dataset.nb==='mode'&&el.value==='twoSide'&&S.nest.tabT<0.06)S.nest.tabT=0.06;persist();rNest();return;}
  if(el.dataset.ni!=null){const it=S.nest.items[+el.dataset.ni];it[el.dataset.k]=el.dataset.k==='qty'?Math.max(0,parseInt(el.value)||0):el.value;persist();rNest();return;}
  if(el.dataset.lb){S.lathe[el.dataset.lb]=parseVal(el);persist();rLathe();return;}
@@ -1018,7 +1030,7 @@ document.addEventListener('change',e=>{
  if(el.dataset.on){const o=S.ops.find(x=>x.id===el.dataset.on);o.on=el.checked;regen();return;}
  if(el.dataset.auto){const o=S.ops.find(x=>x.id===el.dataset.auto);o.auto=el.checked;if(o.auto)applyFeeds(o);regen();return;}
  const v=parseVal(el);if(v===null){if(el.dataset.op&&['a','b','c'].includes(el.dataset.k)&&!el.value.trim()){S.ops.find(x=>x.id===el.dataset.op)[el.dataset.k]=null;regen();}return;}
- if(el.dataset.b){if(el.dataset.b.startsWith('mo.')){setPath(S,el.dataset.b,v);S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();renderShell();persist();return;}setPath(S,el.dataset.b,v);if(el.dataset.b==='fixture.parH')S.fixture.parAuto=false;if(/^stock\.[xyz]$/.test(el.dataset.b)){S.def={...DEF0,...(S.def||{})};S.def.stockAuto=false;const sw_=document.querySelector('[data-defsw=stockAuto]');if(sw_)sw_.checked=false;}if(el.dataset.b==='stock.part'||el.dataset.b.startsWith('def.')){S.def={...DEF0,...(S.def||{})};if(el.dataset.b.startsWith('def.'))S.def[el.dataset.b.slice(4)]=v;autoProgram();}if(el.dataset.b.startsWith('stock')||el.dataset.b.startsWith('def.')){syncStock();stockFields();}buildProgram();if(S.tab==='fixtures')rFixtures();else if(S.tab==='program'){VIEW.fitted=false;fitView();renderOps();renderCode();drawView();}else persist();return;}
+ if(el.dataset.b){if(el.dataset.b.startsWith('mo.')){setPath(S,el.dataset.b,v);S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();renderShell();persist();return;}setPath(S,el.dataset.b,v);if(el.dataset.b==='fixture.parH')S.fixture.parAuto=false;if(/^stock\.[xyz]$/.test(el.dataset.b)){S.def={...DEF0,...(S.def||{})};S.def.stockAuto=false;const sw_=document.querySelector('[data-defsw=stockAuto]');if(sw_)sw_.checked=false;}if(el.dataset.b==='stock.part'||el.dataset.b.startsWith('def.')){S.def={...DEF0,...(S.def||{})};if(el.dataset.b.startsWith('def.'))S.def[el.dataset.b.slice(4)]=v;autoProgram();}if(el.dataset.b.startsWith('stock')||el.dataset.b.startsWith('def.')){syncStock();stockFields();}buildProgram();if(S.tab==='fixtures')rFixtures();else if(S.tab==='program'){VIEW.fitted=false;fitView();renderOps();renderCode();drawView();}else{persist();if(S.tab==='setup'&&el.dataset.b==='hdr.qty')rSetup();}return;}
  if(el.dataset.op&&el.dataset.k==='cycle'){const oo=S.ops.find(x=>x.id===el.dataset.op);if(oo)oo.cycAuto=false;}
  if(el.dataset.op){const o=S.ops.find(x=>x.id===el.dataset.op);let k=el.dataset.k;if(k==='type'||k==='cycle')OPEN.add(o.id);if(k==='chamferSz'){o.chamfer=v;o.zBot=-v;}else o[k]=v;
   if(['type','tool','feat','zBot','zTop'].includes(k)&&o.auto)applyFeeds(o);if(['rpm','feed','plunge'].includes(k))o.auto=false;if(['doc','woc'].includes(k))o.docFix=true;regen();if(['type','cycle','rings'].includes(k))setTimeout(renderOps,180);return;}
@@ -1055,6 +1067,9 @@ document.addEventListener('click',e=>{
  if(d.perf){S.def={...DEF0,...(S.def||{})};S.def.perf=+d.perf;S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();persist();if(S.tab==='program')rProgram();toast((LANG==='vi'?'Hiệu suất ':'Performance ')+d.perf);return;}
  if(d.shw){SIMSTATE.sh[d.shw]=SIMSTATE.sh[d.shw]?0:1;const pl=SIMSTATE.playing;rSim();if(pl){SIMSTATE.playing=true;updPlay();simLast=0;simRAF=requestAnimationFrame(simLoop);}return;}
  if(d.vca){const D=Math.PI/12;const A={up:[0,-D],dn:[0,D],lf:[D,0],rt:[-D,0],ccw:[Math.PI/2,0],cw:[-Math.PI/2,0]}[d.vca];if(d.vca==='fit'){viewTo(SIMSTATE.yaw,SIMSTATE.pitch,1);}else if(d.vca==='home'){viewTo(-0.785,0.96,1);}else viewTo(SIMSTATE.yaw+A[0],Math.max(0,Math.min(Math.PI/2,SIMSTATE.pitch+A[1])));return;}
+ if(d.tpl){tplApply(d.tpl);return;}if(d.tpldel){const L=tplList().filter(x=>x.id!==d.tpldel);try{localStorage.setItem('miniTpl',JSON.stringify(L));}catch(_){}rProgram();return;}
+ if(d.proj){projOpen(d.proj);return;}if(d.projdel){if(!confirmDel())return;const L=projList().filter(x=>x.id!==d.projdel);try{localStorage.setItem('miniProj',JSON.stringify(L));}catch(_){}if(S.projId===d.projdel)S.projId=null;S._projOpen=1;rProgram();return;}
+ if(d.simgo!=null){SIMSTATE.playing=false;updPlay();simJump(+d.simgo+1);SIMSTATE._evn=SIM.ev.length;$('#sv')&&$('#sv').scrollIntoView({behavior:'smooth',block:'center'});return;}
  if(d.simto!=null){const oi=+d.simto,c=CS(),st=c.findIndex(q=>q[9]===oi),en=opEnd(oi);if(SIM.i>=en||SIM.done){simInit();}SIMSTATE.stopAt=oi;rSimOpsMark();SIMSTATE.playing=true;updPlay();simLast=0;cancelAnimationFrame(simRAF);simRAF=requestAnimationFrame(simLoop);$('#sv').scrollIntoView({behavior:'smooth',block:'start'});return;}
  if(d.sv){const V={fit:null,iso:[-0.785,0.96],top:[0,0.05],front:[0,1.45],side:[-Math.PI/2,1.45]}[d.sv];SIMSTATE.zoom=1;if(V){SIMSTATE.mode='3d';SIMSTATE.yaw=V[0];SIMSTATE.pitch=V[1];$$('#simMode button').forEach(b=>b.classList.toggle('on',b.dataset.m==='3d'));}simDraw();return;}
  if(d.sc){SIMSTATE.color=d.sc;$$('#simColor button').forEach(x=>x.classList.toggle('on',x.dataset.sc===d.sc));simLegend();simDraw();return;}
@@ -1080,7 +1095,7 @@ document.addEventListener('click',e=>{
   case'cmdRun':{const tx=$('#cmdTxt').value.trim()||cmdEx();S._cmd=tx;const R=cmdParse(tx);if(R.err){S._cmdRes=[R.err];rDraw();break;}cmdBuild(R);S._cmdRes=R.understood.concat([(LANG==='vi'?'→ ':'→ ')+S.feats.length+' '+t('features').toLowerCase()+', '+S.ops.length+' '+t('ops').toLowerCase()]);persist();rDraw();toast(LANG==='vi'?'Đã tạo chương trình':'Program made');break;}
   case'engAdd':{const tx=$('#engT').value||'MINI CAM',h=+$('#engH').value||0.2,x=+$('#engX').value||0,y=+$('#engY').value||0,d=+$('#engD').value||0.01;S._eng={t:tx,h,x,y,d};const tl=findTool(q=>q.type==='chamfer'||q.type==='spot',(a,b)=>a.dia-b.dia);if(!tl){toast(LANG==='vi'?'Cần dao vát mép hoặc khoan mồi':'Needs a chamfer or spot tool');break;}
    S.ops.push(newOp('engrave',null,tl.id,{text:tx,th:h,x0:x,y0:y,align:'center',zBot:-Math.abs(d)}));buildProgram();persist();toast(LANG==='vi'?'Đã thêm bước khắc chữ':'Engraving op added');break;}
-  case'simEach':SIMSTATE.stopEach=!SIMSTATE.stopEach;rSim();break;
+  case'simEach':SIMSTATE.stopEach=!SIMSTATE.stopEach;rSim();break;case'simStopCrash':SIMSTATE.stopCrash=SIMSTATE.stopCrash===false;rSim();break;
   case'simClrStop':SIMSTATE.stopAt=null;rSim();break;
   case'lqReset':S._la={};rLearn();break;
   case'projSave':{const j=JSON.stringify({miniCamProject:1,...S,ref:S.ref,meshT:null,_hm:null,cylMap:null});saveFile(((S.hdr.name||'project').replace(/[^\w-]/g,'_'))+'.json',j);break;}
@@ -1089,7 +1104,8 @@ document.addEventListener('click',e=>{
   case'lCopy':copyText(S.lathe.gcode);break;
   case'lAdd':{const ty=$('#lAddSel').value;S.lathe.ops.push({type:ty,tool:{lface:1,lrough:1,lfinish:2,lgroove:3,lthread:4,ldrill:5,lpart:6}[ty],on:true,doc:0.06,leaveX:0.01,zPos:-0.5,width:0.125,dia:0.9,peckX:0.05,pitch:0.05,zEnd:-0.75,passes:8,depth:0.5,peck:0.15});rLathe();break;}
   case'lReset':if(LSIM){LSIM.playing=false;LSIM.k=0;LSIM.r.fill(S.lathe.stockD/2);latheDraw($('#lcv'),0);}break;
-  case'nestAdd':S.nest.items.push({src:'plate',qty:1});rNest();break;case'nestTap':S.nestTapOn=!S.nestTapOn;rNest();break;case'nestTabAuto':S.nestTabs={};persist();rNest();break;case'nestDxf':$('#fileNest').click();break;
+  case'tplSave':{const n=($('#tplName')||{}).value;tplSave(n&&n.trim());rProgram();toast(LANG==='vi'?'Đã lưu mẫu':'Template saved');break;}case'quoteCopy':{const tx=quoteText();(navigator.clipboard?navigator.clipboard.writeText(tx):Promise.reject()).then(()=>toast(LANG==='vi'?'Đã chép báo giá':'Quote copied')).catch(()=>toast(tx.slice(0,80)));break;}case'pjSave':S._projOpen=1;projSave(false);rProgram();break;case'projSaveNew':S._projOpen=1;projSave(true);rProgram();break;
+  case'nestAdd':S.nest.items.push({src:'plate',qty:1});rNest();break;case'nestTap':S.nestTapOn=!S.nestTapOn;if(S.nestTapOn)S.nestMoveOn=false;rNest();break;case'nestMove':S.nestMoveOn=!S.nestMoveOn;if(S.nestMoveOn)S.nestTapOn=false;else S.nestSel=null;rNest();break;case'nestRot':nestRotSel();break;case'nestPosReset':S.nestPos={};S.nestSel=null;persist();rNest();break;case'nestTabAuto':S.nestTabs={};persist();rNest();break;case'nestDxf':$('#fileNest').click();break;
   case'nestCopy':copyText(NESTG);break;
   case'nestSave':{const base=((S.hdr.name||'NEST')+'_NEST').toUpperCase().replace(/[^A-Z0-9_-]/g,'');const ext=S.ext||'gcd';const body=NESTG.replace(/\n/g,'\r\n');if(ext==='txt')saveFile(base+'.txt',body);else saveFile(base+'.zip',makeZip([{name:base+'.'+ext,data:new TextEncoder().encode(body)}]),true);break;}
   case'savePdf':setupPDF();break;
@@ -1583,6 +1599,54 @@ function pvCyl(J){const cv=$('#pvc');if(!cv)return;const c=J.c,path=[];const o=J
   for(const z of c.zones){const p=T([Math.max(z.z0,z.z1),z.dia/2]),q=T([Math.min(z.z0,z.z1),-z.dia/2]);g.fillStyle=z.side==='id'?'#1b2026':'#5b83ea';g.fillRect(q[0],p[1],p[0]-q[0],q[1]-p[1]);}return T;},path,
   {tool:(g,c_,cur)=>{g.fillStyle='rgba(139,90,60,.85)';g.fillRect(c_[0]-14,c_[1]-40,28,40);},text:()=>(o.mode==='plunge'?(LANG==='vi'?'Ăn thẳng':'Plunge'):(LANG==='vi'?`Chạy dọc · ${o.pR}+${o.pF} lượt`:`Traverse · ${o.pR}+${o.pF} passes`))});PV.speed=0.8;}
 
+
+/* ================= templates · quote · projects ================= */
+const TPL_KEYS=['doc','woc','leave','lead','leadOut','leadEntry','leadR','leadL','overlap','corner','ramp','entry','peck','cycle','dwell','rings','docFix','chamfer'];
+function tplList(){try{return JSON.parse(localStorage.getItem('miniTpl')||'[]');}catch(_){return[];}}
+function tplSave(name){const L=tplList();const opp={},man={};S.ops.forEach(o=>{if(!o.on||opp[o.type])return;const q={};TPL_KEYS.forEach(k=>{if(o[k]!==undefined)q[k]=o[k];});if(!o.auto){q.rpm=o.rpm;q.feed=o.feed;q.plunge=o.plunge;q.manual=1;}opp[o.type]=q;});
+ const tp={id:'t'+Date.now().toString(36),name:name||((mat()[LANG==='vi'?'vi':'en'])+' · '+TX[S.fixture.type][LANG==='vi'?1:0]),date:new Date().toISOString().slice(0,10),mat:S.mat,machine:S.machine,def:{...DEF0,...(S.def||{})},fixture:{...S.fixture},opp};
+ const i=L.findIndex(x=>x.name===tp.name);if(i>=0)L[i]=tp;else L.push(tp);try{localStorage.setItem('miniTpl',JSON.stringify(L));}catch(_){}return tp;}
+function tplApply(id){const tp=tplList().find(x=>x.id===id);if(!tp)return;S.mat=tp.mat||S.mat;S.def={...DEF0,...tp.def};S.fixture={...S.fixture,...tp.fixture};autoProgram();
+ S.ops.forEach(o=>{const q=tp.opp[o.type];if(!q)return;TPL_KEYS.forEach(k=>{if(q[k]!==undefined)o[k]=q[k];});if(q.manual){o.auto=false;o.rpm=q.rpm;o.feed=q.feed;o.plunge=q.plunge;}else{o.auto=true;applyFeeds(o);}});
+ buildProgram();persist();render();toast((LANG==='vi'?'Đã áp dụng mẫu ':'Template applied: ')+tp.name);}
+function tplCard(){const L=tplList(),vi=LANG==='vi';return`<div class="card" style="--cc:#0a9bb0"><h2>${vi?'Mẫu nguyên công':'Operation templates'}</h2>
+ <p class="sub" style="margin:0 0 8px;font-size:13px">${vi?'Lưu bộ thông số bạn hay dùng (vật liệu, đồ gá, mặc định, bước xuống, vào/ra dao, tốc độ tay) rồi áp dụng một lần cho chi tiết khác.':'Save the settings you use often (material, fixture, defaults, step-downs, leads, manual speeds) and apply them to another part in one tap.'}</p>
+ ${L.length?`<div class="grid" style="gap:6px">${L.map(x=>`<div class="row" style="gap:8px;flex-wrap:nowrap;border-top:1px solid var(--line);padding-top:6px"><span style="flex:1;min-width:0"><b>${esc(x.name)}</b><br><span class="sub" style="font-size:12.5px">${esc(Object.keys(x.opp).length+' '+(vi?'loại bước':'op types')+' · '+x.date)}</span></span><button class="btn sm go" data-tpl="${x.id}">${vi?'Áp dụng':'Apply'}</button><button class="mini" data-tpldel="${x.id}" style="color:var(--bad)">${IC.del}</button></div>`).join('')}</div>`:`<p class="sub" style="margin:0;font-size:13.5px">${vi?'Chưa có mẫu nào.':'No templates yet.'}</p>`}
+ <div class="row" style="margin-top:10px;gap:8px;flex-wrap:nowrap"><input class="inp" id="tplName" style="flex:1;min-width:0" placeholder="${vi?'Tên mẫu, ví dụ: Nhôm 6061 + êtô':'Name, e.g. 6061 in vise'}"><button class="btn sm" data-act="tplSave">${IC.save}${vi?'Lưu mẫu':'Save'}</button></div></div>`;}
+
+const QDENS={al:0.0975,s:0.284,ss:0.289,ti:0.16,cu:0.323,br:0.307,pl:0.051,ci:0.26,in:0.296};
+const QMAT={al6061:['al',4.5],al7075:['al',7],al2024:['al',7],al5052:['al',4.5],mic6:['al',6],brass:['br',6],brz932:['br',9],cu110:['cu',8],delrin:['pl',6],s1018:['s',1.5],s12l14:['s',2],s1045:['s',2],s4140:['s',2.5],s4340:['s',3.5],a2:['s',6],ss303:['ss',5.5],ss304:['ss',5],ss316:['ss',7],ss174:['ss',9],ci:['ci',2],in718:['in',40],ti64:['ti',35]};
+function quoteCalc(){const vi=LANG==='vi',Q=S.quote={rate:85,setup:1,progH:0.5,load:1,deburr:3,outside:0,margin:25,price:null,...(S.quote||{})};const qm=QMAT[S.mat]||['al',5];const price=Q.price??qm[1];
+ const vol=S.stock.x*S.stock.y*S.stock.z,lb=vol*QDENS[qm[0]],matC=lb*price*1.1,cyc=CT/60,mach_=(cyc+Q.load)/60*Q.rate,lab=Q.deburr/60*Q.rate*0.6,per=matC+mach_+lab+(+Q.outside||0),once=(Q.setup+Q.progH)*Q.rate;
+ const qty=Math.max(1,parseInt(S.hdr.qty)||1),tot=(once+per*qty)*(1+Q.margin/100);return{Q,qm,price,vol,lb,matC,cyc,mach_,lab,per,once,qty,tot,pp:tot/qty,at:n=>(once+per*n)*(1+Q.margin/100)/n};}
+function quoteCard(){const r=quoteCalc(),Q=r.Q,vi=LANG==='vi',$$m=v=>'$'+(Math.round(v*100)/100).toFixed(2);const F=(k,lab,v,u)=>`<label class="f">${lab}${u?` (${u})`:''}<input inputmode="decimal" data-q="${k}" value="${v}"></label>`;
+ return`<div class="card" style="--cc:#1c9b5f;margin-bottom:14px"><h2>${vi?'Thời gian & báo giá':'Time & quote'}</h2>
+ <div class="fields">${F('rate',vi?'Giá giờ máy':'Machine rate',Q.rate,'$/h')}${F('setup',vi?'Giờ setup':'Setup',Q.setup,'h')}${F('progH',vi?'Giờ lập trình':'Programming',Q.progH,'h')}${F('load',vi?'Gá / tháo mỗi chi tiết':'Load / unload',Q.load,'min')}${F('deburr',vi?'Bavia + đo mỗi chi tiết':'Deburr + inspect',Q.deburr,'min')}${F('price',vi?'Giá vật liệu':'Material price',r.price,'$/lb')}${F('outside',vi?'Gia công ngoài mỗi chi tiết (anod, xi…)':'Outside service per part',Q.outside,'$')}${F('margin',vi?'Lời':'Margin',Q.margin,'%')}</div>
+ <div class="kpi" style="margin-top:10px"><div><span>${vi?'Chu trình':'Cycle'}</span><b>${r.cyc.toFixed(1)} min</b></div><div><span>${vi?'Số lượng':'Qty'}</span><b>${r.qty}</b></div><div><span>${vi?'Giá / chi tiết':'Price / part'}</span><b>${$$m(r.pp)}</b></div><div><span>${vi?'Tổng':'Total'}</span><b>${$$m(r.tot)}</b></div></div>
+ <div class="scroll" style="margin-top:10px"><table><tbody>
+ <tr><td>${vi?'Vật liệu':'Material'} (${fl(S.stock.x,3)}×${fl(S.stock.y,3)}×${fl(S.stock.z,3)} ${ulab()}, ${r.lb.toFixed(2)} lb, +10% ${vi?'cưa':'saw'})</td><td class="n">${$$m(r.matC)}</td></tr>
+ <tr><td>${vi?'Giờ máy':'Machine'} (${r.cyc.toFixed(1)} + ${Q.load} min)</td><td class="n">${$$m(r.mach_)}</td></tr>
+ <tr><td>${vi?'Bavia + đo':'Deburr + inspect'}</td><td class="n">${$$m(r.lab)}</td></tr>
+ ${+Q.outside?`<tr><td>${vi?'Gia công ngoài':'Outside service'}</td><td class="n">${$$m(+Q.outside)}</td></tr>`:''}
+ <tr><td><b>${vi?'Giá vốn / chi tiết':'Cost / part'}</b></td><td class="n"><b>${$$m(r.per)}</b></td></tr>
+ <tr><td>${vi?'Một lần (setup + lập trình)':'One time (setup + programming)'}</td><td class="n">${$$m(r.once)}</td></tr></tbody></table></div>
+ <div class="sec" style="margin-top:10px;font-weight:700">${vi?'Giá mỗi chi tiết theo số lượng':'Price per part by quantity'}</div>
+ <div class="scroll"><table><thead><tr>${[1,5,10,25,50,100].map(n=>`<th class="n">${n}</th>`).join('')}</tr></thead><tbody><tr>${[1,5,10,25,50,100].map(n=>`<td class="n">${$$m(r.at(n))}</td>`).join('')}</tr></tbody></table></div>
+ <div class="row" style="margin-top:10px"><button class="btn sm" data-act="quoteCopy">${IC.copy}${vi?'Chép báo giá':'Copy quote'}</button></div>
+ <p class="sub" style="margin:8px 0 0;font-size:12.5px">${vi?'Ước lượng: giá vật liệu mặc định theo giá thị trường gần đúng, bạn nên sửa theo giá nhà cung cấp. Số lượng lấy từ ô "Số lượng" phía trên.':'Estimate: default material prices are rough market values — set your supplier price. Quantity comes from the Qty field above.'}</p></div>`;}
+function quoteText(){const r=quoteCalc(),vi=LANG==='vi',m=v=>'$'+v.toFixed(2);return[(vi?'BÁO GIÁ':'QUOTE')+' — '+(S.hdr.name||'PART')+' '+(S.hdr.no||''),(vi?'Vật liệu: ':'Material: ')+mat()[vi?'vi':'en'],(vi?'Số lượng: ':'Qty: ')+r.qty,(vi?'Giá / chi tiết: ':'Price / part: ')+m(r.pp),(vi?'Tổng: ':'Total: ')+m(r.tot),'',[1,5,10,25,50,100].map(n=>n+' pcs: '+m(r.at(n))+(vi?'/cái':'/ea')).join('\n'),'','MINI CAM · Ryan Nguyen'].join('\n');}
+
+function confirmDel(){const k='_delArm';if(S[k]&&Date.now()-S[k]<4000){S[k]=0;return true;}S[k]=Date.now();toast(LANG==='vi'?'Bấm xoá lần nữa để chắc chắn':'Tap delete again to confirm');return false;}
+function projList(){try{return JSON.parse(localStorage.getItem('miniProj')||'[]');}catch(_){return[];}}
+function projData(){return JSON.parse(JSON.stringify({...S,ref:null,meshT:null,_hm:null,cylMap:null}));}
+function projSave(asNew){const L=projList(),vi=LANG==='vi';if(asNew||!S.projId)S.projId='p'+Date.now().toString(36);const it={id:S.projId,name:S.hdr.name||S.dxfName||'PART',date:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16).replace('T',' '),mat:S.mat,machine:S.machine,data:projData()};
+ const i=L.findIndex(x=>x.id===it.id);if(i>=0)L[i]=it;else L.unshift(it);try{localStorage.setItem('miniProj',JSON.stringify(L));toast((vi?'Đã lưu dự án ':'Project saved: ')+it.name+(S.src==='mesh'?(vi?' (mô hình STL/STEP cần mở lại file)':' (re-open the STL/STEP file for the mesh)'):''));}catch(e){toast(vi?'Hết chỗ lưu — xoá bớt dự án cũ':'Storage full — delete old projects');}}
+function projOpen(id){const it=projList().find(x=>x.id===id);if(!it)return;for(const k of Object.keys(S))delete S[k];Object.assign(S,it.data);S.projId=it.id;S.tab='program';MODEL=null;S._hm=null;try{applyZero();}catch(_){}buildProgram();persist();render();toast((LANG==='vi'?'Đã mở ':'Opened ')+it.name);}
+function projCard(){const L=projList(),vi=LANG==='vi',cur=S.projId;return`<details class="card" style="--cc:#8b4fd6" ${S._projOpen?'open':''} id="projBox"><summary style="cursor:pointer;list-style:none"><h2 style="display:inline">📁 ${vi?'Dự án':'Projects'}</h2> <span class="sub" style="font-size:13px">· ${esc(S.hdr.name||S.dxfName||'PART')}${cur?'':' ('+(vi?'chưa lưu':'not saved')+')'} · ${L.length}</span></summary>
+ <div class="row" style="margin:10px 0;gap:8px"><button class="btn sm go" data-act="pjSave">${IC.save}${vi?'Lưu':'Save'}</button><button class="btn sm" data-act="projSaveNew">${IC.plus}${vi?'Lưu thành bản mới':'Save as new'}</button><button class="btn sm" data-act="import">${IC.plus}${vi?'Mở bản vẽ mới':'New from drawing'}</button></div>
+ ${L.length?L.map(x=>`<div class="row" style="gap:8px;flex-wrap:nowrap;border-top:1px solid var(--line);padding:6px 0;${x.id===cur?'background:color-mix(in srgb,#8b4fd6 10%,transparent);border-radius:8px':''}"><span style="flex:1;min-width:0"><b>${esc(x.name)}</b>${x.id===cur?' <span class="pill" style="background:#8b4fd6;color:#fff;padding:2px 6px">'+(vi?'đang mở':'open')+'</span>':''}<br><span class="sub" style="font-size:12.5px">${esc(x.date)} · ${esc((C.MATERIALS.find(m=>m.id===x.mat)||{})[vi?'vi':'en']||'')} · ${esc((C.MACHINES.find(m=>m.id===x.machine)||{}).name||'')}</span></span><button class="btn sm" data-proj="${x.id}">${vi?'Mở':'Open'}</button><button class="mini" data-projdel="${x.id}" style="color:var(--bad)">${IC.del}</button></div>`).join(''):`<p class="sub" style="margin:0;font-size:13.5px">${vi?'Chưa có dự án nào. Bấm Lưu để giữ chi tiết này.':'No projects yet. Tap Save to keep this part.'}</p>`}
+ <p class="sub" style="margin:8px 0 0;font-size:12.5px">${vi?'Lưu trong trình duyệt của máy này. Để chuyển sang máy khác dùng Lưu / Mở file .json trong Cài đặt.':'Saved in this browser. To move to another device use the .json save / open in Settings.'}</p></details>`;}
+function snap3D(){try{const cv=document.createElement('canvas');cv.style.cssText='position:fixed;left:-9999px;top:0;width:560px;height:380px';document.body.appendChild(cv);const sv=[VIEW.yaw,VIEW.pitch,VIEW.z3];VIEW.yaw=-0.6;VIEW.pitch=0.9;VIEW.z3=1;drawModel3D(cv);const u=cv.toDataURL('image/png');[VIEW.yaw,VIEW.pitch,VIEW.z3]=sv;cv.remove();return u;}catch(e){return null;}}
 /* ================= LEARNING ================= */
 const SV=(w,h,b)=>`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;max-height:230px;background:#fff;border-radius:12px" font-family="Barlow,system-ui,sans-serif" font-size="11" font-weight="600">${b}</svg>`;
 const LBL=(x,y,t,c)=>`<text x="${x}" y="${y}" fill="${c||'#14181c'}">${t}</text>`;
@@ -1923,6 +1987,13 @@ function demoPart(src){const R=(x0,y0,x1,y1)=>[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
  return null;}
 function snapOuter(lp,w){let best=null,acc=0;for(let i=0;i<lp.length;i++){const a=lp[i],b=lp[(i+1)%lp.length],L=C.dist(a,b);if(L<1e-9)continue;let u=((w[0]-a[0])*(b[0]-a[0])+(w[1]-a[1])*(b[1]-a[1]))/(L*L);u=Math.max(0,Math.min(1,u));const x=a[0]+(b[0]-a[0])*u,y=a[1]+(b[1]-a[1])*u,d=Math.hypot(w[0]-x,w[1]-y);if(!best||d<best.d)best={x,y,d,s:acc+u*L,segL:L,u,ang:Math.atan2(b[1]-a[1],b[0]-a[0])};acc+=L;}return best;}
 function nestInv(p,X,Y){let x=X-p.x,y=Y-p.y;const w=p.T.w,h=p.T.h;let ox,oy;if(p.rot===90){oy=h-x;ox=y;}else if(p.rot===180){ox=w-x;oy=h-y;}else if(p.rot===270){oy=x;ox=w-y;}else{ox=x;oy=y;}return[ox+p.T.bx,oy+p.T.by];}
+function nestOv(p){S.nestPos=S.nestPos||{};return S.nestPos[p.key]||(S.nestPos[p.key]={x:p.x,y:p.y,rot:p.rot});}
+function nestRotSel(){const p=NESTR.placed.find(q=>q.key===S.nestSel);if(!p)return;const o=nestOv(p);const cx=p.x+p.w/2,cy=p.y+p.h/2;o.rot=(o.rot+90)%360;const w=o.rot%180?p.T.h:p.T.w,h=o.rot%180?p.T.w:p.T.h;o.x=+(Math.round((cx-w/2)/0.05)*0.05).toFixed(4);o.y=+(Math.round((cy-h/2)/0.05)*0.05).toFixed(4);persist();rNest();}
+function nestDragWire(sv){let drag=null;const upp=()=>1/sv.getScreenCTM().a;
+ sv.addEventListener('pointerdown',e=>{const g=e.target.closest('[data-pk]');if(!g)return;const p=NESTR.placed[+g.dataset.pk];S.nestSel=p.key;drag={p,g,x0:e.clientX,y0:e.clientY,ox:p.x,oy:p.y,moved:false};sv.setPointerCapture(e.pointerId);e.preventDefault();});
+ sv.addEventListener('pointermove',e=>{if(!drag)return;const k=upp(),dx=(e.clientX-drag.x0)*k,dy=-(e.clientY-drag.y0)*k;if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)>4)drag.moved=true;if(!drag.moved)return;const nx=Math.round((drag.ox+dx)/0.05)*0.05,ny=Math.round((drag.oy+dy)/0.05)*0.05;drag.nx=nx;drag.ny=ny;drag.g.setAttribute('transform',`translate(${nx-drag.ox} ${-(ny-drag.oy)})`);});
+ const end=e=>{if(!drag)return;const d=drag;drag=null;if(d.moved&&d.nx!=null){const o=nestOv(d.p);o.x=+d.nx.toFixed(4);o.y=+d.ny.toFixed(4);o.rot=d.p.rot;}persist();rNest();};
+ sv.addEventListener('pointerup',end);sv.addEventListener('pointercancel',end);}
 function nestTap(e){if(!S.nestTapOn)return;const sv=e.currentTarget,pt=sv.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(sv.getScreenCTM().inverse());const X=q.x,Y=-q.y;
  const vb=sv.viewBox.baseVal,th=26*vb.width/Math.max(1,sv.clientWidth),R=NESTR;S.nestTabs=S.nestTabs||{};const vi=LANG==='vi';
  let hit=null;for(const p of R.placed)for(const tb of p.tabs){const d=Math.hypot(tb.x-X,tb.y-Y);if(d<Math.max(th*0.6,S.nest.tabW*0.75)&&(!hit||d<hit.d))hit={p,tb,d};}
@@ -1946,6 +2017,10 @@ function nestCompute(){
   if(best){placed.push(best);return true;}return false;};
  for(const T of types){if(T.qty>0){let n=0;for(let i=0;i<T.qty;i++)if(tryPlace(T))n++;if(n<T.qty)warn.push(`${T.name}: ${n}/${T.qty} ${t('placed')} — ${LANG==='vi'?'không vừa tấm':'does not fit the sheet'}`);}}
  let guard=0,any=true;while(any&&guard++<300){any=false;for(const T of types)if(T.qty===0&&tryPlace(T))any=true;}
+ // manual positions (drag / rotate)
+ {const cnt={};S.nestPos=S.nestPos||{};placed.forEach(p=>{const k=p.T.src+'#'+(cnt[p.T.src]=(cnt[p.T.src]||0)+1);p.key=k;const o=S.nestPos[k];if(o){p.rot=o.rot;p.w=o.rot%180?p.T.h:p.T.w;p.h=o.rot%180?p.T.w:p.T.h;p.x=o.x;p.y=o.y;p.moved=true;}});
+  placed.forEach((p,i)=>{if(!p.moved)return;if(p.x<-1e-6||p.y<-1e-6||p.x+p.w>N.w+1e-6||p.y+p.h>N.h+1e-6)warn.push(`${p.T.name}: ${LANG==='vi'?'nằm ngoài tấm':'off the sheet'}`);
+   placed.forEach((q,j)=>{if(j<=i&&q.moved)return;if(j===i)return;if(p.x<q.x+q.w+gap-1e-6&&p.x+p.w+gap>q.x+1e-6&&p.y<q.y+q.h+gap-1e-6&&p.y+p.h+gap>q.y+1e-6)warn.push(`${p.T.name} ↔ ${q.T.name}: ${LANG==='vi'?'quá sát hoặc chồng nhau (cần hở ≥ dao + 1/8")':'too close or overlapping (need ≥ tool + 1/8")'}`);});});}
  // transform geometry
  const xf=(p,q)=>{let x=q[0]-p.T.bx,y=q[1]-p.T.by;const w=p.T.w,h=p.T.h;if(p.rot===90){[x,y]=[h-y,x];}else if(p.rot===180){[x,y]=[w-x,h-y];}else if(p.rot===270){[x,y]=[y,w-x];}return[x+p.x,y+p.y];};
  placed.forEach((p,k)=>{p.xf=q=>xf(p,q);p.id=k;p.loops=p.T.loops.map(l=>l.map(q=>xf(p,q)));p.circles=p.T.circles.map(c=>{const q=xf(p,[c.x,c.y]);return{x:q[0],y:q[1],r:c.r};});p.outer=p.T.outer.map(q=>xf(p,q));if(C.area(p.outer)<0)p.outer.reverse();
@@ -2005,12 +2080,12 @@ function nestSVG(){
  const N=S.nest,R=NESTR;const pad=0.6,W=N.w+2*pad,H=N.h+2*pad;const sw=W/500;const P=l=>l.map((q,i)=>(i?'L':'M')+q[0].toFixed(3)+' '+(-q[1]).toFixed(3)).join('')+'Z';
  const cols=['#2457d6','#8b4fd6','#1c9b5f','#e0457b','#0a9bb0','#c48a00'];
  let s=`<rect x="0" y="${-N.h}" width="${N.w}" height="${N.h}" rx="${sw*4}" fill="#dfe4e9" stroke="#8d969e" stroke-width="${sw*1.5}"/><rect x="${N.margin}" y="${-N.h+N.margin}" width="${N.w-2*N.margin}" height="${N.h-2*N.margin}" fill="none" stroke="#8d969e" stroke-dasharray="${sw*5} ${sw*4}" stroke-width="${sw}"/>`;
- R.placed.forEach((p,k)=>{const c=cols[p.T.ti%cols.length];s+=`<path d="${p.loops.map(P).join('')}" fill="${c}" fill-opacity=".22" fill-rule="evenodd" stroke="${c}" stroke-width="${sw*1.6}"/>`;
+ R.placed.forEach((p,k)=>{const c=cols[p.T.ti%cols.length];s+=`<g data-pk="${k}" style="${S.nestMoveOn?'cursor:grab':''}">${S.nestMoveOn&&S.nestSel===p.key?`<rect x="${p.x-0.08}" y="${-(p.y+p.h)-0.08}" width="${p.w+0.16}" height="${p.h+0.16}" fill="none" stroke="#ff6a13" stroke-width="${sw*2.5}" stroke-dasharray="${sw*6} ${sw*4}"/>`:''}`;s+=`<path d="${p.loops.map(P).join('')}" fill="${c}" fill-opacity=".22" fill-rule="evenodd" stroke="${c}" stroke-width="${sw*1.6}"/>`;
   p.circles.forEach(q=>s+=`<circle cx="${q.x}" cy="${-q.y}" r="${q.r}" fill="#fff" stroke="${c}" stroke-width="${sw*1.2}"/>`);
   p.tabs.forEach(q=>s+=`<rect transform="rotate(${(-(q.ang||0)*180/Math.PI).toFixed(2)} ${q.x} ${-q.y})" x="${q.x-N.tabW/2-R.D/2}" y="${-q.y-R.D/2}" width="${N.tabW+R.D}" height="${R.D}" rx="${sw*2}" fill="#ff6a13" stroke="#b54200" stroke-width="${sw*0.8}"/>`);
-  s+=`<text x="${p.x+p.w/2}" y="${-(p.y+p.h/2)}" font-size="${Math.min(0.45,Math.min(p.w,p.h)*0.3)}" text-anchor="middle" dominant-baseline="middle" fill="#14181c" font-weight="700">${k+1}</text>`;});
+  s+=`<text x="${p.x+p.w/2}" y="${-(p.y+p.h/2)}" font-size="${Math.min(0.45,Math.min(p.w,p.h)*0.3)}" text-anchor="middle" dominant-baseline="middle" fill="#14181c" font-weight="700">${k+1}</text></g>`;});
  R.holes.forEach(q=>s+=`<circle cx="${q[0]}" cy="${-q[1]}" r="0.17" fill="#1c9b5f" stroke="#0d5c37" stroke-width="${sw}"/>`);
- return`<svg id="nestSvg" viewBox="${-pad} ${-N.h-pad} ${W} ${H}" style="width:100%;height:auto;${S.nestTapOn?'cursor:crosshair;outline:3px solid #ff6a13;outline-offset:2px;border-radius:6px;':''}" font-family="Barlow,system-ui,sans-serif">${s}</svg>`;}
+ return`<svg id="nestSvg" viewBox="${-pad} ${-N.h-pad} ${W} ${H}" style="width:100%;height:auto;${S.nestTapOn?'cursor:crosshair;outline:3px solid #ff6a13;outline-offset:2px;border-radius:6px;':''}${S.nestMoveOn?'outline:3px solid #8b4fd6;outline-offset:2px;border-radius:6px;touch-action:none;':''}" font-family="Barlow,system-ui,sans-serif">${s}</svg>`;}
 function tabSectionSVG(){const N=S.nest,R=NESTR;const T=N.partT,tt=N.tabT,w=N.tabW,D=R.D;
  const zone=w+D,W=Math.max(zone*3,1.6),sc=300/W,Hh=Math.max(T*sc+90,140);const X=v=>10+v*sc,Y=v=>40+v*sc;const cx=W/2;
  let s=`<rect x="${X(0)}" y="${Y(0)}" width="${W*sc}" height="${T*sc}" fill="#eef1f4" stroke="#9aa3ab" stroke-dasharray="4 3"/>`;
@@ -2041,7 +2116,8 @@ function rNest(){
  $('#main').innerHTML=`<h1>${t('nestTitle')}</h1><p class="sub">${t('nestSub')}</p>
  <div class="grid g2"><div class="grid" style="align-content:start">
   <div class="card"><h2>${t('nest')} · ${fl(N.w,2)} × ${fl(N.h,2)}</h2>
-   <div class="row" style="gap:8px;margin-bottom:10px"><button class="btn sm ${S.nestTapOn?'go':''}" data-act="nestTap">✋ ${S.nestTapOn?(LANG==='vi'?'Đang chọn tab — bấm để xong':'Placing tabs — tap to finish'):(LANG==='vi'?'Chọn chỗ tab':'Place tabs')}</button>${S.nestTabs&&Object.keys(S.nestTabs).length?`<button class="btn sm" data-act="nestTabAuto">${IC.bolt}${LANG==='vi'?'Tab tự động lại':'Auto tabs again'}</button>`:''}<button class="btn sm" data-act="nestDxf">${IC.plus}${LANG==='vi'?'Thêm bản vẽ DXF':'Add DXF part'}</button></div>
+   <div class="row" style="gap:8px;margin-bottom:10px"><button class="btn sm ${S.nestTapOn?'go':''}" data-act="nestTap">✋ ${S.nestTapOn?(LANG==='vi'?'Đang chọn tab — bấm để xong':'Placing tabs — tap to finish'):(LANG==='vi'?'Chọn chỗ tab':'Place tabs')}</button>${S.nestTabs&&Object.keys(S.nestTabs).length?`<button class="btn sm" data-act="nestTabAuto">${IC.bolt}${LANG==='vi'?'Tab tự động lại':'Auto tabs again'}</button>`:''}<button class="btn sm ${S.nestMoveOn?'go':''}" data-act="nestMove">${S.nestMoveOn?(LANG==='vi'?'✥ Đang sắp xếp — bấm để xong':'✥ Arranging — tap to finish'):(LANG==='vi'?'✥ Sắp xếp tay':'✥ Arrange by hand')}</button>${S.nestMoveOn&&S.nestSel?`<button class="btn sm" data-act="nestRot">⟳ ${LANG==='vi'?'Xoay 90°':'Rotate 90°'}</button>`:''}${S.nestPos&&Object.keys(S.nestPos).length?`<button class="btn sm" data-act="nestPosReset">${IC.reset||''}${LANG==='vi'?'Xếp tự động lại':'Auto arrange again'}</button>`:''}<button class="btn sm" data-act="nestDxf">${IC.plus}${LANG==='vi'?'Thêm bản vẽ DXF':'Add DXF part'}</button></div>
+   ${S.nestMoveOn?`<div class="warn" style="margin-bottom:10px;background:color-mix(in srgb,#8b4fd6 14%,transparent)">${LANG==='vi'?'Kéo chi tiết để dời chỗ (bước 0.05"). Chạm để chọn rồi bấm <b>Xoay 90°</b>. App báo nếu chi tiết chồng nhau hoặc ra ngoài tấm.':'Drag a part to move it (0.05" steps). Tap to select, then <b>Rotate 90°</b>. The app warns if parts overlap or leave the sheet.'}</div>`:''}
    ${S.nestTapOn?`<div class="warn" style="margin-bottom:10px;background:color-mix(in srgb,#ff6a13 14%,transparent)">${LANG==='vi'?'Chạm lên đường viền chi tiết để <b>thêm tab</b>. Chạm lên tab cam để <b>bỏ</b>. Tab áp dụng cho mọi chi tiết cùng loại (kể cả khi bị xoay).':'Tap a part outline to <b>add a tab</b>. Tap an orange tab to <b>remove</b> it. Tabs apply to every copy of the same part (rotated too).'}</div>`:''}
    ${nestSVG()}
    <div class="kpi" style="margin-top:10px"><div><span>${t('parts')}</span><b>${R.placed.length}</b></div><div><span>${t('tabsN')}</span><b>${totTabs}</b></div><div><span>${t('screws')}</span><b>${R.holes.length}</b></div><div><span>${t('cycle')}</span><b>${R.time?(R.time/60).toFixed(1)+' min':'—'}</b></div></div>
@@ -2068,7 +2144,7 @@ function rNest(){
    <label class="f">${t('removal')}<select data-nb="removal" data-u="S"><option value="break" ${N.removal==='break'?'selected':''}>${t('breakFile')}</option><option value="mill" ${N.removal==='mill'?'selected':''}>${t('millFix')}</option></select></label></div></div>
   <div class="card"><h2>${t('gcode')}</h2><div class="row" style="margin-bottom:10px"><button class="btn go" data-act="nestSave">${IC.save}${t('saveFile')}</button><button class="btn" data-act="nestCopy">${IC.copy}${t('copy')}</button><span class="ro" style="font-weight:600">${lines.length} ${t('lines')}</span></div>
    <pre class="code" style="max-height:300px">${hlG(NESTG.slice(0,20000))}</pre></div>
- </div></div>`;const sv=$('#nestSvg');if(sv)sv.addEventListener('click',nestTap);}
+ </div></div>`;const sv=$('#nestSvg');if(sv){sv.addEventListener('click',nestTap);if(S.nestMoveOn)nestDragWire(sv);}}
 
 /* ================= 3D model from drawing ================= */
 function modelGrid(){
@@ -2186,10 +2262,12 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-win]');if(
  const c=b.closest('.card');if(w==='min'){c.classList.remove('maxi');c.classList.toggle('min');const k=c.dataset.key;c.classList.contains('min')?WIN.add(k):WIN.delete(k);try{localStorage.setItem('miniWin',JSON.stringify([...WIN]));}catch(_){}}
  if(w==='max'){c.classList.remove('min');c.classList.toggle('maxi');document.body.classList.toggle('noscroll',c.classList.contains('maxi'));setTimeout(()=>{drawView();simDraw();},60);}},true);
 
+document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='projBox')S._projOpen=e.target.open?1:0;},true);
+if('serviceWorker' in navigator&&/github\.io$|^localhost$/.test(location.hostname)){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}
 /* ================= boot ================= */
 try{LANG=localStorage.getItem('trakLang')||'vi';}catch(_){}
 const had=restore();
 if(!had||!S.raw){WARN=[];importDXF(demoDXF(),'demo-bracket.dxf','in');}else{applyZero();}
 buildProgram();render();
-if(/debug/.test(location.search))window.__mc={get S(){return S},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();}};
+if(/debug/.test(location.search))window.__mc={get S(){return S},get SIM(){return SIM},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();}};
 }
