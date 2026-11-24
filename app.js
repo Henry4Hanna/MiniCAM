@@ -1089,7 +1089,7 @@ document.addEventListener('click',e=>{
   case'lCopy':copyText(S.lathe.gcode);break;
   case'lAdd':{const ty=$('#lAddSel').value;S.lathe.ops.push({type:ty,tool:{lface:1,lrough:1,lfinish:2,lgroove:3,lthread:4,ldrill:5,lpart:6}[ty],on:true,doc:0.06,leaveX:0.01,zPos:-0.5,width:0.125,dia:0.9,peckX:0.05,pitch:0.05,zEnd:-0.75,passes:8,depth:0.5,peck:0.15});rLathe();break;}
   case'lReset':if(LSIM){LSIM.playing=false;LSIM.k=0;LSIM.r.fill(S.lathe.stockD/2);latheDraw($('#lcv'),0);}break;
-  case'nestAdd':S.nest.items.push({src:'plate',qty:1});rNest();break;
+  case'nestAdd':S.nest.items.push({src:'plate',qty:1});rNest();break;case'nestTap':S.nestTapOn=!S.nestTapOn;rNest();break;case'nestTabAuto':S.nestTabs={};persist();rNest();break;case'nestDxf':$('#fileNest').click();break;
   case'nestCopy':copyText(NESTG);break;
   case'nestSave':{const base=((S.hdr.name||'NEST')+'_NEST').toUpperCase().replace(/[^A-Z0-9_-]/g,'');const ext=S.ext||'gcd';const body=NESTG.replace(/\n/g,'\r\n');if(ext==='txt')saveFile(base+'.txt',body);else saveFile(base+'.zip',makeZip([{name:base+'.'+ext,data:new TextEncoder().encode(body)}]),true);break;}
   case'savePdf':setupPDF();break;
@@ -1109,6 +1109,7 @@ document.addEventListener('click',e=>{
  }
 });
 $('#sheet').addEventListener('click',e=>{if(e.target.id==='sheet'){closeSheet();persist();}});
+$('#fileNest').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(f)nestImport(f);});
 $('#fileDxf').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';const ext=(f.name.split('.').pop()||'').toLowerCase();const uSel=$('#dxfU')?.value||'auto';WARN=[];
  try{
   if(ext==='dwg'){toast('DWG → DXF');WARN=[t('dwgNote')];}
@@ -1917,11 +1918,27 @@ function demoPart(src){const R=(x0,y0,x1,y1)=>[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
  if(src==='L')return{name:'L-bracket',loops:[[[0,0],[4,0],[4,1],[1,1],[1,3],[0,3]]],circles:[{x:0.5,y:0.5,r:0.1005},{x:3.5,y:0.5,r:0.1005},{x:0.5,y:2.5,r:0.1005}]};
  if(src==='rib')return{name:'Rib',loops:[R(0,0,10,1)],circles:[{x:0.5,y:0.5,r:0.1328},{x:9.5,y:0.5,r:0.1328}]};
  if(src==='plate')return{name:'Plate',loops:[R(0,0,3,2)],circles:[{x:1.5,y:1,r:0.375},{x:0.4,y:0.4,r:0.1005},{x:2.6,y:0.4,r:0.1005},{x:0.4,y:1.6,r:0.1005},{x:2.6,y:1.6,r:0.1005}]};
+ if(src&&src.startsWith('u:')){const u=(S.nestParts||[]).find(x=>x.id===src);if(u)return{name:u.name,loops:u.loops,circles:u.circles};}
  if(src==='current'&&S.geom){const b=C.geomBox(S.geom);const g=C.scaleGeom(S.geom,1,-b[0],-b[1]);const ex=new Set(S.excl||[]);return{name:S.hdr.name||'Part',loops:g.loops,circles:g.circles,ld:g.ld};}
  return null;}
+function snapOuter(lp,w){let best=null,acc=0;for(let i=0;i<lp.length;i++){const a=lp[i],b=lp[(i+1)%lp.length],L=C.dist(a,b);if(L<1e-9)continue;let u=((w[0]-a[0])*(b[0]-a[0])+(w[1]-a[1])*(b[1]-a[1]))/(L*L);u=Math.max(0,Math.min(1,u));const x=a[0]+(b[0]-a[0])*u,y=a[1]+(b[1]-a[1])*u,d=Math.hypot(w[0]-x,w[1]-y);if(!best||d<best.d)best={x,y,d,s:acc+u*L,segL:L,u,ang:Math.atan2(b[1]-a[1],b[0]-a[0])};acc+=L;}return best;}
+function nestInv(p,X,Y){let x=X-p.x,y=Y-p.y;const w=p.T.w,h=p.T.h;let ox,oy;if(p.rot===90){oy=h-x;ox=y;}else if(p.rot===180){ox=w-x;oy=h-y;}else if(p.rot===270){oy=x;ox=w-y;}else{ox=x;oy=y;}return[ox+p.T.bx,oy+p.T.by];}
+function nestTap(e){if(!S.nestTapOn)return;const sv=e.currentTarget,pt=sv.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(sv.getScreenCTM().inverse());const X=q.x,Y=-q.y;
+ const vb=sv.viewBox.baseVal,th=26*vb.width/Math.max(1,sv.clientWidth),R=NESTR;S.nestTabs=S.nestTabs||{};const vi=LANG==='vi';
+ let hit=null;for(const p of R.placed)for(const tb of p.tabs){const d=Math.hypot(tb.x-X,tb.y-Y);if(d<Math.max(th*0.6,S.nest.tabW*0.75)&&(!hit||d<hit.d))hit={p,tb,d};}
+ const own=p=>{if(!Array.isArray(S.nestTabs[p.T.src]))S.nestTabs[p.T.src]=p.tabs.map(tb=>nestInv(p,tb.x,tb.y));return S.nestTabs[p.T.src];};
+ if(hit){const L=own(hit.p);const iv=nestInv(hit.p,hit.tb.x,hit.tb.y);let bi=-1,bd=1e9;L.forEach((m,i)=>{const d=Math.hypot(m[0]-iv[0],m[1]-iv[1]);if(d<bd){bd=d;bi=i;}});if(bi>=0)L.splice(bi,1);toast(vi?'Đã bỏ tab':'Tab removed');}
+ else{let best=null;for(const p of R.placed){const sn=snapOuter(p.outer,[X,Y]);if(sn&&sn.d<th&&(!best||sn.d<best.sn.d))best={p,sn};}
+  if(!best){toast(vi?'Chạm gần đường viền chi tiết để đặt tab':'Tap near a part outline to place a tab');return;}
+  const L=own(best.p);L.push(nestInv(best.p,best.sn.x,best.sn.y));const need=S.nest.tabW+R.D;toast((vi?'Đã thêm tab':'Tab added')+(best.sn.segL<need?(vi?' — cạnh ngắn hơn bề rộng tab':' — edge shorter than the tab'):''));}
+ persist();rNest();}
+async function nestImport(f){const vi=LANG==='vi';try{const txt=await f.text();const pr=C.parseDXF(txt,0.0002);const g0=C.buildGeom(pr,0.0002);const b=C.geomBox(g0);const ext=Math.max(b[2]-b[0],b[3]-b[1]);let units=pr.units;if(!units)units=ext>40?'mm':'in';
+  const sc=units==='mm'?1/25.4:units==='cm'?1/2.54:units==='m'?39.37:1;const g=C.scaleGeom(g0,sc,0,0);if(!g.loops||!g.loops.length){toast(vi?'Không thấy đường viền kín trong DXF':'No closed outline in the DXF');return;}
+  const bb=C.geomBox(g),g2=C.scaleGeom(g,1,-bb[0],-bb[1]);S.nestParts=S.nestParts||[];const id='u:'+Date.now().toString(36);const name=f.name.replace(/\.[^.]+$/,'');
+  S.nestParts.push({id,name,loops:g2.loops,circles:g2.circles||[]});S.nest.items.push({src:id,qty:1});persist();rNest();toast((vi?'Đã thêm ':'Added ')+name+' · '+fl(bb[2]-bb[0],3)+' × '+fl(bb[3]-bb[1],3)+' '+ulab());}catch(err){toast((vi?'Lỗi đọc DXF: ':'DXF error: ')+err.message);}}
 function nestCompute(){
  const N=S.nest={...NEST0,...(S.nest||{})};const tl=toolById(N.tool)||findTool(x=>x.type==='flat'&&x.dia<=0.25)||findTool(x=>x.type==='flat');N.tool=tl?tl.id:'';const D=tl?tl.dia:0.25,gap=D+0.125;
- const types=[];N.items.forEach((it,ti)=>{const p=demoPart(it.src);if(!p||!p.loops.length)return;const outer=p.loops.reduce((a,b)=>Math.abs(C.area(b))>Math.abs(C.area(a))?b:a);const b=C.bbox(outer);types.push({...p,ti,qty:+it.qty||0,outer,w:b[2]-b[0],h:b[3]-b[1],bx:b[0],by:b[1],area:(b[2]-b[0])*(b[3]-b[1])});});
+ const types=[];N.items.forEach((it,ti)=>{const p=demoPart(it.src);if(!p||!p.loops.length)return;const outer=p.loops.reduce((a,b)=>Math.abs(C.area(b))>Math.abs(C.area(a))?b:a);const b=C.bbox(outer);types.push({...p,ti,src:it.src,qty:+it.qty||0,outer,w:b[2]-b[0],h:b[3]-b[1],bx:b[0],by:b[1],area:(b[2]-b[0])*(b[3]-b[1])});});
  types.sort((a,b)=>b.area-a.area);const placed=[],W=N.w-N.margin,H=N.h-N.margin,warn=[];
  const fits=(x,y,w,h)=>x>=N.margin-1e-9&&y>=N.margin-1e-9&&x+w<=W+1e-9&&y+h<=H+1e-9&&!placed.some(p=>x<p.x+p.w+gap-1e-9&&x+w+gap>p.x+1e-9&&y<p.y+p.h+gap-1e-9&&y+h+gap>p.y+1e-9);
  const tryPlace=T=>{let best=null;const cands=[[N.margin,N.margin]];placed.forEach(p=>{cands.push([p.x+p.w+gap,p.y],[p.x,p.y+p.h+gap],[N.margin,p.y+p.h+gap],[p.x+p.w+gap,N.margin]);});
@@ -1931,15 +1948,17 @@ function nestCompute(){
  let guard=0,any=true;while(any&&guard++<300){any=false;for(const T of types)if(T.qty===0&&tryPlace(T))any=true;}
  // transform geometry
  const xf=(p,q)=>{let x=q[0]-p.T.bx,y=q[1]-p.T.by;const w=p.T.w,h=p.T.h;if(p.rot===90){[x,y]=[h-y,x];}else if(p.rot===180){[x,y]=[w-x,h-y];}else if(p.rot===270){[x,y]=[y,w-x];}return[x+p.x,y+p.y];};
- placed.forEach((p,k)=>{p.id=k;p.loops=p.T.loops.map(l=>l.map(q=>xf(p,q)));p.circles=p.T.circles.map(c=>{const q=xf(p,[c.x,c.y]);return{x:q[0],y:q[1],r:c.r};});p.outer=p.T.outer.map(q=>xf(p,q));if(C.area(p.outer)<0)p.outer.reverse();
+ placed.forEach((p,k)=>{p.xf=q=>xf(p,q);p.id=k;p.loops=p.T.loops.map(l=>l.map(q=>xf(p,q)));p.circles=p.T.circles.map(c=>{const q=xf(p,[c.x,c.y]);return{x:q[0],y:q[1],r:c.r};});p.outer=p.T.outer.map(q=>xf(p,q));if(C.area(p.outer)<0)p.outer.reverse();
   // tabs on straight edges, away from corners
   const per=C.perim(p.outer,true),n=N.tabFixed>0?Math.round(N.tabFixed):Math.max(2,Math.ceil(per/N.tabEvery)),need=N.tabW+D+0.05;const segs=[];let acc=0;
   for(let i=0;i<p.outer.length;i++){const a=p.outer[i],b=p.outer[(i+1)%p.outer.length],L=C.dist(a,b);segs.push({a,b,L,s:acc});acc+=L;}
   const ok=segs.filter(s=>s.L>=need);const tabs=[];
   for(let k2=0;k2<n&&ok.length;k2++){const target=(k2+0.5)*per/n;let bs=null,bd=1e18;for(const s of ok){const lo=s.s+need/2,hi=s.s+s.L-need/2;const tt=Math.min(hi,Math.max(lo,target));const d=Math.abs(tt-target);if(d<bd&&!tabs.some(q=>Math.abs(q.s-tt)<need*1.5)){bd=d;bs={s:tt,seg:s};}}
-   if(bs){const u=(bs.s-bs.seg.s)/bs.seg.L;tabs.push({s:bs.s,x:bs.seg.a[0]+(bs.seg.b[0]-bs.seg.a[0])*u,y:bs.seg.a[1]+(bs.seg.b[1]-bs.seg.a[1])*u});}}
+   if(bs){const u=(bs.s-bs.seg.s)/bs.seg.L;tabs.push({s:bs.s,x:bs.seg.a[0]+(bs.seg.b[0]-bs.seg.a[0])*u,y:bs.seg.a[1]+(bs.seg.b[1]-bs.seg.a[1])*u,ang:Math.atan2(bs.seg.b[1]-bs.seg.a[1],bs.seg.b[0]-bs.seg.a[0])});}}
+  const man=(S.nestTabs||{})[p.T.src];if(Array.isArray(man)){tabs.length=0;man.forEach((q,mi)=>{const w=xf(p,q),sn=snapOuter(p.outer,w);tabs.push({...sn,mi});});tabs.sort((a,b)=>a.s-b.s);p.manual=true;}
   p.tabs=tabs;p.per=per;
-  if(tabs.length<n)warn.push(`${p.T.name} #${k+1}: ${tabs.length}/${n} ${t('tabsN')} (${LANG==='vi'?'thiếu cạnh thẳng':'not enough straight edges'})`);
+  if(!p.manual&&tabs.length<n)warn.push(`${p.T.name} #${k+1}: ${tabs.length}/${n} ${t('tabsN')} (${LANG==='vi'?'thiếu cạnh thẳng':'not enough straight edges'})`);
+  if(p.manual&&!tabs.length)warn.push(`${p.T.name} #${k+1}: ${LANG==='vi'?'chưa có tab nào — chi tiết sẽ rời ra khi cắt':'no tabs — the part will come loose'}`);
   if(Math.max(p.w,p.h)>8&&tabs.length<3)warn.push(`${p.T.name} #${k+1}: ${LANG==='vi'?'chi tiết dài chỉ có':'long part has only'} ${tabs.length} ${t('tabsN')}`);});
  // screw holes in the skeleton
  const holes=[];if(N.hold==='screw'){const inset=Math.max(0.3,N.margin*0.6),clr=0.3+gap/2;const cand=[];const nx=Math.max(2,Math.round(N.w/6)+1),ny=Math.max(2,Math.round(N.h/6)+1);
@@ -1988,10 +2007,10 @@ function nestSVG(){
  let s=`<rect x="0" y="${-N.h}" width="${N.w}" height="${N.h}" rx="${sw*4}" fill="#dfe4e9" stroke="#8d969e" stroke-width="${sw*1.5}"/><rect x="${N.margin}" y="${-N.h+N.margin}" width="${N.w-2*N.margin}" height="${N.h-2*N.margin}" fill="none" stroke="#8d969e" stroke-dasharray="${sw*5} ${sw*4}" stroke-width="${sw}"/>`;
  R.placed.forEach((p,k)=>{const c=cols[p.T.ti%cols.length];s+=`<path d="${p.loops.map(P).join('')}" fill="${c}" fill-opacity=".22" fill-rule="evenodd" stroke="${c}" stroke-width="${sw*1.6}"/>`;
   p.circles.forEach(q=>s+=`<circle cx="${q.x}" cy="${-q.y}" r="${q.r}" fill="#fff" stroke="${c}" stroke-width="${sw*1.2}"/>`);
-  p.tabs.forEach(q=>s+=`<rect x="${q.x-N.tabW/2-R.D/2}" y="${-q.y-R.D/2}" width="${N.tabW+R.D}" height="${R.D}" rx="${sw*2}" fill="#ff6a13" stroke="#b54200" stroke-width="${sw*0.8}"/>`);
+  p.tabs.forEach(q=>s+=`<rect transform="rotate(${(-(q.ang||0)*180/Math.PI).toFixed(2)} ${q.x} ${-q.y})" x="${q.x-N.tabW/2-R.D/2}" y="${-q.y-R.D/2}" width="${N.tabW+R.D}" height="${R.D}" rx="${sw*2}" fill="#ff6a13" stroke="#b54200" stroke-width="${sw*0.8}"/>`);
   s+=`<text x="${p.x+p.w/2}" y="${-(p.y+p.h/2)}" font-size="${Math.min(0.45,Math.min(p.w,p.h)*0.3)}" text-anchor="middle" dominant-baseline="middle" fill="#14181c" font-weight="700">${k+1}</text>`;});
  R.holes.forEach(q=>s+=`<circle cx="${q[0]}" cy="${-q[1]}" r="0.17" fill="#1c9b5f" stroke="#0d5c37" stroke-width="${sw}"/>`);
- return`<svg viewBox="${-pad} ${-N.h-pad} ${W} ${H}" style="width:100%;height:auto" font-family="Barlow,system-ui,sans-serif">${s}</svg>`;}
+ return`<svg id="nestSvg" viewBox="${-pad} ${-N.h-pad} ${W} ${H}" style="width:100%;height:auto;${S.nestTapOn?'cursor:crosshair;outline:3px solid #ff6a13;outline-offset:2px;border-radius:6px;':''}" font-family="Barlow,system-ui,sans-serif">${s}</svg>`;}
 function tabSectionSVG(){const N=S.nest,R=NESTR;const T=N.partT,tt=N.tabT,w=N.tabW,D=R.D;
  const zone=w+D,W=Math.max(zone*3,1.6),sc=300/W,Hh=Math.max(T*sc+90,140);const X=v=>10+v*sc,Y=v=>40+v*sc;const cx=W/2;
  let s=`<rect x="${X(0)}" y="${Y(0)}" width="${W*sc}" height="${T*sc}" fill="#eef1f4" stroke="#9aa3ab" stroke-dasharray="4 3"/>`;
@@ -2017,11 +2036,14 @@ function tabCheckNotes(){const r=tabCheckRes(),N=S.nest,vi=LANG==='vi';if(!r)ret
 function rNest(){
  S.nest={...NEST0,...(S.nest||{})};const N=S.nest;nestCompute();NESTG=nestProgram();const R=NESTR;
  const L=(k,p)=>inp(k,fl(N[p]),`data-nb="${p}" data-u="L"`),Nn=(k,p)=>inp(k,N[p],`data-nb="${p}" data-u="N"`);
- const srcs=[['current',t('curPart')],['L','L-bracket'],['rib','Rib 10 × 1'],['plate','Plate 3 × 2']];
+ const srcs=[['current',t('curPart')],['L','L-bracket'],['rib','Rib 10 × 1'],['plate','Plate 3 × 2'],...(S.nestParts||[]).map(u=>[u.id,'DXF · '+u.name])];
  const totTabs=R.placed.reduce((a,p)=>a+p.tabs.length,0);const lines=NESTG.split('\n');const ti=lines.findIndex(l=>new RegExp('Z'+(fl(-N.partT+N.tabT,4)).replace('.','\\.')+'\\b').test(l));
  $('#main').innerHTML=`<h1>${t('nestTitle')}</h1><p class="sub">${t('nestSub')}</p>
  <div class="grid g2"><div class="grid" style="align-content:start">
-  <div class="card"><h2>${t('nest')} · ${fl(N.w,2)} × ${fl(N.h,2)}</h2>${nestSVG()}
+  <div class="card"><h2>${t('nest')} · ${fl(N.w,2)} × ${fl(N.h,2)}</h2>
+   <div class="row" style="gap:8px;margin-bottom:10px"><button class="btn sm ${S.nestTapOn?'go':''}" data-act="nestTap">✋ ${S.nestTapOn?(LANG==='vi'?'Đang chọn tab — bấm để xong':'Placing tabs — tap to finish'):(LANG==='vi'?'Chọn chỗ tab':'Place tabs')}</button>${S.nestTabs&&Object.keys(S.nestTabs).length?`<button class="btn sm" data-act="nestTabAuto">${IC.bolt}${LANG==='vi'?'Tab tự động lại':'Auto tabs again'}</button>`:''}<button class="btn sm" data-act="nestDxf">${IC.plus}${LANG==='vi'?'Thêm bản vẽ DXF':'Add DXF part'}</button></div>
+   ${S.nestTapOn?`<div class="warn" style="margin-bottom:10px;background:color-mix(in srgb,#ff6a13 14%,transparent)">${LANG==='vi'?'Chạm lên đường viền chi tiết để <b>thêm tab</b>. Chạm lên tab cam để <b>bỏ</b>. Tab áp dụng cho mọi chi tiết cùng loại (kể cả khi bị xoay).':'Tap a part outline to <b>add a tab</b>. Tap an orange tab to <b>remove</b> it. Tabs apply to every copy of the same part (rotated too).'}</div>`:''}
+   ${nestSVG()}
    <div class="kpi" style="margin-top:10px"><div><span>${t('parts')}</span><b>${R.placed.length}</b></div><div><span>${t('tabsN')}</span><b>${totTabs}</b></div><div><span>${t('screws')}</span><b>${R.holes.length}</b></div><div><span>${t('cycle')}</span><b>${R.time?(R.time/60).toFixed(1)+' min':'—'}</b></div></div>
    <div class="legend"><span><i class="dot" style="background:#ff6a13"></i>Tab</span><span><i class="dot" style="background:#1c9b5f"></i>${LANG==='vi'?'Lỗ vít':'Screw hole'}</span></div>
    ${R.warn.length?`<div class="warn" style="margin-top:10px">${R.warn.map(esc).join('<br>')}</div>`:''}
@@ -2046,7 +2068,7 @@ function rNest(){
    <label class="f">${t('removal')}<select data-nb="removal" data-u="S"><option value="break" ${N.removal==='break'?'selected':''}>${t('breakFile')}</option><option value="mill" ${N.removal==='mill'?'selected':''}>${t('millFix')}</option></select></label></div></div>
   <div class="card"><h2>${t('gcode')}</h2><div class="row" style="margin-bottom:10px"><button class="btn go" data-act="nestSave">${IC.save}${t('saveFile')}</button><button class="btn" data-act="nestCopy">${IC.copy}${t('copy')}</button><span class="ro" style="font-weight:600">${lines.length} ${t('lines')}</span></div>
    <pre class="code" style="max-height:300px">${hlG(NESTG.slice(0,20000))}</pre></div>
- </div></div>`;}
+ </div></div>`;const sv=$('#nestSvg');if(sv)sv.addEventListener('click',nestTap);}
 
 /* ================= 3D model from drawing ================= */
 function modelGrid(){
