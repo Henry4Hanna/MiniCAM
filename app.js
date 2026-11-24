@@ -135,7 +135,8 @@ const mat=()=>C.MATERIALS.find(m=>m.id===S.mat)||C.MATERIALS[0];
 const mach0=()=>C.MACHINES.find(m=>m.id===S.machine)||C.MACHINES[0];
 const mach=()=>{const m=mach0(),o=(S.mo||{})[m.id];return o?{...m,...Object.fromEntries(Object.entries(o).filter(([k,v])=>typeof v==='number'?v>0:!!v))}:m;};
 const toolById=id=>S.tools.find(x=>x.id===id);
-const featById=id=>S.feats.find(f=>f.id===id);
+const featById=id=>{if(id&&String(id).endsWith('~m')){const b=S.feats.find(f=>f.id===String(id).slice(0,-2));return b?mirrorFeat(b):undefined;}return S.feats.find(f=>f.id===id);};
+const _MF=new Map();function mirrorFeat(f){const sr=stockRect(),c=sr[1]+sr[3],key=f.id+':'+c+':'+(f.loop?f.loop.length:0);if(_MF.has(key))return _MF.get(key);const m={...f,id:f.id+'~m',mirror:true};if(f.loop)m.loop=f.loop.map(p=>[p[0],c-p[1]]).reverse();if(f.holes)m.holes=f.holes.map(h=>({...h,y:h.y!=null?c-h.y:h.y,cy:h.cy!=null?c-h.cy:h.cy}));if(f.pts)m.pts=f.pts.map(p=>[p[0],c-p[1]]);if(f.cy!=null)m.cy=c-f.cy;_MF.set(key,m);return m;}
 function toast(s){const e=$('#toast');e.textContent=s;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),1800);}
 async function copyText(s){try{await navigator.clipboard.writeText(s);toast(t('copied'));}catch(e){const ta=document.createElement('textarea');ta.value=s;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(t('copied'));}catch(_){}ta.remove();}}
 
@@ -352,7 +353,7 @@ function importDXF(txt,name,uSel){
  toast(t('imported')+': '+S.feats.length+' '+t('features').toLowerCase());
  if(sk.length)WARN.push(t('dxfSkipped')+' '+sk.join(', '));
 }
-const ZK={tl:['l','t'],tc:['c','t'],tr:['r','t'],ml:['l','m'],c:['c','m'],mr:['r','m'],ll:['l','b'],bc:['c','b'],lr:['r','b']};
+const ZFLIP={tl:'ll',tc:'bc',tr:'lr',ml:'ml',c:'c',mr:'mr',ll:'tl',bc:'tc',lr:'tr'};const ZK={tl:['l','t'],tc:['c','t'],tr:['r','t'],ml:['l','m'],c:['c','m'],mr:['r','m'],ll:['l','b'],bc:['c','b'],lr:['r','b']};
 const ZN={tl:['TOP LEFT','Trên trái'],tc:['TOP CENTER','Trên giữa'],tr:['TOP RIGHT','Trên phải'],ml:['MIDDLE LEFT','Giữa trái'],c:['CENTER','Tâm'],mr:['MIDDLE RIGHT','Giữa phải'],ll:['LOWER LEFT','Dưới trái'],bc:['LOWER CENTER','Dưới giữa'],lr:['LOWER RIGHT','Dưới phải']};
 function zeroOff(b){const k=ZK[S.zero]||ZK.ll;return[-(k[0]==='l'?b[0]:k[0]==='r'?b[2]:(b[0]+b[2])/2),-(k[1]==='b'?b[1]:k[1]==='t'?b[3]:(b[1]+b[3])/2)];}
 function applyZero(){
@@ -364,7 +365,7 @@ function applyZero(){
 }
 function stockRect(){if(!S.geom)return[0,0,S.stock.x,S.stock.y];const b=C.geomBox(S.geom),cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2;return[cx-S.stock.x/2,cy-S.stock.y/2,cx+S.stock.x/2,cy+S.stock.y/2];}
 function thick(){return Math.max(0.01,S.stock.part||0.75);}
-const DEF0={perf:5,stockAuto:true,side:0.125,stdRound:true,grip:0.3,safety:0.1,roughMethod:'contour',roughDoc:0.25,finLeave:0.01,finFull:true,drillCycle:'auto',pocketDepth:0.25};
+const DEF0={op2:true,perf:5,stockAuto:true,side:0.125,stdRound:true,grip:0.3,safety:0.1,roughMethod:'contour',roughDoc:0.25,finLeave:0.01,finFull:true,drillCycle:'auto',pocketDepth:0.25};
 function stdUp(v){if(!(S.def&&S.def.stdRound))return +v.toFixed(4);if(S.units==='mm'){const mm=v*25.4,st=mm<=50?1:5;return +(Math.ceil(mm/st-1e-6)*st/25.4).toFixed(5);}const st=v<=2.0001?0.125:v<=6.0001?0.25:0.5;return +(Math.ceil(v/st-1e-6)*st).toFixed(4);}
 function partBox(){const g=S.geom||S.raw;if(!g)return null;const b=C.geomBox(g);return[b[2]-b[0],b[3]-b[1]];}
 function stockCalc(){const D={...DEF0,...(S.def||{})};const pb=partBox()||[S.stock.x-2*D.side,S.stock.y-2*D.side];const z0=S.stock.part+S.stock.face+D.grip+D.safety;return{pw:pb[0],ph:pb[1],x0:pb[0]+2*D.side,y0:pb[1]+2*D.side,z0,x:stdUp(pb[0]+2*D.side),y:stdUp(pb[1]+2*D.side),z:stdUp(z0),D};}
@@ -418,6 +419,12 @@ function ensureTool(spec){let tl=S.tools.find(x=>x.type===spec.type&&Math.abs(x.
 function stockGap(loop){const sr=stockRect(),n=70,dx=(sr[2]-sr[0])/n,dy=(sr[3]-sr[1])/n;let g=0;
  const dl=q=>{let b=1e18;for(let i=0;i<loop.length;i++){const a=loop[i],c=loop[(i+1)%loop.length],ex=c[0]-a[0],ey=c[1]-a[1],l=ex*ex+ey*ey;let t=l?((q[0]-a[0])*ex+(q[1]-a[1])*ey)/l:0;t=t<0?0:t>1?1:t;b=Math.min(b,Math.hypot(q[0]-a[0]-t*ex,q[1]-a[1]-t*ey));}return b;};
  for(let j=0;j<=n;j++)for(let i=0;i<=n;i++){const q=[sr[0]+i*dx,sr[1]+j*dy];if(C.pip(q,loop))continue;g=Math.max(g,dl(q));}return g;}
+function op2Left(){return+(S.stock.z-S.stock.face-S.stock.part).toFixed(4);}
+function op2Build(fm,ch,profiles){if(!S.def||S.def.op2===false)return;const L=op2Left();if(L<0.005||!fm)return;if(['magnet','vacuum','chuck4','tomb'].includes(S.fixture.type))return;
+ const doc=Math.min(L,Math.max(0.05,(S.def.roughDoc||0.1)));S.ops.push(newOp('face',null,fm.id,{setup:'op2',zTop:L,zBot:0,doc}));
+ if(ch)for(const f of profiles)S.ops.push(newOp('chamfer',f.id+'~m',ch.id,{setup:'op2',chamfer:0.015,zBot:-0.015}));}
+function opSU(o){return o.setup||'op1';}
+function SU(){return S.setup||'op1';}
 function autoProgram(){
  syncStock();const D=S.def;
  S.ops=[];if(!S.feats.length)return;const th=thick(),m=mat();const ex=new Set(S.excl||[]);const FE=S.feats.filter(f=>!ex.has(f.id));
@@ -447,6 +454,7 @@ function autoProgram(){
   if(tap){const tp=ensureTool({type:'tap',desc:tap[0]+' spiral point tap',dia:tap[1],flutes:3,mat:'hss',coat:'none',pitch:tap[2],loc:Math.max(0.75,tap[1]*3),oal:Math.max(2.2,tap[1]*9)});f.tap=tap[0];S.ops.push(newOp('tap',f.id,tp.id,{zBot:blind(f)?-Math.max(tap[2]*3,f.depth-3*tap[2]):-(th+0.05)}));}}
  const ch=findTool(x=>x.type==='chamfer');if(ch)for(const f of profiles)S.ops.push(newOp('chamfer',f.id,ch.id,{chamfer:0.015,zBot:-0.015}));
  if(S.meshT){const bl=findTool(x=>x.type==='ball');const fl_=findTool(x=>x.type==='flat'&&x.dia<=0.5);if(fl_)S.ops.push(newOp('surfRough',null,fl_.id,{zBot:-th,leave:0.02,on:false}));if(bl)S.ops.push(newOp('surfFinish',null,bl.id,{zBot:-th,on:false}));}
+ op2Build(fm,ch,profiles);
 }
 function opOK(o){const f=featById(o.feat);if(['face','rotRough','engrave'].includes(o.type))return true;if(o.type==='rotFinish'||o.type==='flow5')return!!S.meshT;if(o.type.startsWith('surf'))return!!S.meshT;if(!f)return false;
  if(o.type==='flute'||o.type==='moulding')return f.kind==='slot';if(o.type==='deburr5')return f.kind!=='slot';if(o.type==='flow5')return!!S.meshT;if(['rest','vcarve'].includes(o.type))return f.kind==='profile'||f.kind==='pocket';
@@ -460,7 +468,7 @@ function getCyl(){if(!S.meshT||!S.meshInfo)return null;if(S.cylMap)return S.cylM
 function buildProgram(){fxAutoApply();
  syncStock();
  WARN=WARN.filter(w=>w.startsWith(t('dxfSkipped'))||w.includes(t('ignoredFaces')));const prog=[];let last=null,first=true,pos=null,lastS=0;const sr=stockRect(),mc=mach(),ax=axesAvail();
- S.ops.forEach((o,i)=>{if(!o.on)return;const tl=toolById(o.tool);if(!tl){WARN.push('#'+(i+1)+': '+t('tool')+'?');return;}
+ S.ops.forEach((o,i)=>{if(!o.on||opSU(o)!==SU())return;const tl=toolById(o.tool);if(!tl){WARN.push('#'+(i+1)+': '+t('tool')+'?');return;}
   if(!opOK(o)){WARN.push('#'+(i+1)+' '+opLabel(o.type)+': '+(o.type.startsWith('surf')?t('needMesh'):t('warnFeature')));return;}
   const need=FIVE.includes(o.type)?5:ROT.includes(o.type)||o.a!=null?4:(o.b!=null||o.c!=null)?5:3;if(need>ax)WARN.push('#'+(i+1)+' '+opLabel(o.type)+': '+t('needAxes').replace('{n}',need)+' ('+mc.name+')');
   const ctx={tool:tl,feat:featById(o.feat)||{kind:'none'},stockRect:sr,clear:SETS().safeZ,retract:SETS().retract,tol:0.0002,pos,hm:(o.type.startsWith('surf')||o.type==='flow5')?getHM():null,cyl:o.type==='rotFinish'?getCyl():null};
@@ -475,8 +483,9 @@ function buildProgram(){fxAutoApply();
  FOREP=null;if(S.def&&S.def.feedOpt&&prog.length){const hasFace=S.ops.some(o=>o.on&&o.type==='face');const r=C.feedOpt(prog,sr,hasFace?0:(S.stock.face||0));prog.length=0;prog.push(...r.prog);FOREP=r;}
  PROG=prog;
  const k=K(),scale=b=>{if(b.t==='cycle')return{...b,pts:b.pts.map(p=>[p[0]*k,p[1]*k]),z:b.z*k,r:b.r*k,q:b.q*k,f:b.f*k,clear:b.clear*k};if(b.t==='g43')return{...b,x:b.x*k,y:b.y*k};if(b.g!==undefined){const o={...b,x:b.x*k,y:b.y*k,z:b.z*k};if(b.f&&!b.inv)o.f=b.f*k;if(b.g>1){o.i=b.i*k;o.j=b.j*k;}return o;}return b;};
- const m=mat();GCODE=(S.post==='siemens'?C.postSiemens:C.post)(prog.map(scale),{arcfit:SETS().arcfit!==false,units:S.units,clear:SETS().safeZ*k,post:S.post,name:S.hdr.name,progNo:1001,coolant:SETS().coolant,lineNums:S.lineNums,toolStop:S.toolStop,stopCode:S.stopCode||'M00',
-  header:['MINI CAM BY RYAN NGUYEN '+S.hdr.date,'MACHINE '+mc.name+(S.rotary&&S.rotary!=='none'?' + '+C.ROTARIES.find(x=>x.id===S.rotary).name:''),'MATERIAL '+m.en,'STOCK '+fl(S.stock.x,3)+' X '+fl(S.stock.y,3)+' X '+fl(S.stock.z,3)+' '+ulab(),'X0 Y0 '+((ZN[S.zero]||ZN.ll)[0])+' - Z0 TOP OF FINISHED PART']});
+ const m=mat();GCODE=(S.post==='siemens'?C.postSiemens:C.post)(prog.map(scale),{arcfit:SETS().arcfit!==false,units:S.units,clear:SETS().safeZ*k,post:S.post,name:S.hdr.name,progNo:SU()==='op2'?1002:1001,coolant:SETS().coolant,lineNums:S.lineNums,toolStop:S.toolStop,stopCode:S.stopCode||'M00',
+  header:['MINI CAM BY RYAN NGUYEN '+S.hdr.date,'MACHINE '+mc.name+(S.rotary&&S.rotary!=='none'?' + '+C.ROTARIES.find(x=>x.id===S.rotary).name:''),'MATERIAL '+m.en,'STOCK '+fl(S.stock.x,3)+' X '+fl(S.stock.y,3)+' X '+fl(S.stock.z,3)+' '+ulab(),...(SU()==='op2'?['OP2 - FLIP PART 180 DEG ABOUT X','GRIP FINISHED SIDES - SOFT JAWS OR PARALLELS','X0 Y0 '+((ZN[ZFLIP[S.zero]||S.zero]||ZN.ll)[0])+' - Z0 FINISHED BOTTOM (TOP NOW) - REMOVE '+fl(op2Left(),3)+' '+ulab()]:[(S.ops.some(o=>o.on&&opSU(o)==='op2')?'OP1 - TOP SIDE':'OP1'),'X0 Y0 '+((ZN[S.zero]||ZN.ll)[0])+' - Z0 TOP OF FINISHED PART'])]});
+ if(SU()==='op2'&&S.post!=='prototrak')GCODE=GCODE.replace(/^G54$/m,'G55').replace(/^(N\d+ )G54$/m,'$1G55');
  GCODE=gAscii(GCODE);SEGS=C.simSegs(prog,1);SEGS4=C.simSegs4(prog);const tc=prog.filter(b=>b.t==='tool').length;CT=C.cycleTime(SEGS,mc.rapid,tc,SETS().tcSec);
  const b=C.geomBox(S.geom||{loops:[],circles:[],opens:[]});if(S.geom&&(b[2]-b[0]>mc.tx||b[3]-b[1]>mc.ty))WARN.push(mc.name+': travel X'+mc.tx+' Y'+mc.ty+' in');
  autoPar();const fc=fixtureCheck();if(fc&&fc.bad)WARN.push(t('fixBad'));{const pk=peakForce();if(pk.f>0&&C.fixtureHold(S.fixture)/pk.f<3)WARN.push(LANG==='vi'?'Lực giữ phôi thấp (hệ số an toàn < 3) — xem tab Đồ gá':'Low holding force (SF < 3) — see Fixtures');}if(fc&&fc.low)WARN.push(t('fixLow'));
@@ -554,9 +563,14 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
  renderOps();renderCode();initView();
 }
 function passTxt(o){const tot=Math.abs(o.zTop-o.zBot);const n=Math.max(1,Math.ceil(tot/Math.max(o.doc,1e-4)-1e-6));return n+' '+t('passes')+' × '+fl(tot/n,3);}
+function opTabs(){const vi=LANG==='vi',has2=S.ops.some(o=>opSU(o)==='op2'),L=op2Left(),n1=S.ops.filter(o=>opSU(o)==='op1'&&o.on).length,n2=S.ops.filter(o=>opSU(o)==='op2'&&o.on).length;
+ return`<div class="seg" style="display:flex;margin-bottom:10px"><button class="${SU()==='op1'?'on':''}" data-su="op1" style="flex:1">OP1 · ${vi?'Mặt trên':'Top side'} (${n1})</button><button class="${SU()==='op2'?'on':''}" data-su="op2" style="flex:1">OP2 · ${vi?'Lật mặt':'Flip side'} (${n2})</button></div>
+ ${SU()==='op2'?`<div class="warn" style="margin-bottom:10px;background:color-mix(in srgb,#8b4fd6 12%,transparent);font-size:13.5px;line-height:1.5"><b>${vi?'OP2 — lật chi tiết':'OP2 — flip the part'}</b><br>${vi?`1. Lật chi tiết 180° quanh trục X (mặt trên xuống dưới).<br>2. Kẹp vào 2 cạnh đã phay ở OP1 (hàm mềm hoặc kẹp trên thanh kê), mặt đã phay áp xuống thanh kê.<br>3. Đặt Z0 = mặt đáy hoàn thiện: chạm mặt trên hiện tại rồi trừ ${fl(L,3)} ${ulab()} (phần kẹp còn dư).<br>4. X0 Y0 = ${(ZN[ZFLIP[S.zero]||S.zero]||ZN.ll)[1]} (góc đổi chỗ vì đã lật). Chương trình O1002, gốc G55.`:`1. Flip the part 180° about X (top face down).<br>2. Grip the two sides finished in OP1 (soft jaws or on parallels), finished face down.<br>3. Set Z0 = finished bottom: touch the current top and subtract ${fl(L,3)} ${ulab()} (leftover grip).<br>4. X0 Y0 = ${(ZN[ZFLIP[S.zero]||S.zero]||ZN.ll)[0].toLowerCase()} (corner moves after the flip). Program O1002, offset G55.`}</div>`:''}
+ ${SU()==='op2'&&!has2?`<p class="sub" style="font-size:13.5px">${L<0.005?(vi?'Không còn phần dư dưới đáy — không cần OP2. Tăng "Phôi Z" hoặc phần kẹp để có OP2.':'No stock left under the part — OP2 not needed.'):(vi?'Chưa có bước OP2. Bấm Tự lập trình hoặc thêm bước.':'No OP2 ops yet. Tap Auto program or add one.')}</p>`:''}
+ ${SU()==='op1'&&has2?`<p class="sub" style="font-size:13px;margin:0 0 8px">${vi?`Sau OP1 còn ${fl(L,3)} ${ulab()} phần kẹp dưới đáy → OP2 lật mặt phay đi.`:`After OP1, ${fl(L,3)} ${ulab()} of grip stock remains under the part → OP2 flips and faces it off.`}</p>`:''}`;}
 function renderOps(){
  const el=$('#ops');if(!el)return;
- el.innerHTML=S.ops.map((o,i)=>{const tl=toolById(o.tool),f=featById(o.feat),open=OPEN.has(o.id);const col=OPCOL[i%OPCOL.length];
+ el.innerHTML=opTabs()+S.ops.map((o,i)=>{if(opSU(o)!==SU())return'';const tl=toolById(o.tool),f=featById(o.feat),open=OPEN.has(o.id);const col=OPCOL[i%OPCOL.length];
   const lenF=(k,v)=>inp(k,fl(v),`data-op="${o.id}" data-k="${k}" data-u="L"`),feedF=(k,v)=>`<label class="f">${esc(t(k))} (${flab()})<input inputmode="decimal" data-op="${o.id}" data-k="${k}" data-u="F" value="${ffd(v)}"></label>`;
   const isMill=['face','adaptive','pocket','contour','slot','circ','surfRough','wrap','rest','flute'].includes(o.type);
   return`<div class="op ${o.on?'':'off'} ${open?'open':''}" data-id="${o.id}">
@@ -726,7 +740,7 @@ function toolKernel(tl,res){const r=Math.max(tl.dia/2,tl.type==='cornerround'?(t
   K.push(j,i,z);}return{K,r};}
 function simInit(){if(SIMSTATE.axis==='4'){sim4Init();return;}
  const sr=stockRect(),W=sr[2]-sr[0],H=sr[3]-sr[1],res=Math.max(W,H)/(SIMSTATE.hd?440:280),nx=Math.ceil(W/res)+1,ny=Math.ceil(H/res)+1;
- const top=S.stock.face,bot=S.stock.face-S.stock.z;const h=new Float32Array(nx*ny).fill(top);
+ const o2=SU()==='op2',top=o2?op2Left():S.stock.face,bot=o2?-S.stock.part:S.stock.face-S.stock.z;const h=new Float32Array(nx*ny).fill(top);
  SIM={sr,res,nx,ny,h,own:new Int16Array(nx*ny).fill(-1),top,bot,i:0,u:0,ker:{},crash:[],pos:[0,0,1],done:false,op:-1};SIMSTATE.dirty=false;SIM.ev=[];SIMSTATE._evn=0;try{SIM.fx=simFixture(()=>[0,0,0],null,0).boxes.filter(b=>!b[6]&&b[5]>bot+0.002);}catch(_){SIM.fx=[];}
 }
 function holderHit(x,y,z,tl){const st=stickOf(tl),hz=z+st,R=HOLDERS[holderOf(tl)].d/2;if(hz>SIM.top+0.001)return;const{nx,ny,h,res,sr}=SIM;for(let a=0;a<12;a++){const px=x+R*Math.cos(a*0.5236),py=y+R*Math.sin(a*0.5236);const i=Math.round((px-sr[0])/res),j=Math.round((py-sr[1])/res);if(i<0||j<0||i>=nx||j>=ny)continue;if(h[j*nx+i]>hz+0.002){SIM.hcrash=SIM.hcrash||[];if(SIM.hcrash.length<200)SIM.hcrash.push([x,y,z]);simEv('holder',x,y,z);return;}}}
@@ -744,8 +758,9 @@ function simAdvance(dist){if(SIMSTATE.axis==='4'){sim4Advance(dist);return;} // 
  if(SIM.i>=CS().length)SIM.done=true;}
 function rSim(){if(mach().type==='lathe'){rLatheSim();return;}if(['grind','cylgrind'].includes(mach().type)){rGrind();return;}if(mach().type==='wire'){rWire();return;}
  if(!SEGS.length&&SEGS4.length)SIMSTATE.axis='4';if(!SEGS4.length)SIMSTATE.axis='3';
- if(!CS().length){$('#main').innerHTML=`<h1>${t('simTitle')}</h1><p class="sub">${t('noProg')}</p><button class="btn pri" data-tab="program">${t('program')}</button>`;return;}
- $('#main').innerHTML=`<h1>${t('simTitle')}</h1>
+ const suBar=S.ops.some(o=>opSU(o)==='op2')?`<div class="seg" style="display:flex;margin-bottom:10px"><button class="${SU()==='op1'?'on':''}" data-su="op1" style="flex:1">OP1 · ${LANG==='vi'?'Mặt trên':'Top side'}</button><button class="${SU()==='op2'?'on':''}" data-su="op2" style="flex:1">OP2 · ${LANG==='vi'?'Lật mặt':'Flip side'}</button></div>`:'';
+ if(!CS().length){$('#main').innerHTML=`<h1>${t('simTitle')}</h1>${suBar}<p class="sub">${t('noProg')}</p><button class="btn pri" data-tab="program">${t('program')}</button>`;return;}
+ $('#main').innerHTML=`<h1>${t('simTitle')}</h1>${suBar}
  <div class="view" id="sv" style="height:min(62vh,600px)"><canvas id="svc"></canvas>
   <div class="ovl tl"><div class="seg" id="simMode"><button data-m="3d" class="${SIMSTATE.mode==='3d'?'on':''}">${t('view3d')}</button><button data-m="top" class="${SIMSTATE.mode==='top'?'on':''}">${t('viewTop')}</button></div><button class="btn sm ${SIMSTATE.hd?'pri':''}" data-act="simHD">${t('hd')}</button><button class="btn sm" data-vca="home" title="ISO" aria-label="ISO" style="min-width:44px;padding:0 10px"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></button><button class="btn sm" data-vca="fit" title="FIT" style="padding:0 10px">FIT</button>${SEGS.length&&SEGS4.length?`<div class="seg"><button data-ax="3" class="${SIMSTATE.axis==='3'?'on':''}">XYZ</button><button data-ax="4" class="${SIMSTATE.axis==='4'?'on':''}">A</button></div>`:''}</div>
   <div class="ovl tr" style="top:${SIMSTATE.sh.cube?160:64}px;flex-direction:column;align-items:flex-end;gap:6px"><div style="display:flex;flex-direction:column;gap:6px"><button class="mini" data-zm="1.2">${IC.plus}</button><button class="mini" data-zm="0.83"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg></button></div></div><div id="vcube" style="position:absolute;right:12px;top:60px;z-index:3;width:84px;${SIMSTATE.sh.cube?'':'display:none'}"><canvas id="vcc" style="display:block;width:84px;height:84px;touch-action:none"></canvas></div>
@@ -1215,6 +1230,7 @@ document.addEventListener('click',e=>{
  if(d.perf){S.def={...DEF0,...(S.def||{})};S.def.perf=+d.perf;S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();persist();if(S.tab==='program')rProgram();toast((LANG==='vi'?'Hiệu suất ':'Performance ')+d.perf);return;}
  if(d.shw){SIMSTATE.sh[d.shw]=SIMSTATE.sh[d.shw]?0:1;const pl=SIMSTATE.playing;rSim();if(pl){SIMSTATE.playing=true;updPlay();simLast=0;simRAF=requestAnimationFrame(simLoop);}return;}
  if(d.vca){const D=Math.PI/12;const A={up:[0,-D],dn:[0,D],lf:[D,0],rt:[-D,0],ccw:[Math.PI/2,0],cw:[-Math.PI/2,0]}[d.vca];if(d.vca==='fit'){viewTo(SIMSTATE.yaw,SIMSTATE.pitch,1);}else if(d.vca==='home'){viewTo(-0.785,0.96,1);}else viewTo(SIMSTATE.yaw+A[0],Math.max(0,Math.min(Math.PI/2,SIMSTATE.pitch+A[1])));return;}
+ if(d.su){S.setup=d.su;buildProgram();persist();if(S.tab==='sim'){SIMSTATE.dirty=true;rSim();}else{renderOps();renderCode();VIEW.fitted=false;drawView&&drawView();}return;}
  if(d.tpl){tplApply(d.tpl);return;}if(d.tpldel){const L=tplList().filter(x=>x.id!==d.tpldel);try{localStorage.setItem('miniTpl',JSON.stringify(L));}catch(_){}rProgram();return;}
  if(d.proj){projOpen(d.proj);return;}if(d.projdel){if(!confirmDel())return;const L=projList().filter(x=>x.id!==d.projdel);try{localStorage.setItem('miniProj',JSON.stringify(L));}catch(_){}if(S.projId===d.projdel)S.projId=null;S._projOpen=1;rProgram();return;}
  if(d.mtype){const k=d.mtype;S.lastByType=S.lastByType||{};S.lastByType[mtypeOf(mach())]=S.machine;const id=S.lastByType[k]&&C.MACHINES.find(m=>m.id===S.lastByType[k])?S.lastByType[k]:(C.MACHINES.find(m=>mtypeOf(m)===k)||{}).id;if(id&&id!==S.machine){const el=$('#selMachine');el.value=id;el.dispatchEvent(new Event('change',{bubbles:true}));}if(!['program','sim','setup','tools','calc','learn','help','settings','about'].includes(S.tab)){S.tab='program';render();}return;}
@@ -1233,9 +1249,10 @@ document.addEventListener('click',e=>{
   case'zIn':case'zOut':{if(VIEW.mode==='3d'){VIEW.z3*=d.act==='zIn'?1.25:0.8;drawView();break;}const cv=$('#pvc'),r=cv.getBoundingClientRect();zoomAt(r.left+r.width/2,r.top+r.height/2,d.act==='zIn'?1.3:1/1.3);drawView();break;}
   case'togglePaths':VIEW.paths=!VIEW.paths;b.style.color=VIEW.paths?'var(--blue)':'';drawView();break;
   case'auto':autoProgram();buildProgram();rProgram();break;
-  case'addOp':{const f=S.feats.find(x=>x.kind!=='holes')||S.feats[0];const tl=findTool(x=>x.type==='flat');if(!tl)break;const o=newOp(f&&f.kind==='holes'?'drill':'contour',f?f.id:null,tl.id,{zBot:-0.25});S.ops.push(o);OPEN.add(o.id);regen();renderOps();break;}
+  case'addOp':{const f=S.feats.find(x=>x.kind!=='holes')||S.feats[0];const tl=findTool(x=>x.type==='flat');if(!tl)break;const o=newOp(f&&f.kind==='holes'?'drill':'contour',f?f.id:null,tl.id,{zBot:-0.25});if(SU()==='op2')o.setup='op2';S.ops.push(o);OPEN.add(o.id);regen();renderOps();break;}
   case'copyG':copyText(GCODE);break;
   case'saveG':{const ext=S.ext||'gcd',base=(S.hdr.name||'PART').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,20)||'PART';const body=GCODE.replace(/\n/g,'\r\n');
+   if(S.ops.some(o=>o.on&&opSU(o)==='op2')){const keep=SU(),F=[];for(const su of['op1','op2']){S.setup=su;buildProgram();F.push({name:base+'_'+su.toUpperCase()+'.'+ext,data:new TextEncoder().encode(GCODE.replace(/\n/g,'\r\n'))});}S.setup=keep;buildProgram();saveFile(base+'.zip',makeZip(F),true);toast(LANG==='vi'?'Đã lưu OP1 + OP2 (2 chương trình)':'Saved OP1 + OP2 (2 programs)');break;}
    if(ext==='txt')saveFile(base+'.txt',body);else saveFile(base+'.zip',makeZip([{name:base+'.'+ext,data:new TextEncoder().encode(body)}]),true);break;}
   case'stl':exportSTL();break;case'step':exportSTEP();break;
   case'simPrev':{const c=CS();const cur=SIM.i>0?c[Math.min(SIM.i,c.length)-1][9]:-1;let k=SIM.i;while(k>0&&c[k-1][9]===cur)k--;const prevOp=k>0?c[k-1][9]:-1;if(prevOp>=0){while(k>0&&c[k-1][9]===prevOp)k--;}SIMSTATE.playing=false;updPlay();simJump(k);break;}
