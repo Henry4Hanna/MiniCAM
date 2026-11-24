@@ -73,7 +73,7 @@ const TX={
  bboxNote:['Nesting uses each part\'s bounding rectangle (true-shape nesting comes later).','Xếp theo hình chữ nhật bao quanh chi tiết (xếp theo đúng hình sẽ làm sau).'],
  sampleNote:['Sample parts are synthetic, not shop parts.','Chi tiết mẫu là chi tiết tổng hợp, không phải chi tiết của xưởng.'],
  minW:['Minimize','Thu nhỏ'],maxW:['Maximize','Phóng to'],surfRough:['3D roughing (Z-level)','Phay thô 3D (theo lớp Z)'],surfFinish:['3D parallel finish','Phay tinh 3D song song'],wrap:['4th axis wrap','Trục 4 – quấn biên'],rotRough:['4th axis rotary rough','Trục 4 – phay thô tròn xoay'],swarf:['5-axis draft wall (TCPC)','5 trục – vách nghiêng (TCPC)'],
- defs:['Program defaults','Mặc định lập trình'],stockAuto:['Auto stock height','Tự tính chiều cao phôi'],grip:['Grip in jaws','Phần kẹp trong hàm'],safety:['Safety','An toàn'],roughMethod:['Profile/pocket roughing','Phay thô biên/hốc'],
+ defs:['Program defaults','Mặc định lập trình'],stockAuto:['Auto stock','Phôi tự động'],sideA:['Stock per side','Dư mỗi bên'],grip:['Grip in jaws','Phần kẹp trong hàm'],safety:['Safety','An toàn'],roughMethod:['Profile/pocket roughing','Phay thô biên/hốc'],
  byContour:['Contour step-down','Contour từng lớp'],byAdaptive:['Adaptive','Adaptive'],roughDoc:['Rough DOC per pass','Ăn sâu thô mỗi lớp'],finLeave:['Leave for finish','Chừa cho tinh'],finFull:['Finish full depth in 1 pass','Tinh hết chiều sâu 1 lần'],drillCycle:['Drill cycle','Chu trình khoan'],pocketDepth:['Default pocket depth','Độ sâu hốc mặc định'],
  cycle:['Cycle','Chu trình'],dwell:['Dwell (s)','Dừng đáy (giây)'],rings:['Rough rings','Số vòng thô'],aAng:['A index °','A xoay °'],bAng:['B tilt °','B nghiêng °'],cAng:['C rotate °','C xoay °'],wcs:['Work offset','Gốc phôi'],
  wrapD:['Wrap diameter','Đường kính quấn'],d0:['Start Ø','Ø ban đầu'],d1:['Finish Ø','Ø hoàn thiện'],x0:['X start','X bắt đầu'],x1:['X end','X kết thúc'],tilt:['Tilt °','Góc nghiêng °'],
@@ -347,7 +347,7 @@ function importDXF(txt,name,uSel){
  if(!units)units=ext>40?'mm':'in';const sc=units==='mm'?1/25.4:units==='cm'?1/2.54:units==='m'?39.37:1;
  S.raw=C.scaleGeom(g0,sc,0,0);S.dxfName=name;S.excl=[];S.dwg={texts:(p.texts||[]).map(x=>({text:x.text,x:x.x*sc,y:x.y*sc,h:x.h*sc})).slice(0,400),dims:(p.dims||[]).map(d=>({text:d.text,val:d.val!=null?d.val*sc:null})).slice(0,300)};
  const bb=C.geomBox(S.raw);const w=bb[2]-bb[0],h=bb[3]-bb[1];S.stock.x=+(w+0.25).toFixed(3);S.stock.y=+(h+0.25).toFixed(3);
- applyZero();autoProgram();
+ applyZero();syncStock();autoProgram();
  const sk=Object.keys(p.skipped).filter(k=>!['TEXT','MTEXT','DIMENSION','HATCH','POINT','LEADER','SOLID','ATTDEF','VIEWPORT'].includes(k));
  toast(t('imported')+': '+S.feats.length+' '+t('features').toLowerCase());
  if(sk.length)WARN.push(t('dxfSkipped')+' '+sk.join(', '));
@@ -364,8 +364,15 @@ function applyZero(){
 }
 function stockRect(){if(!S.geom)return[0,0,S.stock.x,S.stock.y];const b=C.geomBox(S.geom),cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2;return[cx-S.stock.x/2,cy-S.stock.y/2,cx+S.stock.x/2,cy+S.stock.y/2];}
 function thick(){return Math.max(0.01,S.stock.part||0.75);}
-const DEF0={perf:5,stockAuto:true,grip:0.3,safety:0.1,roughMethod:'contour',roughDoc:0.25,finLeave:0.01,finFull:true,drillCycle:'auto',pocketDepth:0.25};
-function syncStock(){S.def={...DEF0,...(S.def||{})};if(S.def.stockAuto)S.stock.z=+(S.stock.part+S.stock.face+S.def.grip+S.def.safety).toFixed(4);}
+const DEF0={perf:5,stockAuto:true,side:0.125,stdRound:true,grip:0.3,safety:0.1,roughMethod:'contour',roughDoc:0.25,finLeave:0.01,finFull:true,drillCycle:'auto',pocketDepth:0.25};
+function stdUp(v){if(!(S.def&&S.def.stdRound))return +v.toFixed(4);if(S.units==='mm'){const mm=v*25.4,st=mm<=50?1:5;return +(Math.ceil(mm/st-1e-6)*st/25.4).toFixed(5);}const st=v<=2.0001?0.125:v<=6.0001?0.25:0.5;return +(Math.ceil(v/st-1e-6)*st).toFixed(4);}
+function partBox(){const g=S.geom||S.raw;if(!g)return null;const b=C.geomBox(g);return[b[2]-b[0],b[3]-b[1]];}
+function stockCalc(){const D={...DEF0,...(S.def||{})};const pb=partBox()||[S.stock.x-2*D.side,S.stock.y-2*D.side];const z0=S.stock.part+S.stock.face+D.grip+D.safety;return{pw:pb[0],ph:pb[1],x0:pb[0]+2*D.side,y0:pb[1]+2*D.side,z0,x:stdUp(pb[0]+2*D.side),y:stdUp(pb[1]+2*D.side),z:stdUp(z0),D};}
+function syncStock(){S.def={...DEF0,...(S.def||{})};if(S.def.stockAuto){const c=stockCalc();if(partBox()){S.stock.x=c.x;S.stock.y=c.y;}S.stock.z=c.z;}}
+function stockFields(){for(const k of['x','y','z']){const e=document.querySelector('[data-b="stock.'+k+'"]');if(e&&document.activeElement!==e)e.value=fl(S.stock[k]);}const n=$('#stockWhy');if(n)n.innerHTML=stockWhy();}
+function stockWhy(){const c=stockCalc(),vi=LANG==='vi',u=' '+ulab();if(!(S.def||{}).stockAuto)return vi?'Đang nhập phôi bằng tay. Bật "Phôi tự động" để app tự tính.':'Stock entered by hand. Turn on "Auto stock" to calculate it.';
+ const r=(a,b)=>fl(a,3)+(Math.abs(a-b)>1e-4?' → <b>'+fl(b,3)+'</b>':'');
+ return`X = ${fl(c.pw,3)} + 2×${fl(c.D.side,3)} = ${r(c.x0,c.x)}<br>Y = ${fl(c.ph,3)} + 2×${fl(c.D.side,3)} = ${r(c.y0,c.y)}<br>Z = ${fl(S.stock.part,3)} ${vi?'(chi tiết)':'(part)'} + ${fl(S.stock.face,3)} ${vi?'(phay mặt)':'(face)'} + ${fl(c.D.grip,3)} ${vi?'(kẹp)':'(grip)'} + ${fl(c.D.safety,3)} ${vi?'(an toàn)':'(safety)'} = ${r(c.z0,c.z)}${u}${c.D.stdRound?'<br>'+(vi?'→ làm tròn lên cỡ phôi chuẩn ':'→ rounded up to a standard size ')+(S.units==='mm'?(vi?'(1 mm, trên 50 mm thì 5 mm)':'(1 mm, 5 mm above 50 mm)'):(vi?'(1/8" tới 2", 1/4" tới 6", rồi 1/2")':'(1/8" to 2", 1/4" to 6", then 1/2")')):''}`;}
 function autoPar(){const fx=S.fixture;if(!fx.parAuto||!['vise','softjaw'].includes(fx.type))return;const g=(S.def&&S.def.grip)||0.3;fx.parH=+Math.max(0,Math.min(fx.jawH,fx.jawH-g)).toFixed(3);}
 function axesAvail(){const mc=mach();if(mc.axes===5)return 5;const r=C.ROTARIES.find(x=>x.id===S.rotary);if(mc.rot&&r&&r.id!=='none')return r.five?5:4;return 3;}
 
@@ -512,7 +519,9 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
   <div class="grid" style="align-content:start">
    <div class="card"><h2>${t('stock')}</h2>
     <div class="row" style="margin-bottom:10px"><div class="seg" id="unitSeg"><button data-u="in" class="${S.units==='in'?'on':''}">inch</button><button data-u="mm" class="${S.units==='mm'?'on':''}">mm</button></div></div>
-    <div class="fields">${inp('sx',fl(S.stock.x),'data-b="stock.x" data-u="L"')}${inp('sy',fl(S.stock.y),'data-b="stock.y" data-u="L"')}${inp('sz',fl(S.stock.z),'data-b="stock.z" data-u="L"')}${inp('face',fl(S.stock.face),'data-b="stock.face" data-u="L"')}${inp('partT',fl(S.stock.part),'data-b="stock.part" data-u="L"')}</div>
+    <div class="fields">${inp('sx',fl(S.stock.x),'data-b="stock.x" data-u="L"')}${inp('sy',fl(S.stock.y),'data-b="stock.y" data-u="L"')}${inp('sz',fl(S.stock.z),'data-b="stock.z" data-u="L"')}${inp('face',fl(S.stock.face),'data-b="stock.face" data-u="L"')}${inp('partT',fl(S.stock.part),'data-b="stock.part" data-u="L"')}${inp('sideA',fl((S.def||DEF0).side??0.125),'data-b="def.side" data-u="L"')}</div>
+    <div class="row" style="margin-top:8px;gap:14px"><label class="row" style="gap:8px;font-weight:700;font-size:14.5px"><span class="sw"><input type="checkbox" data-defsw="stockAuto" ${(S.def||DEF0).stockAuto?'checked':''}><i></i></span>${LANG==='vi'?'Phôi tự động':'Auto stock'}</label><label class="row" style="gap:8px;font-weight:600;font-size:14px"><span class="sw"><input type="checkbox" data-defsw="stdRound" ${(S.def||DEF0).stdRound!==false?'checked':''}><i></i></span>${LANG==='vi'?'Làm tròn cỡ chuẩn':'Round to standard'}</label></div>
+    <p class="sub ro" id="stockWhy" style="margin:6px 0 0;font-size:13px;line-height:1.55">${stockWhy()}</p>
     <h3 style="margin-top:14px">${t('zero')}</h3><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div style="position:relative;width:180px;height:120px;margin:12px 14px"><div style="position:absolute;inset:0;border:2px solid var(--line);border-radius:8px;background:color-mix(in srgb,#5b83ea 14%,transparent)"></div>${['tl','tc','tr','ml','c','mr','ll','bc','lr'].map((k,i)=>{const cx=(i%3)*50,cy=Math.floor(i/3)*50;return`<button data-z="${k}" title="${esc(ZN[k][LANG==='vi'?1:0])}" aria-label="${esc(ZN[k][LANG==='vi'?1:0])}" style="position:absolute;left:${cx}%;top:${cy}%;transform:translate(-50%,-50%);width:${z===k?34:26}px;height:${z===k?34:26}px;border-radius:50%;border:2px solid ${z===k?'#d93a3a':'var(--line)'};background:${z===k?'conic-gradient(#14181c 0 25%,#fff 0 50%,#14181c 0 75%,#fff 0)':'var(--panel)'};cursor:pointer;padding:0;box-shadow:0 1px 4px #0003"></button>`;}).join('')}</div>
  <div><b style="font-size:17px">${esc(ZN[z][LANG==='vi'?1:0])}</b><div class="sub" style="font-size:13px">${LANG==='vi'?'Bấm 1 trong 9 điểm':'Tap one of the 9 points'}</div></div></div>
     <p class="sub" style="margin:8px 0 0;font-size:13.5px">${t('z0')}</p></div>
@@ -520,7 +529,7 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
     return`<div class="fields">${L('grip','grip')}${L('safety','safety')}${L('roughDoc','roughDoc')}${L('finLeave','finLeave')}${L('pocketDepth','pocketDepth')}
     <label class="f">${t('roughMethod')}<select data-b="def.roughMethod" data-u="S"><option value="contour" ${D.roughMethod==='contour'?'selected':''}>${t('byContour')}</option><option value="adaptive" ${D.roughMethod==='adaptive'?'selected':''}>${t('byAdaptive')}</option></select></label>
     <label class="f">${t('drillCycle')}<select data-b="def.drillCycle" data-u="S">${[['auto','Auto (G81/G83)'],['G81','G81'],['G82','G82'],['G83','G83'],['G73','G73']].map(([v,l])=>`<option value="${v}" ${D.drillCycle===v?'selected':''}>${l}</option>`).join('')}</select></label></div>
-    <div class="row" style="margin-top:6px">${sw('stockAuto','stockAuto')}${sw('finFull','finFull')}</div>
+    <div class="row" style="margin-top:6px">${sw('finFull','finFull')}</div>
     <p class="sub" style="margin:6px 0 0;font-size:13px"><span class="ro">${t('sz')} = ${fl(S.stock.part,3)} + ${fl(S.stock.face,3)} + ${fl(D.grip,3)} + ${fl(D.safety,3)} = <b>${fl(S.stock.part+S.stock.face+D.grip+D.safety,3)}</b></span> · ${t('axisNote')}</p>
     <button class="btn sm" style="margin-top:8px" data-act="auto">${IC.bolt}${t('autoProg')}</button>`;})()}</div>
    <div class="card" style="--cc:#ff6a13">${perfUI()}</div>
@@ -977,7 +986,7 @@ document.addEventListener('change',e=>{
  if(el.id==='selMachine'){S.machine=el.value;S.post=mach().post||'prototrak';if(!mach().rot)S.rotary='none';S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();render();return;}
  if(el.id==='postSel'){S.post=el.value;if(mach().type==='lathe'){rLathe();return;}regen();return;}if(el.id==='tsChk'){S.toolStop=el.checked;regen();return;}if(el.id==='tsSel'){S.toolStop=!!el.value;if(el.value)S.stopCode=el.value;persist();regen();return;}if(el.id==='wrapChk'){S.gwrap=el.checked;document.body.classList.toggle('gwrap',S.gwrap);persist();return;}if(el.id==='lnChk'){S.lineNums=el.checked;regen();return;}
  if(el.id==='rotSel'){S.rotary=el.value;regen();setTimeout(()=>rProgram(),200);return;}
- if(el.dataset.defsw){S.def={...DEF0,...(S.def||{})};S.def[el.dataset.defsw]=el.checked;if(el.dataset.defsw==='feedOpt'){buildProgram();persist();rProgram();return;}autoProgram();buildProgram();rProgram();return;}
+ if(el.dataset.defsw){S.def={...DEF0,...(S.def||{})};S.def[el.dataset.defsw]=el.checked;if(el.dataset.defsw==='feedOpt'){buildProgram();persist();rProgram();return;}if(el.dataset.defsw==='stockAuto'||el.dataset.defsw==='stdRound'){syncStock();buildProgram();persist();rProgram();return;}autoProgram();buildProgram();rProgram();return;}
  if(el.dataset.nb){S.nest[el.dataset.nb]=el.dataset.u==='S'?el.value:parseVal(el);if(el.dataset.nb==='mode'&&el.value==='twoSide'&&S.nest.tabT<0.06)S.nest.tabT=0.06;persist();rNest();return;}
  if(el.dataset.ni!=null){const it=S.nest.items[+el.dataset.ni];it[el.dataset.k]=el.dataset.k==='qty'?Math.max(0,parseInt(el.value)||0):el.value;persist();rNest();return;}
  if(el.dataset.lb){S.lathe[el.dataset.lb]=parseVal(el);persist();rLathe();return;}
@@ -999,7 +1008,7 @@ document.addEventListener('change',e=>{
  if(el.dataset.on){const o=S.ops.find(x=>x.id===el.dataset.on);o.on=el.checked;regen();return;}
  if(el.dataset.auto){const o=S.ops.find(x=>x.id===el.dataset.auto);o.auto=el.checked;if(o.auto)applyFeeds(o);regen();return;}
  const v=parseVal(el);if(v===null){if(el.dataset.op&&['a','b','c'].includes(el.dataset.k)&&!el.value.trim()){S.ops.find(x=>x.id===el.dataset.op)[el.dataset.k]=null;regen();}return;}
- if(el.dataset.b){if(el.dataset.b.startsWith('mo.')){setPath(S,el.dataset.b,v);S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();renderShell();persist();return;}setPath(S,el.dataset.b,v);if(el.dataset.b==='fixture.parH')S.fixture.parAuto=false;if(el.dataset.b==='stock.part'||el.dataset.b.startsWith('def.')){S.def={...DEF0,...(S.def||{})};if(el.dataset.b.startsWith('def.'))S.def[el.dataset.b.slice(4)]=v;autoProgram();}if(el.dataset.b.startsWith('stock')){S.ops.forEach(o=>{});}buildProgram();if(S.tab==='fixtures')rFixtures();else if(S.tab==='program'){VIEW.fitted=false;fitView();renderOps();renderCode();drawView();}else persist();return;}
+ if(el.dataset.b){if(el.dataset.b.startsWith('mo.')){setPath(S,el.dataset.b,v);S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();renderShell();persist();return;}setPath(S,el.dataset.b,v);if(el.dataset.b==='fixture.parH')S.fixture.parAuto=false;if(/^stock\.[xyz]$/.test(el.dataset.b)){S.def={...DEF0,...(S.def||{})};S.def.stockAuto=false;const sw_=document.querySelector('[data-defsw=stockAuto]');if(sw_)sw_.checked=false;}if(el.dataset.b==='stock.part'||el.dataset.b.startsWith('def.')){S.def={...DEF0,...(S.def||{})};if(el.dataset.b.startsWith('def.'))S.def[el.dataset.b.slice(4)]=v;autoProgram();}if(el.dataset.b.startsWith('stock')||el.dataset.b.startsWith('def.')){syncStock();stockFields();}buildProgram();if(S.tab==='fixtures')rFixtures();else if(S.tab==='program'){VIEW.fitted=false;fitView();renderOps();renderCode();drawView();}else persist();return;}
  if(el.dataset.op&&el.dataset.k==='cycle'){const oo=S.ops.find(x=>x.id===el.dataset.op);if(oo)oo.cycAuto=false;}
  if(el.dataset.op){const o=S.ops.find(x=>x.id===el.dataset.op);let k=el.dataset.k;if(k==='type'||k==='cycle')OPEN.add(o.id);if(k==='chamferSz'){o.chamfer=v;o.zBot=-v;}else o[k]=v;
   if(['type','tool','feat','zBot','zTop'].includes(k)&&o.auto)applyFeeds(o);if(['rpm','feed','plunge'].includes(k))o.auto=false;if(['doc','woc'].includes(k))o.docFix=true;regen();if(['type','cycle','rings'].includes(k))setTimeout(renderOps,180);return;}
@@ -1011,7 +1020,7 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('button,[data-tog],[data-simop]');if(!b)return;const d=b.dataset;
  if(d.tab){S.tab=d.tab;render();persist();return;}
  if(d.l){LANG=d.l;try{localStorage.setItem('trakLang',LANG);}catch(_){}render();return;}
- if(d.u){S.units=d.u;render();return;}
+ if(d.u){S.units=d.u;syncStock();buildProgram();render();return;}
  if(d.z){S.zero=d.z;applyZero();buildProgram();VIEW.fitted=false;rProgram();return;}
  if(d.tog){const id=d.tog;OPEN.has(id)?OPEN.delete(id):OPEN.add(id);renderOps();return;}
  if(d.mv){const i=S.ops.findIndex(o=>o.id===d.mv),j=i+(+d.d);if(j<0||j>=S.ops.length)return;[S.ops[i],S.ops[j]]=[S.ops[j],S.ops[i]];regen();renderOps();return;}
