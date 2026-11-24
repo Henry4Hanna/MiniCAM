@@ -359,7 +359,7 @@ function opLoads(m,o){const p=mprops(m),D=o.dia||0.25,rpm=o.rpm||1000,f=o.feed||
  if(['drill','spot','tap','ream','bore'].includes(o.kind))return[{dir:'through',force:0.5*p.kcd*(f/rpm)*D,why:'thrust',label:o.label}];
  const ap=o.doc||D,ae=o.woc||D,ft=sideForce(p.kc,D,ap,Math.min(ae,D),f,rpm);return[{dir:'inplane',force:ft,why:'side',label:o.label},{dir:'through',force:0.3*ft,why:'helix',label:o.label}];}
 /* ---------- fixture holding force (AutoCAM fixtures): holding = μ × clamping, SF ≥ 3 ---------- */
-const FIXHOLD={vise:(fx)=>2*0.20*(fx.force||4000),softjaw:(fx)=>2*0.25*(fx.force||4000),clamps:(fx)=>0.25*(fx.clamps||4)*2000,plate:(fx)=>0.25*(fx.clamps||4)*2000,angle:()=>0.25*2*3000,collet:()=>0.3*4000};
+const FIXHOLD={vise:(fx)=>2*0.20*(fx.force||4000),softjaw:(fx)=>2*0.25*(fx.force||4000),clamps:(fx)=>0.25*(fx.clamps||4)*2000,plate:(fx)=>0.25*(fx.clamps||4)*2000,angle:()=>0.25*2*3000,collet:()=>0.3*4000,vise5:(fx)=>2*0.35*(fx.force||5000),tomb:(fx)=>0.25*(fx.clamps||4)*2000,trunnion:(fx)=>2*0.35*(fx.force||5000),chuck4:()=>3*0.3*1500,zeropoint:()=>0.3*4*2500,magnet:()=>0.2*60*12,vacuum:()=>0.25*12*14};
 function fixtureHold(fx){return(FIXHOLD[fx.type]||FIXHOLD.vise)(fx);}
 /* ---------- arc fitting: runs of short G1 moves on a circle → one G2/G3 (AutoCAM arcfit) ---------- */
 function circ3(a,b,c){const d=2*(a[0]*(b[1]-c[1])+b[0]*(c[1]-a[1])+c[0]*(a[1]-b[1]));if(Math.abs(d)<1e-12)return null;const a2=a[0]*a[0]+a[1]*a[1],b2=b[0]*b[0]+b[1]*b[1],c2=c[0]*c[0]+c[1]*c[1];

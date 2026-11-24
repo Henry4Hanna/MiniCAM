@@ -30,7 +30,7 @@ const TX={
  num:['Tool #','Số dao'],desc:['Description','Mô tả'],dia:['Diameter','Đường kính'],flutes:['Flutes','Số me'],tmat:['Tool material','Vật liệu dao'],coat:['Coating','Lớp phủ'],loc:['Flute length','Chiều dài me'],oal:['Overall length','Tổng chiều dài'],stick:['Stick-out','Chiều dài nhô'],
  cornerR:['Corner radius','Bán kính góc'],tipAngle:['Tip angle °','Góc mũi °'],tipDia:['Tip diameter','Đường kính mũi'],pitch:['Pitch (in/thread)','Bước ren'],save:['Done','Xong'],
  fixTitle:['Fixture & workholding','Đồ gá & kẹp phôi'],fixSub:['Pick how the part is held. The drawing checks stick-out against your deepest cut.','Chọn cách kẹp. Hình vẽ kiểm tra phần nhô so với độ sâu cắt lớn nhất.'],
- vise:['Vise','Ê-tô'],softjaw:['Soft jaws','Hàm mềm'],clamps:['Strap clamps','Kẹp bàn'],plate:['Fixture plate','Tấm gá'],collet:['5C collet block','Khối collet 5C'],angle:['Angle plate','Ke góc'],
+ vise:['Vise','Ê-tô'],softjaw:['Soft jaws','Hàm mềm'],clamps:['Strap clamps','Kẹp bàn'],plate:['Fixture plate','Tấm gá'],collet:['5C collet block','Khối collet 5C'],angle:['Angle plate','Ke góc'],vise5:['5-axis vise (dovetail)','Ê-tô 5 trục (đuôi én)'],tomb:['Tombstone (4th axis)','Tombstone (trục 4)'],trunnion:['5-axis trunnion table','Bàn xoay 5 trục (trunnion)'],chuck4:['4th axis 3-jaw chuck','Mâm cặp 3 chấu trục 4'],zeropoint:['Zero-point pallet','Pallet zero-point'],magnet:['Magnetic chuck','Bàn từ'],vacuum:['Vacuum plate','Bàn hút chân không'],
  jawH:['Jaw height','Chiều cao hàm'],parH:['Parallel height','Chiều cao căn đệm'],viseSize:['Vise width','Bề rộng ê-tô'],stickout:['Stick-out above jaws','Phần nhô trên hàm'],deep:['Deepest cut','Cắt sâu nhất'],
  fixOk:['Clearance OK','Khoảng hở OK'],fixBad:['Cutter can reach the jaws — raise the part or use soft jaws / tabs.','Dao có thể chạm hàm kẹp — nâng phôi hoặc dùng hàm mềm / chừa tab.'],fixLow:['Very little grip — at least 1/8" in the jaws.','Kẹp quá ít — tối thiểu 1/8" trong hàm.'],
  notes:['Notes','Ghi chú'],
@@ -688,9 +688,9 @@ function closeSheet(){$('#sheet').classList.remove('on');if(S.tab==='tools')rToo
 
 /* ----- fixtures tab ----- */
 function rFixtures(){
- const fx=S.fixture,types=['vise','softjaw','clamps','plate','collet','angle'];const fc=fixtureCheck();
+ const fx=S.fixture,types=FXTYPES;const fc=fixtureCheck();
  $('#main').innerHTML=`<h1>${t('fixTitle')}</h1><p class="sub">${t('fixSub')}</p>
- <div class="fixgrid" style="margin-bottom:14px">${types.map(k=>`<button class="fx ${fx.type===k?'on':''}" data-fx="${k}">${fixtureSVG(k,true)}${t(k)}</button>`).join('')}</div>
+ <div class="fixgrid" style="margin-bottom:14px">${types.map(k=>`<button class="fx ${fx.type===k?'on':''}" data-fx="${k}"><canvas data-fxpv="${k}" style="width:100%;height:74px;display:block"></canvas><span style="display:none" class="fxsvg">${OLDFX.includes(k)?fixtureSVG(k,true):''}</span>${t(k)}<small style="display:block;font-size:11px;opacity:.7;font-weight:600">${FXAX[k]}</small></button>`).join('')}</div>
  <div class="grid g2"><div class="card big"><div style="position:relative;height:320px;margin:-4px -4px 8px"><canvas id="fx3d" style="width:100%;height:100%;display:block;cursor:grab"></canvas><span class="sub" style="position:absolute;left:8px;bottom:6px;font-size:12px">${LANG==='vi'?'Kéo để xoay · 3D':'Drag to rotate · 3D'}</span></div><div id="fx3dFb" style="display:none">${fixtureSVG(fx.type)}</div>
   ${fc?`<div class="kpi" style="margin-top:10px"><div><span>${t('stickout')}</span><b>${fl(fc.so,3)}</b></div><div><span>${t('deep')}</span><b style="color:${fc.bad?'var(--bad)':'inherit'}">${fl(fc.deep,3)}</b></div></div>
   <p class="${fc.bad?'':'ok'}" style="font-weight:600;margin:10px 0 0;${fc.bad?'color:var(--bad)':''}">${fc.bad?t('fixBad'):t('fixOk')}${fc.low?' · '+t('fixLow'):''}</p>`:''}</div>
@@ -698,7 +698,7 @@ function rFixtures(){
   ${inp('sz',fl(S.stock.z),'data-b="stock.z" data-u="L"')}</div>
   <label class="f" style="margin-top:10px">${t('notes')}<textarea data-b="fixture.notes" data-u="S">${esc(fx.notes)}</textarea></label></div>
   ${holdCard()}
-  <div class="card"><h3>${t('zero')}</h3>${partSVG({mh:280})||`<p class="sub">${t('noPart')}</p>`}</div></div></div>`;setTimeout(()=>pv3Wire('fx3d','fix'),30);
+  <div class="card"><h3>${t('zero')}</h3>${partSVG({mh:280})||`<p class="sub">${t('noPart')}</p>`}</div></div></div>`;setTimeout(()=>{pv3Wire('fx3d','fix');fxThumbs();},30);
 }
 function peakForce(){const m=mat(),p=C.mprops(m);let best={f:0,o:null};for(const o of S.ops){if(!o.on)continue;const tl=toolById(o.tool);if(!tl)continue;const k=KIND[o.type];
  let f=0;if(['drill','spot','tap','ream','bore'].includes(k))continue;/* thrust goes down into the parallels, friction holds the side force */f=C.sideForce(p.kc,tl.dia,Math.min(o.doc||tl.dia,Math.abs((o.zBot||0)-(o.zTop||0))||tl.dia),Math.min(o.woc||tl.dia,tl.dia),o.feed||1,o.rpm||1000);
@@ -924,7 +924,7 @@ function glHolder(G,tl,x,y,zb,o){o=o||{};const H=HOLDERS[holderOf(tl)]||HOLDERS.
 /* ----- realistic fixtures ----- */
 function glTable(G,x0,y0,x1,y1,z){const c=[0.28,0.30,0.33],sl=[0.14,0.15,0.16],th=0.6,w=0.75,pitch=2.5;G.box(x0,y0,z-th-0.4,x1,y1,z-th,c);let y=y0;const slots=[];for(let yy=(y0+y1)/2-pitch*Math.floor((y1-y0)/2/pitch);yy<y1;yy+=pitch)if(yy>y0+0.5&&yy<y1-0.5)slots.push(yy);
  for(const ys of slots){if(ys-w/2>y)G.box(x0,y,z-th,x1,ys-w/2,z,c);G.box(x0,ys-w/2,z-th,x1,ys+w/2,z-th+0.05,sl);y=ys+w/2;}if(y<y1)G.box(x0,y,z-th,x1,y1,z,c);}
-function glFixture(G,sr,bot,top){const fx=S.fixture,t=fx.type,W=sr[2]-sr[0],H=sr[3]-sr[1],ext=Math.max(0.6,Math.min(W,H)*0.25),blue=[0.17,0.34,0.72],steel=[0.74,0.76,0.79],gp=[0.82,0.84,0.86],blk=[0.17,0.18,0.2];
+function glFixture(G,sr,bot,top){const fx=S.fixture,t=fx.type;if(!OLDFX.includes(t)){glFixtureMore(G,t,sr,bot,top);return;}const W=sr[2]-sr[0],H=sr[3]-sr[1],ext=Math.max(0.6,Math.min(W,H)*0.25),blue=[0.17,0.34,0.72],steel=[0.74,0.76,0.79],gp=[0.82,0.84,0.86],blk=[0.17,0.18,0.2];
  if(t==='vise'||t==='softjaw'){const fc=fixtureCheck();const grip=Math.max(0.1,S.stock.z-(fc?fc.so:S.stock.z-0.3)),jt=bot+grip,jw=0.7,par=Math.max(0.1,fx.parH||0.5),jl=Math.max(W+0.8,(fx.vise||6)),xc=(sr[0]+sr[2])/2,jh=Math.min(fx.jawH||1.75,grip+par+0.2),plate=t==='softjaw'?[0.80,0.80,0.82]:steel,base=bot-par-0.6;
   const bodyB=jt-jh;// jaw plates
   G.box(xc-jl/2,sr[1]-0.3,bodyB,xc+jl/2,sr[1],jt,plate);G.box(xc-jl/2,sr[3],bodyB,xc+jl/2,sr[3]+0.3,jt,plate);
@@ -956,7 +956,7 @@ function glScene(g,W,H,dpr,cam,build){if(!glReady())return false;const gl=GL3.gl
 const PV3={yaw:-0.7,pitch:1.05,zoom:1},PVT={yaw:-0.5,pitch:1.32,zoom:1};const pvS=k=>k==='tool'?PVT:PV3;
 function pv3Draw(id,kind){const cv=document.getElementById(id);if(!cv)return;const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;if(!W)return;cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
  let cam,build;if(kind==='tool'){const tl=toolById(cv.dataset.tl);if(!tl)return;const st=stickOf(tl),hl=(HOLDERS[holderOf(tl)]||{len:2}).len,tot=st+hl+(mTaper()==='R8'?0.3:2.4);cam={cx:0,cy:0,zc:(st+hl+(mTaper()==='R8'?0:0.62))/2,yaw:PVT.yaw,pitch:PVT.pitch,span:(st+hl+0.9)*1.05/PVT.zoom};cam.sc=Math.min(W,H)/cam.span*0.95;build=G=>{const zt=glTool(G,tl,0,0,0);glHolder(G,tl,0,0,zt,{spindle:false});};}
- else{const sr=[0,0,S.stock.x,S.stock.y],bot=-S.stock.z;const vz=['vise','softjaw'].includes(S.fixture.type),sp_=Math.max(S.stock.x,S.stock.y)*1.5+(vz?8:5);cam={cx:S.stock.x/2,cy:S.stock.y/2-(vz?2.2:0.4),zc:-S.stock.z-0.6,yaw:PV3.yaw,pitch:PV3.pitch,span:sp_/PV3.zoom};cam.sc=Math.min(W,H)/cam.span*0.95;
+ else{const sr=[0,0,S.stock.x,S.stock.y],bot=-S.stock.z;const ft=S.fixture.type,vz=['vise','softjaw'].includes(ft),bg=ft==='trunnion'?2.4:['tomb','chuck4'].includes(ft)?1.6:1,sp_=(Math.max(S.stock.x,S.stock.y)*1.5+(vz?8:5))*bg;cam={cx:S.stock.x/2,cy:S.stock.y/2-(vz?2.2:0.4),zc:-S.stock.z-0.6-(ft==='trunnion'?5:bg>1?2:0),yaw:PV3.yaw,pitch:PV3.pitch,span:sp_/PV3.zoom};cam.sc=Math.min(W,H)/cam.span*0.95;
   const mc=hexRGB(mat().color).map(v=>v/255);build=G=>{G.box(0,0,bot,S.stock.x,S.stock.y,0,mc);glFixture(G,sr,bot,0);};}
  if(!glScene(g,W,H,dpr,cam,build)){cv.style.display='none';const fb=document.getElementById(id+'Fb');if(fb)fb.style.display='';}}
 function pv3Wire(id,kind){const cv=document.getElementById(id);if(!cv)return;let d=null;cv.style.touchAction='none';const V=pvS(kind);cv.addEventListener('pointerdown',e=>{d={x:e.clientX,y:e.clientY,yw:V.yaw,pt:V.pitch};cv.setPointerCapture(e.pointerId);});cv.addEventListener('pointermove',e=>{if(!d)return;V.yaw=d.yw+(e.clientX-d.x)*0.012;V.pitch=Math.min(1.57,Math.max(0.1,d.pt-(e.clientY-d.y)*0.01));pv3Draw(id,kind);});const up=()=>{d=null;};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);cv.addEventListener('wheel',e=>{e.preventDefault();V.zoom=Math.min(4,Math.max(0.4,V.zoom*(e.deltaY<0?1.1:0.9)));pv3Draw(id,kind);},{passive:false});pv3Draw(id,kind);}
@@ -1012,7 +1012,8 @@ function simFixture(P,quads,stockD){const fx=S.fixture,sr=SIM.sr,bot=SIM.bot,W=s
   if(t==='clamps')for(const[x,y]of[[sr[0],sr[1]],[sr[2],sr[1]],[sr[0],sr[3]],[sr[2],sr[3]]]){const dx=x<sr[0]+W/2?-1:1;box(x-dx*0.15,y-0.2,bot+S.stock.z*0.98,x+dx*0.9,y+0.2,bot+S.stock.z*0.98+0.25,'#e39b00');}
   else for(const[x,y]of[[sr[0]-ext/2,sr[1]-ext/2],[sr[2]+ext/2,sr[1]-ext/2],[sr[0]-ext/2,sr[3]+ext/2],[sr[2]+ext/2,sr[3]+ext/2]])box(x-0.12,y-0.12,bot,x+0.12,y+0.12,bot+0.15,'#30363c');}
  else if(t==='angle'){box(sr[0]-0.3,sr[1]-1.1,bot-0.5,sr[2]+0.3,sr[1],bot+S.stock.z*0.8,'#6b737a');box(sr[0]-0.3,sr[1]-1.1,bot-1.2,sr[2]+0.3,sr[3]+0.5,bot-0.5,'#4a5560',1);}
- else if(t==='collet'){const xc=(sr[0]+sr[2])/2,yc=(sr[1]+sr[3])/2,r=Math.max(W,H)/2+0.4;box(xc-r,yc-r,bot-1.5,xc+r,yc+r,bot+0.25,'#3c6fd1');}return OUT;}
+ else if(t==='collet'){const xc=(sr[0]+sr[2])/2,yc=(sr[1]+sr[3])/2,r=Math.max(W,H)/2+0.4;box(xc-r,yc-r,bot-1.5,xc+r,yc+r,bot+0.25,'#3c6fd1');}
+ else{const L=fxLayout(t,sr,bot);for(const b of L.boxes)box(b[0],b[1],b[2],b[3],b[4],b[5],b[6]||'#5d666e',b[7]);}return OUT;}
 /* ----- 5-axis stamping (tilted tool) ----- */
 function stamp5(x,y,z,vx,vy,vz,ti,oi){const tl=S.tools[ti];if(!tl)return;const r=tl.dia/2,res=SIM.res,nx=SIM.nx,ny=SIM.ny,h=SIM.h,sr=SIM.sr;
  const disk=(cx,cy,cz,rad,sph)=>{if(cz>SIM.top+rad)return;const n=Math.ceil(rad/res),ci=Math.round((cx-sr[0])/res),cj=Math.round((cy-sr[1])/res);for(let j=-n;j<=n;j++)for(let i=-n;i<=n;i++){const ii=ci+i,jj=cj+j;if(ii<0||jj<0||ii>=nx||jj>=ny)continue;const d2=(i*i+j*j)*res*res;if(d2>rad*rad)continue;const zz=sph?cz-Math.sqrt(rad*rad-d2):cz;const k=jj*nx+ii;if(zz<h[k]){h[k]=zz;SIM.own[k]=oi;}}};
@@ -1836,6 +1837,83 @@ function projCard(){const L=projList(),vi=LANG==='vi',cur=S.projId;return`<detai
  ${L.length?L.map(x=>`<div class="row" style="gap:8px;flex-wrap:nowrap;border-top:1px solid var(--line);padding:6px 0;${x.id===cur?'background:color-mix(in srgb,#8b4fd6 10%,transparent);border-radius:8px':''}"><span style="flex:1;min-width:0"><b>${esc(x.name)}</b>${x.id===cur?' <span class="pill" style="background:#8b4fd6;color:#fff;padding:2px 6px">'+(vi?'đang mở':'open')+'</span>':''}<br><span class="sub" style="font-size:12.5px">${esc(x.date)} · ${esc((C.MATERIALS.find(m=>m.id===x.mat)||{})[vi?'vi':'en']||'')} · ${esc((C.MACHINES.find(m=>m.id===x.machine)||{}).name||'')}</span></span><button class="btn sm" data-proj="${x.id}">${vi?'Mở':'Open'}</button><button class="mini" data-projdel="${x.id}" style="color:var(--bad)">${IC.del}</button></div>`).join(''):`<p class="sub" style="margin:0;font-size:13.5px">${vi?'Chưa có dự án nào. Bấm Lưu để giữ chi tiết này.':'No projects yet. Tap Save to keep this part.'}</p>`}
  <p class="sub" style="margin:8px 0 0;font-size:12.5px">${vi?'Lưu trong trình duyệt của máy này. Để chuyển sang máy khác dùng Lưu / Mở file .json trong Cài đặt.':'Saved in this browser. To move to another device use the .json save / open in Settings.'}</p></details>`;}
 function snap3D(){try{const cv=document.createElement('canvas');cv.style.cssText='position:fixed;left:-9999px;top:0;width:560px;height:380px';document.body.appendChild(cv);const sv=[VIEW.yaw,VIEW.pitch,VIEW.z3];VIEW.yaw=-0.6;VIEW.pitch=0.9;VIEW.z3=1;drawModel3D(cv);const u=cv.toDataURL('image/png');[VIEW.yaw,VIEW.pitch,VIEW.z3]=sv;cv.remove();return u;}catch(e){return null;}}
+
+/* ================= more fixtures: 5-axis vise, tombstone, trunnion, 4th chuck, zero-point, magnet, vacuum ================= */
+const OLDFX=['vise','softjaw','clamps','plate','collet','angle'],FXTYPES=['vise','softjaw','clamps','plate','angle','collet','vise5','zeropoint','tomb','chuck4','trunnion','magnet','vacuum'];
+const FXAX={vise:'3 axis',softjaw:'3 axis',clamps:'3 axis',plate:'3 axis',angle:'3 axis',collet:'3 axis',vise5:'5 axis',zeropoint:'3 / 5 axis',tomb:'4 axis',chuck4:'4 axis',trunnion:'5 axis',magnet:'grinding',vacuum:'3 axis · sheet'};
+function fxLayout(t,sr,bot){const W=sr[2]-sr[0],H=sr[3]-sr[1],xc=(sr[0]+sr[2])/2,yc=(sr[1]+sr[3])/2,B=[];
+ if(t==='vise5'||t==='trunnion'){const grip=0.15,rz=bot+grip,jh=0.6,jw=0.55,jl=Math.max(W*0.7,1.5);B.push([xc-jl/2,sr[1]-jw,rz-jh,xc+jl/2,sr[1]+0.06,rz,'#c9ced3'],[xc-jl/2,sr[3]-0.06,rz-jh,xc+jl/2,sr[3]+jw,rz,'#c9ced3'],[xc-jl/2-0.3,sr[1]-jw-0.1,rz-jh-0.8,xc+jl/2+0.3,sr[3]+jw+0.1,rz-jh,'#3c6fd1',1],[xc-1.1,yc-1.1,rz-jh-3.8,xc+1.1,yc+1.1,rz-jh-0.8,'#5d666e',1]);}
+ else if(t==='zeropoint'){const rh=1.5;B.push([sr[0]+W*0.2,sr[1]+H*0.2,bot-rh,sr[2]-W*0.2,sr[3]-H*0.2,bot,'#8a939b',1],[xc-Math.max(W,4)/2-1,yc-Math.max(H,4)/2-1,bot-rh-0.9,xc+Math.max(W,4)/2+1,yc+Math.max(H,4)/2+1,bot-rh,'#5d666e',1]);}
+ else if(t==='tomb'){const T=Math.max(1.5,H*0.6);B.push([sr[0]-0.5,sr[1],bot-T,sr[2]+0.5,sr[3],bot,'#5d666e',1]);}
+ else if(t==='chuck4'){const R=Math.max(W,H)/2;B.push([sr[0]-1.2,yc-R-0.6,-R-0.6,sr[0],yc+R+0.6,R+0.6,'#3c6fd1']);}
+ else if(t==='magnet'){B.push([sr[0]-1,sr[1]-1,bot-2,sr[2]+1,sr[3]+1,bot,'#6b737a',1]);}
+ else if(t==='vacuum'){B.push([sr[0]-0.8,sr[1]-0.8,bot-1,sr[2]+0.8,sr[3]+0.8,bot,'#5d666e',1]);}
+ return{boxes:B};}
+function glFixtureMore(G,t,sr,bot,top){const W=sr[2]-sr[0],H=sr[3]-sr[1],xc=(sr[0]+sr[2])/2,yc=(sr[1]+sr[3])/2,blue=[0.17,0.34,0.72],steel=[0.74,0.76,0.79],dk=[0.24,0.26,0.29],blk=[0.15,0.16,0.18],red=[0.70,0.16,0.14],mc=hexRGB(mat().color).map(v=>v/255);
+ if(t==='vise5'||t==='trunnion'){const grip=0.15,rz=bot+grip,jh=0.6,jw=0.55,jl=Math.max(W*0.7,1.5),bz=rz-jh;
+  // dovetail jaws (narrow, high)
+  G.box(xc-jl/2,sr[1]-jw,bz,xc+jl/2,sr[1]+0.06,rz,steel);G.box(xc-jl/2,sr[3]-0.06,bz,xc+jl/2,sr[3]+jw,rz,steel);for(const yy of[sr[1]-jw*0.5,sr[3]+jw*0.5])G.rev([xc,yy,(bz+rz)/2],'y',[[-jw*0.5,0],[-jw*0.5,0.09],[jw*0.5,0.09]],blk,6,0);
+  // body + screw
+  G.box(xc-jl/2-0.3,sr[1]-jw-0.1,bz-0.8,xc+jl/2+0.3,sr[3]+jw+0.1,bz,blue);G.rev([xc-jl/2-0.3,yc,bz-0.4],'x',[[-0.6,0.0],[-0.6,0.22],[0,0.22]],blk,6,1);
+  // riser / pedestal
+  G.rev([xc,yc,0],'z',[[bz-3.8,1.4],[bz-3.5,1.4],[bz-3.5,1.0],[bz-0.8,1.0],[bz-0.8,1.25]],[0.45,0.48,0.52],40,1);
+  if(t==='trunnion'){const pz=bz-3.8,pr=Math.max(3.5,Math.max(W,H)*0.9);G.rev([xc,yc,0],'z',[[pz-0.9,pr],[pz,pr]],[0.30,0.32,0.36],64,3);for(let k=0;k<6;k++){const a=k/6*Math.PI*2;G.box(xc+Math.cos(a)*pr*0.55-0.25,yc+Math.sin(a)*pr*0.55-0.25,pz-0.02,xc+Math.cos(a)*pr*0.55+0.25,yc+Math.sin(a)*pr*0.55+0.25,pz+0.01,blk);}
+   const cz=pz-0.9,L=pr+2.2;G.box(xc-L,yc-pr*0.9,cz-1.6,xc+L,yc+pr*0.9,cz,[0.82,0.83,0.85]);G.box(xc-L-1.6,yc-pr*0.9,cz-6,xc-L,yc+pr*0.9,cz+1.2,[0.82,0.83,0.85]);G.box(xc+L,yc-pr*0.9,cz-6,xc+L+1.6,yc+pr*0.9,cz+1.2,[0.82,0.83,0.85]);
+   G.rev([xc-L-1.6,yc,cz-0.6],'x',[[-1.4,1.6],[0,1.6]],red,48,1);G.rev([xc+L+1.6,yc,cz-0.6],'x',[[0,1.6],[1.0,1.6]],[0.55,0.57,0.6],48,2);
+   glTable(G,xc-L-5,yc-pr-3,xc+L+5,yc+pr+3,cz-6);}
+  else glTable(G,xc-6,yc-5,xc+6,yc+5,bz-3.8);return;}
+ if(t==='zeropoint'){const rh=1.5,pw=Math.max(W,4)+2,ph=Math.max(H,4)+2,pz=bot-rh;
+  G.box(sr[0]+W*0.2,sr[1]+H*0.2,pz,sr[2]-W*0.2,sr[3]-H*0.2,bot,[0.55,0.58,0.62]);for(const[dx,dy]of[[-1,-1],[1,-1],[-1,1],[1,1]])G.rev([xc+dx*W*0.22,yc+dy*H*0.22,0],'z',[[bot-0.02,0.12],[bot+0.06,0.12]],blk,6,2);
+  G.box(xc-pw/2,yc-ph/2,pz-0.9,xc+pw/2,yc+ph/2,pz,[0.62,0.65,0.69]);for(const[dx,dy]of[[-1,-1],[1,-1],[-1,1],[1,1]]){const px=xc+dx*pw*0.3,py=yc+dy*ph*0.3;G.rev([px,py,0],'z',[[pz-0.01,0.75],[pz+0.04,0.75],[pz+0.04,0.45],[pz+0.12,0.45]],[0.86,0.68,0.26],40,2);}
+  glTable(G,xc-pw/2-3,yc-ph/2-3,xc+pw/2+3,yc+ph/2+3,pz-0.9);return;}
+ if(t==='tomb'){const T=Math.max(1.5,H*0.6),Lx0=sr[0]-0.5,Lx1=sr[2]+0.5,ax=bot-T/2;G.box(Lx0,sr[1],bot-T,Lx1,sr[3],bot,[0.48,0.51,0.55]);
+  // ghost parts on the side faces (load 4 at once)
+  const ghost=mc.map(v=>v*0.75);G.box(sr[0],sr[3],bot-T+0.2,sr[2],sr[3]+S.stock.z*0.9,bot-0.2,ghost);G.box(sr[0],sr[1]-S.stock.z*0.9,bot-T+0.2,sr[2],sr[1],bot-0.2,ghost);G.box(sr[0],sr[1]+0.2,bot-T-S.stock.z*0.9,sr[2],sr[3]-0.2,bot-T,ghost);
+  for(let x=Lx0+0.4;x<Lx1-0.2;x+=0.8)for(const yy of[sr[1]-0.001,sr[3]+0.001])G.rev([x,yy,ax],'y',[[-0.01,0.09],[0.01,0.09]],blk,10,3);
+  const R=Math.max(T,H)*0.9+0.6;G.rev([Lx0,yc,ax],'x',[[-0.6,R],[0,R]],[0.36,0.38,0.42],48,3);G.rev([Lx0-0.6,yc,ax],'x',[[-3.2,R*1.1],[0,R*1.1]],red,48,3);G.box(Lx0-3.8,yc-R*1.1,ax-R*1.1-1.2,Lx0-0.6,yc+R*1.1,ax-R*0.6,red);
+  G.rev([Lx1,yc,ax],'x',[[0,R],[0.6,R]],[0.36,0.38,0.42],48,3);G.rev([Lx1+0.6,yc,ax],'x',[[0,0.25],[0.0,0.9],[2.6,0.9]],[0.55,0.57,0.6],32,3);G.box(Lx1+0.8,yc-1.1,ax-R*1.1-1.2,Lx1+3.2,yc+1.1,ax-0.6,[0.55,0.57,0.6]);
+  glTable(G,Lx0-6,yc-R-3,Lx1+6,yc+R+3,ax-R*1.1-1.2);return;}
+ if(t==='chuck4'){const R=Math.max(W,H)/2,cr=R+1.4,x0=sr[0];G.rev([x0-1.2,yc,0],'x',[[-0.01,cr],[1.2,cr]],[0.40,0.43,0.47],48,3);
+  for(let k=0;k<3;k++){const a=k/3*Math.PI*2+Math.PI/2,u=[0,Math.cos(a),Math.sin(a)],v=[0,-Math.sin(a),Math.cos(a)];const P_=(x,r,w)=>[x,yc+u[1]*r+v[1]*w,u[2]*r+v[2]*w];const r0=R,r1=R+0.9,w=0.3,xa=x0,xb=x0+0.6;G.quad(P_(xa,r0,-w),P_(xb,r0,-w),P_(xb,r0,w),P_(xa,r0,w),steel,null);G.quad(P_(xa,r1,-w),P_(xa,r1,w),P_(xb,r1,w),P_(xb,r1,-w),steel,null);G.quad(P_(xa,r0,-w),P_(xa,r1,-w),P_(xb,r1,-w),P_(xb,r0,-w),steel,null);G.quad(P_(xa,r0,w),P_(xb,r0,w),P_(xb,r1,w),P_(xa,r1,w),steel,null);G.quad(P_(xb,r0,-w),P_(xb,r1,-w),P_(xb,r1,w),P_(xb,r0,w),steel,null);}
+  G.rev([x0-1.2,yc,0],'x',[[-3,cr*1.15],[0,cr*1.15]],red,48,3);G.box(x0-4.2,yc-cr*1.15,-cr*1.15-1.4,x0-1.2,yc+cr*1.15,-cr*0.5,red);
+  G.rev([sr[2],yc,0],'x',[[0.0,0.0],[0.35,0.3],[0.6,0.45],[3.2,0.9]],[0.55,0.57,0.6],32,2);G.box(sr[2]+1.2,yc-1.1,-cr*1.15-1.4,sr[2]+3.6,yc+1.1,-0.6,[0.55,0.57,0.6]);glTable(G,x0-8,yc-cr-3,sr[2]+8,yc+cr+3,-cr*1.15-1.4);return;}
+ if(t==='magnet'){const x0=sr[0]-1,x1=sr[2]+1,y0=sr[1]-1,y1=sr[3]+1;G.box(x0,y0,bot-2,x1,y1,bot-0.02,[0.42,0.45,0.48]);for(let x=x0+0.15;x<x1-0.1;x+=0.32)G.box(x,y0+0.15,bot-0.02,x+0.06,y1-0.15,bot,[0.80,0.70,0.30]);G.box(x0-0.4,y0+0.4,bot-1.6,x0,y0+1.2,bot-0.8,blk);glTable(G,x0-4,y0-3,x1+4,y1+3,bot-2);return;}
+ if(t==='vacuum'){const x0=sr[0]-0.8,x1=sr[2]+0.8,y0=sr[1]-0.8,y1=sr[3]+0.8;G.box(x0,y0,bot-1,x1,y1,bot-0.03,[0.55,0.58,0.62]);for(let x=x0+0.3;x<x1;x+=0.5)G.box(x,y0+0.2,bot-0.03,x+0.04,y1-0.2,bot-0.01,blk);for(let y=y0+0.3;y<y1;y+=0.5)G.box(x0+0.2,y,bot-0.03,x1-0.2,y+0.04,bot-0.01,blk);G.box(sr[0]+0.1,sr[1]+0.1,bot-0.03,sr[2]-0.1,sr[1]+0.16,bot,red);G.box(sr[0]+0.1,sr[3]-0.16,bot-0.03,sr[2]-0.1,sr[3]-0.1,bot,red);G.box(sr[0]+0.1,sr[1]+0.1,bot-0.03,sr[0]+0.16,sr[3]-0.1,bot,red);G.box(sr[2]-0.16,sr[1]+0.1,bot-0.03,sr[2]-0.1,sr[3]-0.1,bot,red);G.rev([x1,yc,bot-0.5],'x',[[0,0.2],[0.8,0.2]],blk,16,2);glTable(G,x0-3,y0-3,x1+3,y1+3,bot-1);return;}}
+function fxThumbs(){document.querySelectorAll('canvas[data-fxpv]').forEach(cv=>{const k=cv.dataset.fxpv;const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;if(!W)return;cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  const sx=2.4,sy=1.8,sz=0.8,sr=[0,0,sx,sy],bot=-sz,keep=S.fixture.type,ks=S.stock;S.fixture.type=k;S.stock={...ks,x:sx,y:sy,z:sz};const big=['trunnion','tomb','chuck4'].includes(k);
+  const cam={cx:sx/2,cy:sy/2-(k==='vise'||k==='softjaw'?1.5:0),zc:k==='trunnion'?-5.5:big?-2.5:-1.2,yaw:-0.7,pitch:1.0,span:k==='trunnion'?26:big?16:k==='vise'||k==='softjaw'?11:8.5};cam.sc=Math.min(W,H)/cam.span*(big?1.6:1.35);
+  const mc=hexRGB(mat().color).map(v=>v/255);const ok=glScene(g,W,H,dpr,cam,G=>{if(k==='chuck4')G.rev([0,sy/2,0],'x',[[0,0],[0,0.9],[sx,0.9],[sx,0]],mc,32,0);else G.box(0,0,bot,sx,sy,0,mc);glFixture(G,sr,bot,0);});
+  S.fixture.type=keep;S.stock=ks;if(!ok){cv.style.display='none';const sp=cv.nextElementSibling;if(sp)sp.style.display='';}});}
+/* ================= 3D lathe simulator ================= */
+const PVL={yaw:-0.35,pitch:1.2,zoom:1};
+function glLtool(G,tl,x,r){const ty=tl.type,ins=[0.86,0.68,0.26],blk=[0.15,0.16,0.18],stl=[0.45,0.48,0.52],t=0.19,y0=-t/2,y1=t/2;
+ const prism=(pts,col)=>{// polygon in (x,z) plane, extruded along y
+  const n=pts.length;for(let i=1;i<n-1;i++){G.tri([pts[0][0],y1,pts[0][1]],[pts[i][0],y1,pts[i][1]],[pts[i+1][0],y1,pts[i+1][1]],col,[0,1,0]);G.tri([pts[0][0],y0,pts[0][1]],[pts[i+1][0],y0,pts[i+1][1]],[pts[i][0],y0,pts[i][1]],col,[0,-1,0]);}
+  for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n];G.quad([a[0],y0,a[1]],[b[0],y0,b[1]],[b[0],y1,b[1]],[a[0],y1,a[1]],col,null);}};
+ if(ty==='turn'||ty==='bore'){const ang=(tl.angle||80)*Math.PI/180,L=ty==='bore'?0.38:0.5,a1=Math.PI*0.5+0.09+ang/2,a2=Math.PI*0.5+0.09-ang/2;// diamond tip at (x,r), body up and toward +x
+  const p0=[x,r],p1=[x+L*Math.cos(a2)*-1+L*0,0];const d1=[-Math.cos(a1),Math.sin(a1)],d2=[-Math.cos(a2),Math.sin(a2)];const A=[x+d1[0]*L,r+d1[1]*L],B=[x+d2[0]*L,r+d2[1]*L],C=[A[0]+B[0]-x,A[1]+B[1]-r];prism([p0,B,C,A].map(q=>[q[0],q[1]]),ins);
+  if(ty==='bore')G.rev([C[0]+0.05,0,C[1]+0.1],'x',[[0,(tl.dia||0.5)*0.4],[4,(tl.dia||0.5)*0.4]],stl,24,3);
+  else{G.box(C[0]-0.25,-0.5,C[1]-0.05,C[0]+0.75,0.5,C[1]+0.95,stl);G.box(C[0]-0.1,y0-0.01,C[1]-0.2,C[0]+0.25,y1+0.01,C[1]+0.05,blk);G.box(C[0]-0.6,-0.6,C[1]+0.95,C[0]+1.4,0.6,C[1]+2.2,[0.30,0.32,0.36]);}return;}
+ if(ty==='groove'||ty==='part'){const w=tl.width||0.125,h=ty==='part'?1.4:0.7;prism([[x-w/2,r],[x+w/2,r],[x+w/2,r+0.25],[x-w/2,r+0.25]],ins);prism([[x-w/2+0.01,r+0.25],[x+w/2-0.01,r+0.25],[x+w/2,r+h],[x-w/2-0.4,r+h]],[0.62,0.65,0.69]);G.box(x-0.7,-0.5,r+h,x+0.5,0.5,r+h+1.0,stl);return;}
+ if(ty==='thread'){prism([[x,r],[x+0.15,r+0.26],[x-0.15,r+0.26]],ins);G.box(x-0.4,-0.5,r+0.26,x+0.4,0.5,r+1.2,stl);return;}
+ if(ty==='drill'){const d=tl.dia||0.25;G.rev([x,0,0],'x',[[0,0],[d*0.3,d/2],[3,d/2]],[0.86,0.68,0.26],24,2);G.box(x+3,-0.7,-0.7,x+4.2,0.7,0.7,stl);return;}}
+function latheGL(cv,L,upto){const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;if(!W)return false;cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+ const R0=L.stockD/2,len=L.len+0.4,grid=LSIM&&LSIM.r;const mc=hexRGB(mat().color).map(v=>v/255),cutc=mc.map((v,i)=>Math.min(1,v*0.85+[0.08,0.1,0.16][i]));
+ const span=Math.max(len+3,R0*5)/PVL.zoom;const cam={cx:-len/2,cy:0,zc:0,yaw:PVL.yaw,pitch:PVL.pitch,span};cam.sc=Math.min(W,H*1.6)/span*0.95;
+ const segs=L.segs||[],n=upto==null?0:upto,s=segs[Math.max(0,n-1)];
+ return glScene(g,W,H,dpr,cam,G=>{
+  // stock (revolved from the removal grid)
+  let prof=[];if(grid){const st=Math.max(1,Math.floor(grid.length/260));prof.push([-len,0]);for(let i=0;i<grid.length;i+=st){const z=-len+i*LSIM.dz,r=grid[i];prof.push([z,Math.max(0.001,r),r<R0-0.002?cutc:mc]);}const zl=-len+(grid.length-1)*LSIM.dz;prof.push([zl,grid[grid.length-1]]);prof.push([zl,0]);}
+  else prof=[[-len,0],[-len,R0],[L.faceStock,R0],[L.faceStock,0]];G.rev([0,0,0],'x',prof,mc,64,0);
+  // 3-jaw chuck
+  const cx0=-len-0.2,cr=R0*1.6+1.2;G.rev([cx0,0,0],'x',[[-2.2,0],[-2.2,cr],[0,cr],[0,0]],[0.40,0.43,0.47],64,0);G.rev([cx0-2.2,0,0],'x',[[-3,cr*1.25],[0,cr*1.25]],[0.20,0.22,0.25],64,3);
+  for(let k=0;k<3;k++){const a=k/3*Math.PI*2+Math.PI/2,u=[Math.cos(a),Math.sin(a)],v=[-Math.sin(a),Math.cos(a)],P_=(x,rr,w)=>[x,u[0]*rr+v[0]*w,u[1]*rr+v[1]*w],r0=R0,r1=R0+0.9,w=0.32,xa=cx0,xb=cx0+0.7,c=[0.74,0.76,0.79];
+   G.quad(P_(xa,r0,-w),P_(xb,r0,-w),P_(xb,r0,w),P_(xa,r0,w),c,null);G.quad(P_(xa,r1,-w),P_(xa,r1,w),P_(xb,r1,w),P_(xb,r1,-w),c,null);G.quad(P_(xa,r0,-w),P_(xa,r1,-w),P_(xb,r1,-w),P_(xb,r0,-w),c,null);G.quad(P_(xa,r0,w),P_(xb,r0,w),P_(xb,r1,w),P_(xa,r1,w),c,null);G.quad(P_(xb,r0,-w),P_(xb,r1,-w),P_(xb,r1,w),P_(xb,r0,w),c,null);}
+  // tool at current position
+  if(s){const tl=S.ltools.find(x=>x.num===s.tn);if(tl)glLtool(G,tl,s.b[1],s.b[0]/2);}
+  // finished profile ghost line as thin ring strips
+ });}
+function lathePv3Wire(cv,L){let d=null;cv.style.touchAction='none';cv.addEventListener('pointerdown',e=>{d={x:e.clientX,y:e.clientY,yw:PVL.yaw,pt:PVL.pitch};cv.setPointerCapture(e.pointerId);});cv.addEventListener('pointermove',e=>{if(!d)return;PVL.yaw=d.yw+(e.clientX-d.x)*0.01;PVL.pitch=Math.min(1.57,Math.max(0.2,d.pt-(e.clientY-d.y)*0.01));latheDraw(cv,LSIM?LSIM.k:null);});const up=()=>{d=null;};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);cv.addEventListener('wheel',e=>{e.preventDefault();PVL.zoom=Math.min(4,Math.max(0.4,PVL.zoom*(e.deltaY<0?1.1:0.9)));latheDraw(cv,LSIM?LSIM.k:null);},{passive:false});}
 /* ================= LEARNING ================= */
 const SV=(w,h,b)=>`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;max-height:230px;background:#fff;border-radius:12px" font-family="Barlow,system-ui,sans-serif" font-size="11" font-weight="600">${b}</svg>`;
 const LBL=(x,y,t,c)=>`<text x="${x}" y="${y}" fill="${c||'#14181c'}">${t}</text>`;
@@ -2128,7 +2206,7 @@ function lToolSVG(tl,big){const ins=tl.type==='turn'||tl.type==='bore'?tl.insert
  s+=`<text x="100" y="${big?86:84}" text-anchor="end" font-size="${big?9:10}" font-weight="700" fill="#555">${esc(ins||tl.type.toUpperCase())}</text>`;
  return`<svg viewBox="0 0 110 90" style="width:100%;height:100%" font-family="Barlow,system-ui,sans-serif">${s}</svg>`;}
 let LSIM=null;
-function latheDraw(cv,upto){const L=S.lathe;if(!cv||!L)return;const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+function latheDraw(cv,upto){const L=S.lathe;if(!cv||!L)return;if(LSIM&&LSIM.gl&&cv.id==='lcv'&&LSIM.cv===cv&&latheGL(cv,L,upto))return;const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
  const R0=L.stockD/2,len=L.len+0.4,sc=Math.min((W-40)/(len+0.6),(H-40)/(R0*2.6)),ox=W-30-0.3*sc,oy=H/2;const X=z=>ox+z*sc,Y=r=>oy-r*sc;
  // chuck
  g.fillStyle='#5b6168';g.fillRect(X(-len-0.2)-30,Y(R0*1.3),30,R0*2.6*sc);
@@ -2157,7 +2235,7 @@ function rLathe(){const L=latheBuild();const tl=n=>S.ltools.find(x=>x.num===n);
  const cv=$('#lcv');new ResizeObserver(()=>latheDraw(cv)).observe(cv);}
 function rLatheSim(){const L=latheBuild();$('#main').innerHTML=`<h1>${t('simTitle')} · ${t('lathe')}</h1><div class="view" id="sv" style="height:min(55vh,520px)"><canvas id="lcv"></canvas><div class="ovl bl"><span class="pill" id="lInfo"></span></div></div>
  <div class="card" style="margin-top:12px"><div class="row"><button class="btn go" id="lPlay">${IC.play}${t('play')}</button><button class="btn" data-act="lReset">${IC.reset}${t('reset')}</button><label class="f" style="flex:1;min-width:160px">${t('speed')}<input type="range" id="lSpeed" min="1" max="60" value="12"></label></div></div>`;
- const cv=$('#lcv');const R0=L.stockD/2,len=L.len+0.4,dz=len/400;LSIM={r:new Float32Array(Math.ceil((len+L.faceStock)/dz)+1).fill(R0),dz,k:0,playing:false};
+ const cv=$('#lcv');const R0=L.stockD/2,len=L.len+0.4,dz=len/400;LSIM={r:new Float32Array(Math.ceil((len+L.faceStock)/dz)+1).fill(R0),dz,k:0,playing:false,gl:true,cv};lathePv3Wire(cv,L);
  const cut=(x,z)=>{const r=x/2;const i=Math.round((z+len)/dz);for(let d=-1;d<=1;d++){const ii=i+d;if(ii>=0&&ii<LSIM.r.length&&r<LSIM.r[ii])LSIM.r[ii]=Math.max(0,r);}};
  const step=n=>{for(let q=0;q<n&&LSIM.k<L.segs.length;q++){const s=L.segs[LSIM.k++];if(s.g!==0){const m=Math.max(1,Math.ceil(Math.hypot(s.b[0]-s.a[0],s.b[1]-s.a[1])/dz));for(let j=0;j<=m;j++)cut(s.a[0]+(s.b[0]-s.a[0])*j/m,s.a[1]+(s.b[1]-s.a[1])*j/m);}}
   latheDraw(cv,LSIM.k);const s=L.segs[Math.max(0,LSIM.k-1)];$('#lInfo').textContent=s?`T${s.tn} · X${fl(s.b[0],3)} Z${fl(s.b[1],3)} · ${Math.round(LSIM.k/L.segs.length*100)}%`:'';};
