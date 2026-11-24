@@ -2019,7 +2019,7 @@ function pvVert(J){const cv=$('#pvc');if(!cv)return;const c=J.c,vi=LANG==='vi',p
   const wz=cur[0],wx=cur[1],wd=o.wd,W=o.W,cx=id?wx-wd/2:wx+wd/2;const wA=T([cx-wd/2,wz+W/2]),wB=T([cx+wd/2,wz-W/2]);
   const q=T([cx,wz+W/2]),qd=Math.max(5,Math.min(wd*0.35,0.8)*S1);g.fillStyle=gGrad(g,q[0]-qd/2,0,q[0]+qd/2,0,[[0,'#8a9299'],[0.5,'#eef2f5'],[1,'#7a8288']]);g.fillRect(q[0]-qd/2,10,qd,q[1]-10);
   g.fillStyle=gGrad(g,q[0]-qd*1.6,0,q[0]+qd*1.6,0,[[0,'#8a9299'],[0.5,'#dfe4e8'],[1,'#6f777e']]);g.fillRect(q[0]-qd*1.6,0,qd*3.2,14);
-  gPink(g,wA[0],wA[1],wB[0]-wA[0],wB[1]-wA[1]);g.fillStyle='#1fa3e0';g.fillRect(wA[0]-2,wB[1]-3,wB[0]-wA[0]+4,3);
+  gPink(g,wA[0],wA[1],wB[0]-wA[0],wB[1]-wA[1]);{const xc=(wA[0]+wB[0])/2,rw=(wB[0]-wA[0])/2;for(let k=0;k<6;k++){const a=t*900+k*Math.PI/3;if(Math.cos(a)<0)continue;const x=xc+Math.sin(a)*rw;g.strokeStyle='rgba(255,255,255,.75)';g.lineWidth=1+Math.cos(a);g.beginPath();g.moveTo(x,wA[1]+1);g.lineTo(x,wB[1]-1);g.stroke();}}g.fillStyle='#1fa3e0';g.fillRect(wA[0]-2,wB[1]-3,wB[0]-wA[0]+4,3);
   gArrow(g,[q[0]+qd+14,40],[q[0]+qd+14,70],'#d93a3a',true);gArrow(g,[tc[0]+tr*0.55,tc[1]+tr*ey+18],[tc[0]-tr*0.55,tc[1]+tr*ey+18],'#1c9b5f',false);
   return T;},path,{noPath:true,tool:()=>{},text:()=>(vi?`${id?'Mài lỗ':'Mài ngoài'} · bàn quay ${o.workR} rpm`:`${id?'Bore':'OD'} · table ${o.workR} rpm`)});PV.speed=0.8;}
 function pvCyl(J){const cv=$('#pvc');if(!cv)return;const c=J.c,path=[];const o=J.ops.find(x=>x.kind!=='dress');if(!o){return;}
@@ -2054,7 +2054,7 @@ function pvCyl(J){const cv=$('#pvc');if(!cv)return;const c=J.c,path=[];const o=J
   return T;},path,
   {tool:(g,c_,cur)=>{const x=cur[1];
     if(id){// small wheel on a long quill coming from the right
-     const top=x,ctr=top-o.wd/2,zc=cur[0];const a_=[c_[0]-WW/2*Ts,c_[1]],b_=[c_[0]+WW/2*Ts,c_[1]+o.wd*Ts];g.fillStyle=rgb(g,0,a_[1],0,b_[1],[[0,'#f0d9c2'],[0.5,'#d9b48f'],[1,'#b98d64']]);g.fillRect(a_[0],a_[1],b_[0]-a_[0],b_[1]-a_[1]);g.strokeStyle='#6b4e33';g.lineWidth=1;g.strokeRect(a_[0],a_[1],b_[0]-a_[0],b_[1]-a_[1]);
+     const top=x,ctr=top-o.wd/2,zc=cur[0];const a_=[c_[0]-WW/2*Ts,c_[1]],b_=[c_[0]+WW/2*Ts,c_[1]+o.wd*Ts];g.fillStyle=rgb(g,0,a_[1],0,b_[1],[[0,'#f0d9c2'],[0.5,'#d9b48f'],[1,'#b98d64']]);g.fillRect(a_[0],a_[1],b_[0]-a_[0],b_[1]-a_[1]);g.strokeStyle='#6b4e33';g.lineWidth=1;g.strokeRect(a_[0],a_[1],b_[0]-a_[0],b_[1]-a_[1]);gSpin(g,a_[0]+1,b_[0]-1,(a_[1]+b_[1])/2,(b_[1]-a_[1])/2-1,(PV?PV.t:0)*1200,'rgba(255,255,255,.75)');
      const qy=c_[1]+o.wd/2*Ts,qd=Math.max(4,o.wd*0.35*Ts);g.fillStyle=rgb(g,0,qy-qd/2,0,qy+qd/2,[[0,'#8a9299'],[0.5,'#e6ebef'],[1,'#7a8288']]);g.fillRect(b_[0],qy-qd/2,1.6*Ts+ (3.2*Ts),qd);
      const hx=b_[0]+3.2*Ts;g.fillStyle=rgb(g,0,qy-0.9*Ts,0,qy+0.9*Ts,[[0,'#8a9299'],[0.5,'#dfe4e8'],[1,'#6f777e']]);g.fillRect(hx,qy-0.38*Ts,0.6*Ts,0.76*Ts);g.fillStyle='#3e6fd0';g.beginPath();g.roundRect(hx+0.6*Ts,qy-0.95*Ts,1.6*Ts,1.9*Ts,6);g.fill();g.strokeStyle='#1b3c80';g.stroke();
      arrow(g,[hx+1.4*Ts,qy+1.05*Ts],[hx+1.4*Ts,qy+1.05*Ts+28],'#d93a3a',true);return;}
@@ -2063,6 +2063,7 @@ function pvCyl(J){const cv=$('#pvc');if(!cv)return;const c=J.c,path=[];const o=J
     g.fillStyle='#e8e4d6';g.beginPath();g.roundRect(x0-0.25*Ts-6,y0-0.25*Ts-6,wwpx+0.5*Ts+12,wdpx*0.62,8);g.fill();g.strokeStyle='#a39f90';g.stroke();
     g.fillStyle=rgb(g,x0,0,x0+wwpx,0,[[0,'#c9527a'],[0.3,'#f3a2bd'],[0.7,'#e98aab'],[1,'#b8456c']]);g.beginPath();g.roundRect(x0,y0,wwpx,wdpx,3);g.fill();g.strokeStyle='#8a2f52';g.lineWidth=1;g.stroke();
     g.fillStyle='rgba(255,255,255,.35)';for(let i=0;i<40;i++){g.fillRect(x0+((i*37)%100)/100*wwpx,y0+((i*61)%100)/100*wdpx,1.5,1.5);}
+    gSpin(g,x0+1,x0+wwpx-1,y0+wdpx/2,wdpx/2-1,(PV?PV.t:0)*700,'rgba(255,255,255,.7)');
     const hub=[c_[0],c_[1]-wdpx/2];g.fillStyle='#9aa1a8';g.fillRect(hub[0]-wwpx/2-6,hub[1]-6,wwpx+12,12);g.strokeStyle='#555';g.strokeRect(hub[0]-wwpx/2-6,hub[1]-6,wwpx+12,12);
     // coolant nozzle
     const nz=[c_[0]+wwpx/2+0.25*Ts,c_[1]-0.35*Ts];g.strokeStyle='#2a63d4';g.lineWidth=7;g.setLineDash([6,2]);g.beginPath();g.moveTo(nz[0]+48,nz[1]-70);g.quadraticCurveTo(nz[0]+60,nz[1]-10,nz[0]+12,nz[1]-4);g.stroke();g.setLineDash([]);g.fillStyle='#ff8a1f';g.beginPath();g.moveTo(nz[0]+12,nz[1]-9);g.lineTo(nz[0],nz[1]-2);g.lineTo(nz[0]+12,nz[1]+3);g.fill();
