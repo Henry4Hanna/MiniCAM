@@ -1956,15 +1956,21 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-mt]');if(!
 document.addEventListener('change',e=>{const el=e.target;if(el.dataset.side3d){S.side3d={...(S.side3d||{}),[el.dataset.side3d]:el.checked};persist();S._sideRes=null;rProgram();}});
 /* ================= previews for grinding / wire (animated) ================= */
 let PV=null;
-function pvStart(cv,draw,path,info){cancelAnimationFrame(PV&&PV.raf);PV={cv,draw,path,info,t:0,play:false,raf:0,len:0};let L=0;for(let i=1;i<path.length;i++)L+=Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1]);PV.len=L;pvDraw();}
+function pvStart(cv,draw,path,info){cancelAnimationFrame(PV&&PV.raf);const mb=$('#pvMacro');if(mb){mb.innerHTML='';mb.dataset.k='';}PV={cv,draw,path,info,t:0,play:false,raf:0,len:0,macro:null};let L=0;for(let i=1;i<path.length;i++)L+=Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1]);PV.len=L;pvDraw();}
 function pvDraw(){if(!PV)return;const cv=PV.cv;if(!cv.isConnected)return;const r=cv.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);cv.width=r.width*dpr;cv.height=r.height*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
  const P=PV.path;let rem=PV.t*PV.len,k=1,cur=P[0]||[0,0];for(;k<P.length;k++){const s_=Math.hypot(P[k][0]-P[k-1][0],P[k][1]-P[k-1][1]);if(rem<s_){const u=s_?rem/s_:0;cur=[P[k-1][0]+(P[k][0]-P[k-1][0])*u,P[k-1][1]+(P[k][1]-P[k-1][1])*u];break;}rem-=s_;cur=P[k];}
  const T=PV.draw(g,r.width,r.height,cur,PV.t);if(!P.length)return;
  if(!(PV.info&&PV.info.noPath)){let rm=PV.t*PV.len;g.strokeStyle='#ff6a13';g.lineWidth=2;g.beginPath();g.moveTo(...T(P[0]));for(let j=1;j<P.length;j++){const s_=Math.hypot(P[j][0]-P[j-1][0],P[j][1]-P[j-1][1]);if(rm<s_){g.lineTo(...T(cur));break;}rm-=s_;g.lineTo(...T(P[j]));}g.stroke();}const c=T(cur);if(PV.info&&PV.info.tool)PV.info.tool(g,c,cur);else{g.fillStyle='#f2c14e';g.beginPath();g.arc(c[0],c[1],5,0,7);g.fill();}
- const el=$('#pvInfo');if(el)el.textContent=(PV.info&&PV.info.text?PV.info.text(k,P.length):'')+' · '+Math.round(PV.t*100)+'%';}
-function pvLoop(ts){if(!PV||!PV.play)return;PV.t=Math.min(1,PV.t+0.0025*(PV.speed||1));pvDraw();if(PV.t>=1){PV.play=false;const b=$('#pvPlay');if(b)b.innerHTML=IC.play;return;}PV.raf=requestAnimationFrame(pvLoop);}
+ const el=$('#pvInfo');if(el)el.textContent=(PV.info&&PV.info.text?PV.info.text(k,P.length):'')+' · '+Math.round(PV.t*100)+'%';pvMacroShow(k);}
+function pvMacroShow(k){const box=$('#pvMacro');if(!box)return;const M_=PV&&PV.macro;if(!M_){if(box.innerHTML)box.innerHTML='';return;}const vi=LANG==='vi';const m=M_.meta[Math.max(0,Math.min(M_.meta.length-1,k))]||{};const key=JSON.stringify(m);if(box.dataset.k===key)return;box.dataset.k=key;
+ box.innerHTML=`<div style="margin-top:10px;border-radius:12px;background:#0f1418;color:#cfd6dc;padding:10px 12px;font:12.5px/1.55 ui-monospace,Menlo,monospace"><div style="font:700 13px Barlow,system-ui;color:#fff;margin-bottom:4px">▶ ${vi?'Macro đang chạy':'Macro running'} · <span style="color:#ffb37a">${esc(m.ph||'')}</span>${m.pass?` · ${vi?'lượt':'pass'} ${m.pass}/${m.of}`:''}</div>
+ <div style="color:#8fe3a7;margin-bottom:6px">${(m.vars||[]).map(v=>`${v[0]} = ${v[1]}`).join('   ')}</div>${M_.lines.map(l=>`<div style="white-space:pre;${l[0]===m.ln?'background:#ff6a13;color:#fff;border-radius:4px;':''}padding:0 4px">${esc(l[1])}</div>`).join('')}</div>`;}
+
+function pvLoop(ts){if(!PV||!PV.play)return;PV.t=Math.min(1,PV.t+0.0025*(PV.speed||1)*PVSPD[S.pvSpd??3]);pvDraw();if(PV.t>=1){PV.play=false;const b=$('#pvPlay');if(b)b.innerHTML=IC.play;return;}PV.raf=requestAnimationFrame(pvLoop);}
+document.addEventListener('input',e=>{if(e.target.id==='pvSpd'){S.pvSpd=+e.target.value;const l=$('#pvSpdL');if(l)l.textContent='×'+PVSPD[S.pvSpd];}});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-pv]');if(!b||!PV)return;const a=b.dataset.pv;if(a==='play'){PV.play=!PV.play;if(PV.t>=1)PV.t=0;b.innerHTML=PV.play?IC.pause:IC.play;if(PV.play)PV.raf=requestAnimationFrame(pvLoop);}else if(a==='reset'){PV.t=0;PV.play=false;$('#pvPlay').innerHTML=IC.play;pvDraw();}else if(a==='end'){PV.t=1;PV.play=false;pvDraw();}});
-const pvBox=(h)=>`<div class="view" style="height:${h||300}px;position:relative"><canvas id="pvc" style="width:100%;height:100%;display:block"></canvas><div class="ovl bl"><span class="pill" id="pvInfo"></span></div></div><div class="simbar" style="margin-top:8px"><button class="ib" data-pv="reset" title="reset">${SIC.reset}</button><button class="ib play" id="pvPlay" data-pv="play">${IC.play}</button><button class="ib" data-pv="end">${SIC.end}</button></div>`;
+const pvBox=(h)=>`<div class="view" style="height:${h||300}px;position:relative"><canvas id="pvc" style="width:100%;height:100%;display:block"></canvas><div class="ovl bl"><span class="pill" id="pvInfo"></span></div></div><div class="simbar" style="margin-top:8px"><button class="ib" data-pv="reset" title="reset">${SIC.reset}</button><button class="ib play" id="pvPlay" data-pv="play">${IC.play}</button><button class="ib" data-pv="end">${SIC.end}</button><label style="display:flex;align-items:center;gap:6px;flex:1;min-width:150px;font-size:13px">🐢<input type="range" id="pvSpd" min="0" max="6" step="1" value="${S.pvSpd??3}" style="flex:1">🐇<b id="pvSpdL" style="min-width:34px">×${PVSPD[S.pvSpd??3]}</b></label></div><div id="pvMacro"></div>`;
+const PVSPD=[0.1,0.25,0.5,1,2,4,8];
 const fitT=(w,h,bb,pad)=>{const sx=(w-2*pad)/(bb[2]-bb[0]||1),sy=(h-2*pad)/(bb[3]-bb[1]||1),s=Math.min(sx,sy),ox=pad+((w-2*pad)-(bb[2]-bb[0])*s)/2,oy=pad+((h-2*pad)-(bb[3]-bb[1])*s)/2;return p=>[ox+(p[0]-bb[0])*s,h-(oy+(p[1]-bb[1])*s)];};
 function pvWire(J){const cv=$('#pvc');if(!cv)return;const path=[];J.ops.forEach(o=>{path.push(o.start,o.entry,...o.rough,...o.tab);o.skims.forEach((q,k)=>path.push(...(k%2===0?q.slice().reverse():q)));});
  const sr=stockRect(),bb=[sr[0]-0.3,sr[1]-0.3,sr[2]+0.3,sr[3]+0.3];pvStart(cv,(g,w,h)=>{const T=fitT(w,h,bb,14);g.fillStyle='#1b2026';g.fillRect(0,0,w,h);for(const f of S.feats.filter(f=>f.loop)){g.beginPath();f.loop.forEach((q,i)=>g[i?'lineTo':'moveTo'](...T(q)));g.closePath();g.fillStyle=f.kind==='profile'?'#34404c':'#1b2026';g.fill();g.strokeStyle='#9aa3ab';g.lineWidth=1;g.stroke();}
@@ -1975,8 +1981,14 @@ const gArrow=(g,p0,p1,col,both,lw)=>{g.strokeStyle=col;g.fillStyle=col;g.lineWid
 const gPink=(g,x,y,w,h)=>{g.fillStyle=gGrad(g,x,0,x+w,0,[[0,'#c9527a'],[0.3,'#f3a2bd'],[0.7,'#e98aab'],[1,'#b8456c']]);g.beginPath();g.roundRect(x,y,w,h,Math.min(4,w/4));g.fill();g.strokeStyle='#8a2f52';g.lineWidth=1;g.stroke();g.fillStyle='rgba(255,255,255,.35)';for(let i=0;i<40;i++)g.fillRect(x+((i*37)%100)/100*w,y+((i*61)%100)/100*h,1.5,1.5);};
 /* rotation marks: lines on a turning cylinder seen from the side (axis horizontal) */
 function gSpin(g,x0,x1,yc,rp,ph,col){for(let k=0;k<6;k++){const a=ph+k*Math.PI/3,cy=Math.cos(a);if(cy<0)continue;const y=yc-Math.sin(a)*rp;g.strokeStyle=col||'rgba(255,255,255,.55)';g.lineWidth=1+cy;g.beginPath();g.moveTo(x0,y);g.lineTo(x1,y);g.stroke();}}
-function pvSurf(J){const cv=$('#pvc');if(!cv)return;const M=J.M,r=J.ops.find(o=>o.kind==='rough'),vi=LANG==='vi',path=[];
- const L=J.L,W=J.W,T0=J.T,Ww=M.wheelW,WD=Math.min(M.wheelD,Math.max(L*1.3,4));let y=-Ww/2,d=1;path.push([-1,y]);while(y<=W+Ww/2){path.push([d>0?L+1:-1,y]);y+=r.cf;path.push([d>0?L+1:-1,y]);d=-d;}
+function pvSurf(J){const cv=$('#pvc');if(!cv)return;const M=J.M,r=J.ops.find(o=>o.kind==='rough'),f=J.ops.find(o=>o.kind==='finish')||r,vi=LANG==='vi',path=[],meta=[];
+ const L=J.L,W=J.W,T0=J.T,Ww=M.wheelW,WD=Math.min(M.wheelD,Math.max(L*1.3,4));const push=(p,m)=>{path.push(p);meta.push(m);};
+ let z=J.stock,x=-1,sgn=1;const y0=-Ww/2,y1=W+Ww/2;push([x,y0],{ph:'START',ln:'g0',vars:[['#1',f4(z)]]});
+ const layer=(ph,step,tgt,np,cf,lnD)=>{for(let n=1;n<=np;n++){z=ph==='SPARK-OUT'?z:Math.max(tgt,z-step);push([x,y0+1e-6*n],{ph,pass:n,of:np,ln:lnD,vars:[['#1',f4(z)]]});let y=y0;
+   while(y<=y1+1e-9){x=sgn>0?L+1:-1;sgn=-sgn;push([x,y],{ph,pass:n,of:np,ln:'x',vars:[['#1',f4(z)],['#4',f4(x)],['#6',f4(y)]]});y+=cf;if(y<=y1+cf){push([x,Math.min(y,y1+cf)],{ph,pass:n,of:np,ln:'y',vars:[['#1',f4(z)],['#6',f4(y)]]});}}
+   push([x,y0],{ph,pass:n,of:np,ln:'r',vars:[['#1',f4(z)],['#6',f4(y0)]]});}};
+ layer('ROUGH',r.df,f.stock,r.passes,r.cf,'d');layer('FINISH',f.df,0,f.passes,f.cf,'d');layer('SPARK-OUT',0,0,f.spark||2,f.cf,'sp');
+ const TRS={path,meta,lines:[['g0','G00 X#106 Y#108 ; #1 = #100'],['d','WHILE [#1 GT target] DO1 ; #1 = #1 - #102/#103 ; G01 Z#1'],['sp','(SPARK-OUT: same strokes, no downfeed)'],['x','    G01 X#4 F#112/#113   (TABLE)'],['y','    #6 = #6 + #110/#111 ; G01 Y#6   (CROSSFEED)'],['r','  G00 Y#108 ; END1']]};
  const tl=L+3.2,box=[-tl/2-1.6,-1.4-Math.max(1.2,(T0+WD)*0.35),tl/2+1.6,T0+WD+1.2];
  pvStart(cv,(g,w,h,cur,t)=>{const T=fitT(w,h,box,10),S1=Math.abs(T([1,0])[0]-T([0,0])[0]);g.fillStyle='#eef1f4';g.fillRect(0,0,w,h);const off=-(cur[0]-L/2); // table X so the wheel stays at x = 0
   // base + saddle
@@ -1999,11 +2011,9 @@ function pvSurf(J){const cv=$('#pvc');if(!cv)return;const M=J.M,r=J.ops.find(o=>
   const ay=T([0,-1.05])[1];gArrow(g,[T([-tl/2*0.55,0])[0],ay],[T([tl/2*0.55,0])[0],ay],'#d93a3a',true);
   gArrow(g,[wc[0]-R_-18,wc[1]-R_*0.3],[wc[0]-R_-18,wc[1]+R_*0.3],'#1c9b5f',false);
   const gx=w-16,gy0=18,gy1=h-48,fr=(cur[1]+Ww/2)/(W+Ww);g.fillStyle='rgba(0,0,0,.08)';g.fillRect(gx-3,gy0,6,gy1-gy0);g.fillStyle='#7a4fd6';g.fillRect(gx-5,gy0+(gy1-gy0)*Math.max(0,Math.min(1,fr))-4,10,8);g.fillStyle='#555';g.font='11px Barlow';g.textAlign='left';g.fillText(vi?'Y bước ngang →':'Y crossfeed →',10,16);
-  return T;},path,{noPath:true,tool:()=>{},text:()=>(vi?`Bàn chạy X · bước ngang ${f4(r.cf)} · ăn ${f4(r.df)} × ${r.passes}`:`Table X · crossfeed ${f4(r.cf)} · downfeed ${f4(r.df)} × ${r.passes}`)});PV.speed=1.5;}
+  return T;},path,{noPath:true,tool:()=>{},text:()=>(vi?`Bàn chạy X · bước ngang ${f4(r.cf)} · ăn ${f4(r.df)} × ${r.passes}`:`Table X · crossfeed ${f4(r.cf)} · downfeed ${f4(r.df)} × ${r.passes}`)});PV.macro=TRS;PV.speed=Math.max(0.15,Math.min(1.5,40/path.length));pvDraw();}
 /* vertical grinder: vertical spindle, rotary table, ring part */
-function pvVert(J){const cv=$('#pvc');if(!cv)return;const c=J.c,vi=LANG==='vi',path=[];const o=J.ops.find(x=>x.kind!=='dress');if(!o)return;const id=o.side==='id';
- if(o.mode==='plunge'){path.push([o.zc,c.maxD/2+0.5],[o.zc,o.dia/2+(id?-1:1)*o.allow/2],[o.zc,o.dia/2],[o.zc,c.maxD/2+0.5]);}
- else{let x=o.start/2,dir=1;path.push([o.za,x]);const sg=id?-1:1;for(const[inf,tgt]of[[o.infR,(id?o.dia-o.allow:o.dia+o.allow)/2],[o.infF,o.dia/2]]){let guard=0;while((x-tgt)*sg>1e-6&&guard++<200){x=id?Math.min(x+inf/2,tgt):Math.max(x-inf/2,tgt);path.push([dir===1?o.za:o.zb,x]);path.push([dir===1?o.zb:o.za,x]);dir=-dir;}}}
+function pvVert(J){const cv=$('#pvc');if(!cv)return;const c=J.c,vi=LANG==='vi';const o=J.ops.find(x=>x.kind!=='dress');if(!o)return;const id=o.side==='id';const TR=cylTrace(o,c),path=TR.path;
  const R=c.maxD/2,H=c.len,bore=(c.zones.find(z=>z.side==='id')||{}).dia/2||0,box=[-R-2.2,-H-2.4-Math.max(1.5,H*0.45),R+2.2,1.6+Math.max(3,H*0.8)];
  pvStart(cv,(g,w,h,cur,t)=>{const T=fitT(w,h,box,10),S1=Math.abs(T([1,0])[0]-T([0,0])[0]);g.fillStyle='#eef1f4';g.fillRect(0,0,w,h);const ph=t*120,ey=0.22;
   // rotary table (ellipse) with turning spokes + T-slots
@@ -2021,10 +2031,20 @@ function pvVert(J){const cv=$('#pvc');if(!cv)return;const c=J.c,vi=LANG==='vi',p
   g.fillStyle=gGrad(g,q[0]-qd*1.6,0,q[0]+qd*1.6,0,[[0,'#8a9299'],[0.5,'#dfe4e8'],[1,'#6f777e']]);g.fillRect(q[0]-qd*1.6,0,qd*3.2,14);
   gPink(g,wA[0],wA[1],wB[0]-wA[0],wB[1]-wA[1]);{const xc=(wA[0]+wB[0])/2,rw=(wB[0]-wA[0])/2;for(let k=0;k<6;k++){const a=t*900+k*Math.PI/3;if(Math.cos(a)<0)continue;const x=xc+Math.sin(a)*rw;g.strokeStyle='rgba(255,255,255,.75)';g.lineWidth=1+Math.cos(a);g.beginPath();g.moveTo(x,wA[1]+1);g.lineTo(x,wB[1]-1);g.stroke();}}g.fillStyle='#1fa3e0';g.fillRect(wA[0]-2,wB[1]-3,wB[0]-wA[0]+4,3);
   gArrow(g,[q[0]+qd+14,40],[q[0]+qd+14,70],'#d93a3a',true);gArrow(g,[tc[0]+tr*0.55,tc[1]+tr*ey+18],[tc[0]-tr*0.55,tc[1]+tr*ey+18],'#1c9b5f',false);
-  return T;},path,{noPath:true,tool:()=>{},text:()=>(vi?`${id?'Mài lỗ':'Mài ngoài'} · bàn quay ${o.workR} rpm`:`${id?'Bore':'OD'} · table ${o.workR} rpm`)});PV.speed=0.8;}
-function pvCyl(J){const cv=$('#pvc');if(!cv)return;const c=J.c,path=[];const o=J.ops.find(x=>x.kind!=='dress');if(!o){return;}
- if(o.mode==='plunge'){path.push([o.zc,c.maxD/2+0.5],[o.zc,o.dia/2+o.allow/2],[o.zc,o.dia/2],[o.zc,c.maxD/2+0.5]);}
- else{let x=o.start/2,dir=1;path.push([o.za,x+0.02]);const sg=o.side==='od'?1:-1;for(const[inf,tgt]of[[o.infR,(o.side==='od'?o.dia+o.allow:o.dia-o.allow)/2],[o.infF,o.dia/2]]){let guard=0;while((x-tgt)*sg>1e-6&&guard++<200){x=o.side==='od'?Math.max(x-inf/2,tgt):Math.min(x+inf/2,tgt);path.push([dir===1?o.za:o.zb,x]);path.push([dir===1?o.zb:o.za,x]);dir=-dir;}}}
+  return T;},path,{noPath:true,tool:()=>{},text:()=>(vi?`${id?'Mài lỗ':'Mài ngoài'} · bàn quay ${o.workR} rpm`:`${id?'Bore':'OD'} · table ${o.workR} rpm`)});PV.macro=TR;PV.speed=0.5;pvDraw();}
+/* path + macro trace for OD / ID / vertical grinding (coords [z, radius]); variable names follow cylGcode (first zone = #100…) */
+function cylTrace(o,c){const id=o.side==='id',path=[],meta=[],V=i=>'#'+(100+i),D=x=>f4(2*x);
+ const push=(p,m)=>{path.push(p);meta.push(m);};
+ if(o.mode==='plunge'){const hi=c.maxD/2+0.5;push([o.zc,hi],{ph:'START',ln:'g0',vars:[['Z',f4(o.zc)]]});push([o.zc,(o.dia+o.allow+0.03)/2],{ph:'APPROACH',ln:'g0x',vars:[['X',D((o.dia+o.allow+0.03)/2)]]});push([o.zc,(o.dia+o.allow)/2],{ph:'ROUGH',ln:'pr',vars:[['X',D((o.dia+o.allow)/2)],['F',V(5)+' = '+f4(o.prR)]]});push([o.zc,o.dia/2],{ph:'FINISH',ln:'pf',vars:[['X',f4(o.dia)],['F',V(6)+' = '+f4(o.prF)]]});push([o.zc,o.dia/2+0.0001],{ph:'SPARK-OUT',ln:'dw',vars:[['G04',o.dwell+' s']]});push([o.zc,hi],{ph:'RETRACT',ln:'g0r',vars:[]});
+  return{path,meta,lines:[['g0','G00 Z'+V(13)],['g0x','G00 X['+V(0)+' + '+V(2)+' + 0.03]'],['pr','G01 X['+V(0)+' + '+V(2)+'] F'+V(5)],['pf','G01 X'+V(0)+' F'+V(6)],['dw','G04 X'+V(12)+'   (SPARK-OUT)'],['g0r','G00 X… (CLEAR)']]};}
+ let x=o.start/2,dir=1;push([o.za,x],{ph:'START',ln:'s',vars:[['#1',D(x)]]});const sg=id?-1:1;
+ const phases=[['ROUGH',o.infR,(id?o.dia-o.allow:o.dia+o.allow)/2,o.pR,3,5],['FINISH',o.infF,o.dia/2,o.pF,4,6]];
+ for(const[ph,inf,tgt,np,vi_,vf]of phases){let n=0,guard=0;while((x-tgt)*sg>1e-6&&guard++<300){n++;x=id?Math.min(x+inf/2,tgt):Math.max(x-inf/2,tgt);const z=dir===1?o.za:o.zb;
+   push([z,x],{ph,pass:n,of:np,ln:'x',vars:[['#1',D(x)],[V(vi_),f4(inf)],['#2',dir]]});const z2=dir===1?o.zb:o.za;push([z2,x],{ph,pass:n,of:np,ln:'z',vars:[['#1',D(x)],['#3',f4(z2)],['F',V(vf)]]});dir=-dir;}}
+ for(let k=1;k<=(o.spark||0);k++){const z2=dir===1?o.zb:o.za;push([z2,x+(k%2?1e-5:0)],{ph:'SPARK-OUT',pass:k,of:o.spark,ln:'sp',vars:[['#5',k-1],['#3',f4(z2)]]});dir=-dir;}
+ const GT=id?'LT':'GT',SG=id?'+':'-';
+ return{path,meta,lines:[['s','#1 = '+V(1)+'  (START DIA)'],['w','WHILE [#1 '+GT+' target] DO1'],['x','  #1 = #1 '+SG+' '+V(3)+'/'+V(4)+' ; G01 X#1'],['z','  #3 = '+V(7)+'/'+V(8)+' ; G01 Z#3 F'+V(5)+'/'+V(6)],['e','END1'],['sp','WHILE [#5 LT '+V(9)+'] DO1  G01 Z#3  (SPARK-OUT)']]};}
+function pvCyl(J){const cv=$('#pvc');if(!cv)return;const c=J.c;const o=J.ops.find(x=>x.kind!=='dress');if(!o){return;}const TR=cylTrace(o,c),path=TR.path;
  const L=c.len,R=c.maxD/2,id=o.side==='id',vi=LANG==='vi';
  // scene units = inches; wheel drawn true size for ID, shrunk for big OD wheels so the part stays readable
  const WD=id?o.wd:Math.min(o.wd,Math.max(2.6*R+1.2,2.2)),WW=Math.max(0.15,o.W),hs=Math.max(1.1,R*1.4);
@@ -2070,7 +2090,7 @@ function pvCyl(J){const cv=$('#pvc');if(!cv)return;const c=J.c,path=[];const o=J
     g.strokeStyle='rgba(91,170,255,.75)';g.lineWidth=1.5;for(let i=-2;i<=2;i++){g.beginPath();g.moveTo(nz[0],nz[1]);g.lineTo(c_[0]+wwpx*0.3,c_[1]-2+i*3);g.stroke();}
     // infeed arrow (red)
     arrow(g,[x0-0.35*Ts-14,y0+wdpx*0.15],[x0-0.35*Ts-14,y0+wdpx*0.15+40],'#d93a3a',true);}
-   ,text:()=>(o.mode==='plunge'?(vi?'Ăn thẳng':'Plunge'):(vi?`Chạy dọc · ${o.pR}+${o.pF} lượt`:`Traverse · ${o.pR}+${o.pF} passes`))});PV.speed=0.8;}
+   ,text:()=>(o.mode==='plunge'?(vi?'Ăn thẳng':'Plunge'):(vi?`Chạy dọc · ${o.pR}+${o.pF} lượt`:`Traverse · ${o.pR}+${o.pF} passes`))});PV.macro=TR;PV.speed=0.5;pvDraw();}
 
 
 /* demo parts */
@@ -2964,6 +2984,7 @@ function rNest(){
    ${S.nestMoveOn?`<div class="warn" style="margin-bottom:10px;background:color-mix(in srgb,#8b4fd6 14%,transparent)">${LANG==='vi'?'Kéo chi tiết để dời chỗ (bước 0.05"). Chạm để chọn rồi bấm <b>Xoay 90°</b>. App báo nếu chi tiết chồng nhau hoặc ra ngoài tấm.':'Drag a part to move it (0.05" steps). Tap to select, then <b>Rotate 90°</b>. The app warns if parts overlap or leave the sheet.'}</div>`:''}
    ${S.nestTapOn?`<div class="warn" style="margin-bottom:10px;background:color-mix(in srgb,#ff6a13 14%,transparent)">${LANG==='vi'?'Chạm lên đường viền chi tiết để <b>thêm tab</b>. Chạm lên tab cam để <b>bỏ</b>. Tab áp dụng cho mọi chi tiết cùng loại (kể cả khi bị xoay).':'Tap a part outline to <b>add a tab</b>. Tap an orange tab to <b>remove</b> it. Tabs apply to every copy of the same part (rotated too).'}</div>`:''}
    ${nestSVG()}
+   <h3 style="margin:14px 0 6px">${LANG==='vi'?'Mô phỏng 2D đường dao':'2D toolpath playback'}</h3>${pvBox(320)}
    <div class="kpi" style="margin-top:10px"><div><span>${t('parts')}</span><b>${R.placed.length}</b></div><div><span>${t('tabsN')}</span><b>${totTabs}</b></div><div><span>${t('screws')}</span><b>${R.holes.length}</b></div><div><span>${t('cycle')}</span><b>${R.time?(R.time/60).toFixed(1)+' min':'—'}</b></div></div>
    <div class="legend"><span><i class="dot" style="background:#ff6a13"></i>Tab</span><span><i class="dot" style="background:#1c9b5f"></i>${LANG==='vi'?'Lỗ vít':'Screw hole'}</span></div>
    ${R.warn.length?`<div class="warn" style="margin-top:10px">${R.warn.map(esc).join('<br>')}</div>`:''}
@@ -2990,7 +3011,27 @@ function rNest(){
    <label class="f">${t('removal')}<select data-nb="removal" data-u="S"><option value="break" ${N.removal==='break'?'selected':''}>${t('breakFile')}</option><option value="mill" ${N.removal==='mill'?'selected':''}>${t('millFix')}</option></select></label></div></div>
   <div class="card"><h2>${t('gcode')}</h2><div class="row" style="margin-bottom:10px"><button class="btn go" data-act="nestSave">${IC.save}${t('saveFile')}</button><button class="btn" data-act="nestCopy">${IC.copy}${t('copy')}</button><span class="ro" style="font-weight:600">${lines.length} ${t('lines')}</span></div>
    <pre class="code" style="max-height:300px">${hlG(NESTG.slice(0,20000))}</pre></div>
- </div></div>`;const sv=$('#nestSvg');if(sv){sv.addEventListener('click',nestTap);if(S.nestMoveOn)nestDragWire(sv);}}
+ </div></div>`;const sv=$('#nestSvg');if(sv){sv.addEventListener('click',nestTap);if(S.nestMoveOn)nestDragWire(sv);}setTimeout(()=>pvNest(N),40);}
+/* parse the nest G-code into 2D moves and play it back */
+function gcodeMoves(code){const out=[];let g=0,x=0,y=0,z=0,can=false;for(const raw of code.split('\n')){const l=raw.replace(/\(.*?\)/g,'').replace(/;.*$/,'').toUpperCase();if(!l.trim())continue;const W=k=>{const m=l.match(new RegExp(k+'(-?\\d*\\.?\\d+)'));return m?parseFloat(m[1]):null;};
+ const gs=[...l.matchAll(/G(\d+)/g)].map(m=>+m[1]);for(const v of gs){if(v<=3)g=v;if(v>=81&&v<=89)can=true;if(v===80)can=false;}if(can&&/^\s*(N\d+\s*)?(G8[1-9]|X|Y)/.test(l)){const nx_=W('X'),ny_=W('Y');if(nx_!=null||ny_!=null){const X_=nx_??x,Y_=ny_??y;out.push({g:0,a:[x,y],b:[X_,Y_],z0:z,z1:z,drill:true});x=X_;y=Y_;}continue;}const nx=W('X'),ny=W('Y'),nz=W('Z');if(nx==null&&ny==null&&nz==null)continue;const X=nx??x,Y=ny??y,Z=nz??z;
+ if(X===x&&Y===y){out.push({g,a:[x,y],b:[x,y],z0:z,z1:Z});z=Z;continue;}
+ if(g===2||g===3){let I=W('I'),J=W('J');const R_=W('R');if(I==null&&J==null&&R_!=null){const mx=(x+X)/2,my=(y+Y)/2,dx=X-x,dy=Y-y,q=Math.hypot(dx,dy),hh=Math.sqrt(Math.max(0,R_*R_-q*q/4));const s_=(g===2?-1:1)*(R_<0?-1:1);I=mx-x+s_*hh*(-dy/q);J=my-y+s_*hh*(dx/q);}
+  const cx=x+(I||0),cy=y+(J||0),r=Math.hypot(x-cx,y-cy);let a0=Math.atan2(y-cy,x-cx),a1=Math.atan2(Y-cy,X-cx);if(g===2){if(a1>=a0-1e-9)a1-=2*Math.PI;}else{if(a1<=a0+1e-9)a1+=2*Math.PI;}const n=Math.max(4,Math.ceil(Math.abs(a1-a0)*r/0.05));let px=x,py=y;for(let i=1;i<=n;i++){const a=a0+(a1-a0)*i/n,qx=i===n?X:cx+r*Math.cos(a),qy=i===n?Y:cy+r*Math.sin(a);out.push({g,a:[px,py],b:[qx,qy],z0:z,z1:Z});px=qx;py=qy;}}
+ else out.push({g,a:[x,y],b:[X,Y],z0:z,z1:Z});x=X;y=Y;z=Z;}return out;}
+function pvNest(N){const cv=$('#pvc');if(!cv||!NESTG)return;const vi=LANG==='vi',mv=gcodeMoves(NESTG);if(!mv.length)return;const path=[mv[0].a],meta=[{}];mv.forEach(m=>{path.push(m.b);meta.push(m);});
+ const tl=toolById(N.tool),D=N.proc&&N.proc!=='router'?(N.kerf||0.06):(tl?tl.dia:0.25);const cum=[0];for(let i=1;i<path.length;i++)cum.push(cum[i-1]+Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1]));
+ pvStart(cv,(g,w,h,cur,t)=>{const T=fitT(w,h,[-0.5,-0.5,N.w+0.5,N.h+0.5],10),S1=Math.abs(T([1,0])[0]-T([0,0])[0]);g.fillStyle='#eef1f4';g.fillRect(0,0,w,h);
+  const a=T([0,N.h]),b=T([N.w,0]);g.fillStyle='#d9cfb8';g.fillRect(a[0],a[1],b[0]-a[0],b[1]-a[1]);g.strokeStyle='#8a7f68';g.strokeRect(a[0],a[1],b[0]-a[0],b[1]-a[1]);
+  const done=t*cum[cum.length-1];g.lineCap='round';
+  g.strokeStyle='rgba(36,87,214,.3)';g.lineWidth=1;g.beginPath();for(let i=1;i<path.length;i++){if(meta[i].g===0)continue;g.moveTo(...T(path[i-1]));g.lineTo(...T(path[i]));}g.stroke();
+  g.strokeStyle='#3b3f44';g.lineWidth=Math.max(1.5,D*S1);g.beginPath();for(let i=1;i<path.length&&cum[i-1]<done;i++){if(meta[i].g===0||!(Math.min(meta[i].z0,meta[i].z1)<0))continue;const p1=cum[i]<=done?path[i]:cur;g.moveTo(...T(path[i-1]));g.lineTo(...T(p1));}g.stroke();
+  g.strokeStyle='rgba(217,58,58,.8)';g.lineWidth=1;g.setLineDash([4,3]);g.beginPath();for(let i=1;i<path.length&&cum[i-1]<done;i++){if(meta[i].g!==0)continue;const p1=cum[i]<=done?path[i]:cur;g.moveTo(...T(path[i-1]));g.lineTo(...T(p1));}g.stroke();g.setLineDash([]);
+  g.fillStyle='#1c9b5f';for(let i=1;i<path.length&&cum[i]<=done;i++){if(!meta[i].drill)continue;const q=T(path[i]);g.beginPath();g.arc(q[0],q[1],3.5,0,7);g.fill();}
+  const c=T(cur);g.fillStyle='rgba(255,106,19,.35)';g.strokeStyle='#ff6a13';g.lineWidth=2;g.beginPath();g.arc(c[0],c[1],Math.max(4,D/2*S1),0,7);g.fill();g.stroke();
+  return T;},path,{noPath:true,tool:()=>{},text:(k)=>{const m=meta[Math.min(k,meta.length-1)]||{};return(m.drill?(vi?'Khoan':'Drill'):m.g===0?(vi?'Chạy nhanh G0':'Rapid G0'):(vi?'Cắt':'Cut'))+(m.z1!=null?' · Z'+f4(m.z1):'');}});
+ PV.speed=Math.max(0.02,Math.min(1,150/Math.max(1,cum[cum.length-1])));pvDraw();}
+
 
 /* ================= 3D model from drawing ================= */
 function modelGrid(){
