@@ -1041,7 +1041,9 @@ function simGL(g,W,H,dpr,tl){const gl=GL3.gl,c=GL3.c,{nx,ny,h,res,sr}=SIM;if(c.w
  if(SIMSTATE.sh.fix&&!BP){const key=JSON.stringify([S.fixture,sr,SIM.bot,SIM.top,S.stock]);if(GL3.fixKey!==key){const G=GB();try{glFixture(G,sr,SIM.bot,SIM.top);}catch(e){console.warn(e);}const[a,cc,n]=G.out();glMesh('fix',a,cc,n);GL3.fixKey=key;}glDraw(GL3.buf.fix,gl.TRIANGLES);}
  // tool + holder + spindle
  if(tl&&SIMSTATE.sh.tool){const[x,y,z]=SIM.pos,key=tl.id+':'+holderOf(tl)+':'+stickOf(tl)+':'+tl.dia+':'+tl.type;if(GL3.toolKey!==key){const G=GB();const zt=glTool(G,tl,0,0,0);glHolder(G,tl,0,0,zt,{spH:1.4});GL3.toolGeo=G.out();GL3.toolKey=key;}
-  const[a0,cc,n]=GL3.toolGeo,a=new Float32Array(a0.length);for(let k=0;k<a0.length;k+=3){a[k]=a0[k]+x;a[k+1]=a0[k+1]+y;a[k+2]=a0[k+2]+z;}glDraw(glMesh('tool',a,cc,n),gl.TRIANGLES);}
+  // spindle turns: spin the tool + holder about its own axis (≈ 2 rev/s on screen while the program runs)
+  const[a0,cc,n0]=GL3.toolGeo,a=new Float32Array(a0.length),n=new Float32Array(n0.length);if(SIMSTATE.playing)GL3.spin=(GL3.spin||0)+0.35;const ph=-(GL3.spin||0),cs=Math.cos(ph),sn=Math.sin(ph);
+  for(let k=0;k<a0.length;k+=3){const ax=a0[k],ay=a0[k+1];a[k]=ax*cs-ay*sn+x;a[k+1]=ax*sn+ay*cs+y;a[k+2]=a0[k+2]+z;const nx=n0[k],ny=n0[k+1];n[k]=nx*cs-ny*sn;n[k+1]=nx*sn+ny*cs;n[k+2]=n0[k+2];}glDraw(glMesh('tool',a,cc,n),gl.TRIANGLES);}
  // toolpath lines (depth tested, pulled slightly toward camera)
  const sh=SIMSTATE.sh,CSx=CS();if(sh.path||sh.rapid||BP){const key=CSx.length+':'+(CSx[0]||[]).join(',');if(GL3.pathKey!==key){const cut=[],rap=[],cutAt=new Int32Array(CSx.length+1),rapAt=new Int32Array(CSx.length+1);for(let k=0;k<CSx.length;k++){const q=CSx[k];cutAt[k]=cut.length/3;rapAt[k]=rap.length/3;(q[6]===0?rap:cut).push(q[0],q[1],q[2],q[3],q[4],q[5]);}cutAt[CSx.length]=cut.length/3;rapAt[CSx.length]=rap.length/3;
    GL3.cutB=glMesh('cut',new Float32Array(cut),new Float32Array(cut.length));GL3.rapB=glMesh('rap',new Float32Array(rap),new Float32Array(rap.length));GL3.cutAt=cutAt;GL3.rapAt=rapAt;GL3.pathKey=key;}
