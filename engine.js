@@ -394,6 +394,59 @@ function genEngrave(op,ctx,mb){const h=op.th||0.25,txt=op.text||'MINI CAM',w=tex
  for(const st of textStrokes(txt,x,y,h,op.ang||0)){if(first){mb.rapid(st[0][0],st[0][1]);first=false;}else{mb.retract(R);mb.rapid(st[0][0],st[0][1]);}mb.rapid(null,null,R);mb.feed(null,null,z,op.plunge);
   for(let k=1;k<st.length;k++)mb.feed(st[k][0],st[k][1],z,op.feed);mb.retract(R);}
  mb.retract(ctx.clear);}
+/* ---------- feed by tool load (AutoCAM feedopt): engagement on two rings → chip-thinning feed ---------- */
+function feedOpt(prog,sr,top,opt){opt=opt||{};const CELL=0.03,PIECE=0.25,x0=sr[0]-0.6,y0=sr[1]-0.6,nx=Math.ceil((sr[2]-sr[0]+1.2)/CELL)+1,ny=Math.ceil((sr[3]-sr[1]+1.2)/CELL)+1;
+ const H=new Float32Array(nx*ny).fill(-1e9);for(let j=0;j<ny;j++){const y=y0+(j+.5)*CELL;if(y<sr[1]||y>sr[3])continue;for(let i=0;i<nx;i++){const x=x0+(i+.5)*CELL;if(x>=sr[0]&&x<=sr[2])H[j*nx+i]=top;}}
+ const at=(x,y)=>{const i=Math.floor((x-x0)/CELL),j=Math.floor((y-y0)/CELL);return i>=0&&j>=0&&i<nx&&j<ny?H[j*nx+i]:-1e9;};const discs={};
+ const stamp=(x,y,z,R)=>{const key=R.toFixed(4);if(!discs[key]){const n=Math.floor(R/CELL)+1,d=[];for(let a=-n;a<=n;a++)for(let b=-n;b<=n;b++)if((a*CELL)**2+(b*CELL)**2<=R*R)d.push([a,b]);discs[key]=d;}
+  const i0=Math.floor((x-x0)/CELL),j0=Math.floor((y-y0)/CELL);for(const[a,b]of discs[key]){const i=i0+a,j=j0+b;if(i>=0&&j>=0&&i<nx&&j<ny){const q=j*nx+i;if(H[q]>z)H[q]=z;}}};
+ const stampLine=(a,b,R)=>{const L=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]),n=Math.max(1,Math.floor(L/(CELL*1.5)));for(let k=0;k<=n;k++){const t=k/n;stamp(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t,R);}};
+ const engage=(x,y,z,R)=>{let hit=0;for(let k=0;k<24;k++){const a=2*Math.PI*k/24,c=Math.cos(a),s_=Math.sin(a);if(at(x+0.78*R*c,y+0.78*R*s_)>z+0.003||at(x+0.95*R*c,y+0.95*R*s_)>z+0.003)hit++;}const ph=2*Math.PI*hit/24;return ph>Math.PI?1:(1-Math.cos(ph))/2;};
+ const kf=r=>r>=0.5?1:2*Math.sqrt(Math.max(r,0)*(1-r));
+ const out=[],rep={};let cur=null,pos=null;
+ for(const b of prog){if(b.t==='op'){cur=b.meta||null;out.push(b);continue;}if(b.t==='tool'||b.t==='index'){pos=null;out.push(b);continue;}if(b.t==='g43'){pos=[b.x,b.y,null];out.push(b);continue;}
+  if(b.t==='cycle'){pos=[b.pts[b.pts.length-1][0],b.pts[b.pts.length-1][1],b.clear];out.push(b);continue;}
+  if(b.g===undefined||b.a!=null||b.b!=null||b.inv){if(b.x!=null)pos=[b.x,b.y,b.z];out.push(b);continue;}
+  const p1=[b.x??(pos?pos[0]:0),b.y??(pos?pos[1]:0),b.z??(pos?pos[2]:0)];
+  if(!pos||pos[2]==null||b.g===0||!cur||cur.noStamp){out.push(b);pos=p1;continue;}
+  const R=(cur.dia||0.25)/2;
+  if(b.g>1){/* arcs: stamp along, keep feed */const n=24;let a0=Math.atan2(pos[1]-b.cy,pos[0]-b.cx),a1=Math.atan2(p1[1]-b.cy,p1[0]-b.cx),r=Math.hypot(pos[0]-b.cx,pos[1]-b.cy);let da=a1-a0;if(b.g===3){while(da<=0)da+=2*Math.PI;}else{while(da>=0)da-=2*Math.PI;}
+   let q=pos;for(let k=1;k<=n;k++){const a=a0+da*k/n,np=[b.cx+r*Math.cos(a),b.cy+r*Math.sin(a),pos[2]+(p1[2]-pos[2])*k/n];stampLine(q,np,R);q=np;}out.push(b);pos=p1;continue;}
+  if(!cur.tune||Math.abs(p1[2]-pos[2])>1e-6){stampLine(pos,p1,R);out.push(b);pos=p1;continue;}
+  const L=Math.hypot(p1[0]-pos[0],p1[1]-pos[1]),n=Math.max(1,Math.ceil(L/PIECE)),lo=cur.finish?0.6:0.6,hi=cur.finish?1.0:1.3,k0=kf(Math.max(0.02,cur.r0||0.5)),base=b.f;
+  const R_=rep[cur.i]||(rep[cur.i]={label:cur.label,min:9,max:0,before:0,after:0});
+  for(let q=1;q<=n;q++){const a=[pos[0]+(p1[0]-pos[0])*(q-1)/n,pos[1]+(p1[1]-pos[1])*(q-1)/n,pos[2]],c=[pos[0]+(p1[0]-pos[0])*q/n,pos[1]+(p1[1]-pos[1])*q/n,pos[2]];
+   let f=hi;const st=Math.max(1,Math.floor(Math.hypot(c[0]-a[0],c[1]-a[1])/(CELL*2)));for(let k=0;k<=st;k++){const t=k/st,x=a[0]+(c[0]-a[0])*t,y=a[1]+(c[1]-a[1])*t;const r=engage(x,y,a[2],R);const fac=r<0.003?hi:r>=0.5?k0*0.9:k0/kf(r);f=Math.min(f,Math.max(lo,Math.min(hi,fac)));}
+   f=Math.round(f*20)/20;const seg=Math.hypot(c[0]-a[0],c[1]-a[1]);R_.before+=seg/Math.max(base,0.1);R_.after+=seg/Math.max(base*f,0.1);R_.min=Math.min(R_.min,f);R_.max=Math.max(R_.max,f);
+   stampLine(a,c,R);out.push({...b,x:c[0],y:c[1],z:c[2],f:+(base*f).toFixed(1)});}
+  pos=p1;}
+ const list=Object.values(rep);return{prog:out,rep:list,saved:list.reduce((s,r)=>s+r.before-r.after,0)};}
+/* ---------- holes in a mesh in any axis + approach directions (AutoCAM holes3d / axes) ---------- */
+function meshHoles(T,sc){sc=sc||1;const tris=T.map(t=>[[t[0]*sc,t[1]*sc,t[2]*sc],[t[3]*sc,t[4]*sc,t[5]*sc],[t[6]*sc,t[7]*sc,t[8]*sc]]);
+ const bb=[1e9,1e9,1e9,-1e9,-1e9,-1e9];for(const t of tris)for(const p of t)for(let k=0;k<3;k++){bb[k]=Math.min(bb[k],p[k]);bb[k+3]=Math.max(bb[k+3],p[k]);}
+ const key=p=>p.map(v=>Math.round(v*2000)).join(',');const out=[];let downArea=0,area0=0;
+ const nrm=t=>{const u=[t[1][0]-t[0][0],t[1][1]-t[0][1],t[1][2]-t[0][2]],v=[t[2][0]-t[0][0],t[2][1]-t[0][1],t[2][2]-t[0][2]],n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],l=Math.hypot(...n)||1;return[n.map(c=>c/l),l/2];};
+ const N=tris.map(nrm);N.forEach(([n,a],i)=>{area0+=a;const zc=(tris[i][0][2]+tris[i][1][2]+tris[i][2][2])/3;if(n[2]<-0.2&&zc>bb[2]+0.01)downArea+=a;});
+ for(const ax of[0,1,2]){const u=(ax+1)%3,v=(ax+2)%3;const W=[];N.forEach(([n,a],i)=>{if(Math.abs(n[ax])<0.05&&a>1e-8)W.push(i);});
+  const vmap={};W.forEach(i=>tris[i].forEach(p=>{const k=key(p);(vmap[k]=vmap[k]||[]).push(i);}));const seen=new Set();
+  for(const i0 of W){if(seen.has(i0))continue;const comp=[],st=[i0];seen.add(i0);while(st.length){const i=st.pop();comp.push(i);for(const p of tris[i])for(const j of vmap[key(p)]||[])if(!seen.has(j)){seen.add(j);st.push(j);}}
+   if(comp.length<6)continue;const P=[];comp.forEach(i=>tris[i].forEach(p=>P.push([p[u],p[v],p[ax]])));
+   // Kåsa circle fit
+   let sx=0,sy=0,sxx=0,syy=0,sxy=0,sxz=0,syz=0,sz=0;const n_=P.length;for(const[x,y]of P){const z=x*x+y*y;sx+=x;sy+=y;sxx+=x*x;syy+=y*y;sxy+=x*y;sxz+=x*z;syz+=y*z;sz+=z;}
+   const A=[[sxx,sxy,sx],[sxy,syy,sy],[sx,sy,n_]],Bv=[sxz,syz,sz];const det=m=>m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])-m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])+m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
+   const D0=det(A);if(Math.abs(D0)<1e-12)continue;const col=(k)=>A.map((r,i)=>r.map((c,j)=>j===k?Bv[i]:c));const a1=det(col(0))/D0,b1=det(col(1))/D0,c1=det(col(2))/D0;const cx=a1/2,cy=b1/2,r=Math.sqrt(Math.max(0,c1+cx*cx+cy*cy));
+   if(!(r>0.01&&r<3))continue;let bad=0;for(const[x,y]of P)if(Math.abs(Math.hypot(x-cx,y-cy)-r)>Math.max(0.003,r*0.02))bad++;if(bad>P.length*0.05)continue;
+   const angs=new Set();let inward=0;for(const i of comp){const c=tris[i].reduce((s,p)=>[s[0]+p[u]/3,s[1]+p[v]/3],[0,0]);angs.add(Math.floor((Math.atan2(c[1]-cy,c[0]-cx)+Math.PI)/(2*Math.PI)*36));const n=N[i][0];if(n[u]*(cx-c[0])+n[v]*(cy-c[1])>0)inward++;}
+   if(angs.size<27||inward<comp.length*0.6)continue;
+   const zs=P.map(q=>q[2]),z0=Math.min(...zs),z1=Math.max(...zs),thru=z0<=bb[ax]+0.005&&z1>=bb[ax+3]-0.005;const c3=[0,0,0];c3[u]=cx;c3[v]=cy;c3[ax]=(z0+z1)/2;
+   const open=thru?[1,-1]:z1>=bb[ax+3]-0.005?[1]:z0<=bb[ax]+0.005?[-1]:[];out.push({axis:'XYZ'[ax],dia:2*r,at:c3,len:z1-z0,through:thru,open});}}
+ return{holes:out,bbox:bb,undercut:area0?downArea/area0:0};}
+function decideAxes(dirs,undercut){const T=1e-3;const U=[];for(const d of dirs){const l=Math.hypot(...d)||1,n=d.map(c=>c/l);if(!U.some(q=>q[0]*n[0]+q[1]*n[1]+q[2]*n[2]>1-T))U.push(n);}
+ const ang=(d,ab)=>{const[x,y,z]=d;return(((ab==='A'?Math.atan2(y,z):Math.atan2(-x,z))*180/Math.PI)%360+360)%360;};
+ if(U.every(d=>Math.abs(Math.abs(d[2])-1)<T))return{mode:'3',flip:U.some(d=>d[2]<0),dirs:U};
+ if(U.every(d=>Math.abs(d[0])<T))return{mode:'4',rotary:'A',index:[...new Set(U.map(d=>Math.round(ang(d,'A'))))].sort((a,b)=>a-b),dirs:U};
+ if(U.every(d=>Math.abs(d[1])<T))return{mode:'4',rotary:'B',index:[...new Set(U.map(d=>Math.round(ang(d,'B'))))].sort((a,b)=>a-b),dirs:U};
+ return{mode:'5_32',dirs:U};}
 /* ---------- toolpath generation (IR) ---------- */
 function MB(clear){this.o=[];this.p=[0,0,clear];this.clear=clear;}
 MB.prototype.rapid=function(x,y,z){x=x??this.p[0];y=y??this.p[1];z=z??this.p[2];if(Math.abs(x-this.p[0])+Math.abs(y-this.p[1])+Math.abs(z-this.p[2])<1e-7)return;this.o.push({g:0,x,y,z});this.p=[x,y,z];};
@@ -907,6 +960,6 @@ function postLathe(prog,cfg){const sie=cfg.post==='siemens',mm=cfg.units==='mm',
     let s='';if(b.g!==mg){s+=(sie?['G0','G1'][b.g]:['G00','G01'][b.g])+' ';mg=b.g;}s+='X'+fmt(b.x)+' Z'+fmt(b.z);if(b.g===1)s+=' F'+fr(b.f);out.push(s);}
   out.push(sie?'G0 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ):'G00 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ));out.push(sie?'M9':'M09');out.push(sie?'M5':'M05');out.push('M30');if(!sie)out.push('%');return out.join('\n');}
 
-const API={textStrokes,textWidth,mprops,drillCycle,deflection,tabCheck,opLoads,sideForce,fixtureHold,arcFit,MPROPS,latheProfileFromGeom,rProf,genLathe,postLathe,postSiemens,simSegs4,meshCylMap,meshHeightmap,ROTARIES,parseSTL,meshLevels,parseSTEP,levelsTo25D,area,pip,bbox,perim,dist,parseDXF,buildGeom,scaleGeom,geomBox,classify,makeField,iso,layers,feeds,genOp,post,simSegs,cycleTime,circlePts,MATERIALS,MACHINES,TAPS,arcPts};
+const API={feedOpt,meshHoles,decideAxes,textStrokes,textWidth,mprops,drillCycle,deflection,tabCheck,opLoads,sideForce,fixtureHold,arcFit,MPROPS,latheProfileFromGeom,rProf,genLathe,postLathe,postSiemens,simSegs4,meshCylMap,meshHeightmap,ROTARIES,parseSTL,meshLevels,parseSTEP,levelsTo25D,area,pip,bbox,perim,dist,parseDXF,buildGeom,scaleGeom,geomBox,classify,makeField,iso,layers,feeds,genOp,post,simSegs,cycleTime,circlePts,MATERIALS,MACHINES,TAPS,arcPts};
 if(typeof module!=='undefined'&&module.exports)module.exports=API;else root.CAM=API;
 })(this);

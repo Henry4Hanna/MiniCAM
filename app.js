@@ -120,7 +120,7 @@ const S={tab:'program',units:'in',mat:'al6061',machine:'dpmrx2',post:'prototrak'
  fixture:{type:'vise',jawH:1.75,parH:1.5,parAuto:true,vise:6,notes:''},
  hdr:{name:'BRACKET',no:'P-1001',rev:'A',qty:1,prog:'',oper:'',cust:'',date:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),notes:''},
  raw:null,geom:null,feats:[],ops:[],tools:TOOLS0.map(x=>({...x,id:nid('t')})),ref:null,dxfName:'',lineNums:false,toolStop:true};
-const OPEN=new Set();let PROG=null,GCODE='',WARN=[],SEGS=[],SEGS4=[],CT=0;const CS=()=>SIMSTATE.axis==='4'?SEGS4:SEGS;
+const OPEN=new Set();let FOREP=null,PROG=null,GCODE='',WARN=[],SEGS=[],SEGS4=[],CT=0;const CS=()=>SIMSTATE.axis==='4'?SEGS4:SEGS;
 function persist(){try{localStorage.setItem('trakcam',JSON.stringify({...S,ref:null,meshT:null,_hm:null,cylMap:null}));}catch(e){}}
 function restore(){try{const j=JSON.parse(localStorage.getItem('trakcam')||'null');if(j&&j.tools){Object.assign(S,j);S.tab=S.tab||'program';return true;}}catch(e){}return false;}
 
@@ -374,6 +374,8 @@ function featLabel(f){if(!f)return'—';if(f.kind==='holes')return t('holes')+' 
 function perfUI(){const{L,f,rig}=perfF(),vi=LANG==='vi';const lab=L<=2?(vi?'An toàn':'Safe'):L<=4?(vi?'Nhẹ':'Light'):L===5?(vi?'Chuẩn':'Standard'):L<=7?(vi?'Nhanh':'Fast'):L<=9?(vi?'Mạnh':'Aggressive'):(vi?'Tối đa':'Maximum');const col=L<=4?'#1c9b5f':L<=6?'#2457d6':L<=8?'#e39b00':'#d93a3a';
  return`<div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="margin:0">${vi?'Hiệu suất chương trình':'Program performance'}</h2><b id="perfLab" style="color:${col};font-size:20px">${L} · ${lab}</b></div>
  <div class="row" style="gap:6px;margin:10px 0 4px;flex-wrap:nowrap">${Array.from({length:10},(_,k)=>k+1).map(k=>`<button data-perf="${k}" style="flex:1;min-width:0;height:40px;border-radius:9px;border:1px solid var(--line);font:700 15px Barlow,sans-serif;cursor:pointer;background:${k<=L?(k<=4?'#1c9b5f':k<=6?'#2457d6':k<=8?'#e39b00':'#d93a3a'):'var(--panel)'};color:${k<=L?'#fff':'var(--ink)'}">${k}</button>`).join('')}</div>
+ <label class="row" style="gap:10px;font-weight:600;margin-top:10px;flex-wrap:nowrap"><span class="sw"><input type="checkbox" data-defsw="feedOpt" ${(S.def||{}).feedOpt?'checked':''}><i></i></span>${vi?'Feed theo tải dao (chậm ở góc, nhanh chỗ cắt nhẹ)':'Feed by tool load (slow in corners, faster in light cuts)'}</label>
+ ${FOREP&&(S.def||{}).feedOpt?`<p class="sub" style="margin:4px 0 6px;font-size:13px">${vi?'Tiết kiệm':'Saves'} <b class="ro">${FOREP.saved.toFixed(1)} ${vi?'phút':'min'}</b> · ${FOREP.rep.map(r=>`${esc(r.label)} ×${r.min.toFixed(2)}–${r.max.toFixed(2)}`).join(' · ')}</p>`:''}
  <p class="sub" style="margin:6px 0 0;font-size:13.5px">${vi?'Feed':'Feed'} ×<b class="ro">${f.toFixed(2)}</b> · ${vi?'Độ cứng đồ gá':'Fixture rigidity'} ×${rig} · ${vi?'Giới hạn theo vật liệu, dao, đồ gá, công suất và RPM tối đa của máy.':'Limited by material, tool, fixture, machine power and max RPM.'}</p>`;}
 function perfF(){const L=+((S.def&&S.def.perf)||5);let f=L<=5?0.6+0.1*(L-1):1+(L-5)*0.07;const rig={vise:1,softjaw:1,collet:0.95,clamps:0.9,plate:0.85,angle:0.8}[S.fixture.type]||1;if(f>1)f=1+(f-1)*rig;return{L,f,rig};}
 function perfApply(o,tl,r){const{f}=perfF();if(Math.abs(f-1)<1e-6)return;const mc=mach();const sp=1+(f-1)*0.4;const rpm0=o.rpm;o.rpm=Math.min(mc.rpmMax,Math.round(o.rpm*sp));const rr=o.rpm/Math.max(1,rpm0);
@@ -444,11 +446,12 @@ function buildProgram(){
   const r=C.genOp(o,ctx);r.warn.forEach(w=>WARN.push('#'+(i+1)+' '+opLabel(o.type)+': '+(w==='tooBig'?t('warnTooBig'):w==='nothing'?t('warnNothing'):w==='feature'?t('warnFeature'):w==='mesh'?t('needMesh'):w)));
   if(!r.moves.length)return;
   const idx=o.a!=null||o.b!=null||o.c!=null||o.wcs;
-  prog.push({t:'op',i,multi:ROT.includes(o.type)?'rot':(o.a||o.b||o.c)?'idx':false,name:(i+1)+' '+(TX[{face:'face_',pocket:'pocket_',slot:'slot_'}[o.type]||o.type]||[o.type])[0]+' '+(featById(o.feat)?featLabelEN(featById(o.feat)):'')});
+  const FIN=(o.type==='contour'&&!(o.leave>0))||['surfFinish'].includes(o.type);prog.push({meta:{i,label:(i+1)+' '+opLabel(o.type,o),dia:tl.dia,tune:['adaptive','pocket','contour','slot','circ','rest'].includes(o.type),finish:FIN,r0:['adaptive','pocket','rest'].includes(o.type)?Math.min(0.5,(o.woc||tl.dia*0.4)/tl.dia):0.5,noStamp:['tap','engrave','chamfer','radius','spot'].includes(o.type)||o.a!=null||o.b!=null||o.c!=null},t:'op',i,multi:ROT.includes(o.type)?'rot':(o.a||o.b||o.c)?'idx':false,name:(i+1)+' '+(TX[{face:'face_',pocket:'pocket_',slot:'slot_'}[o.type]||o.type]||[o.type])[0]+' '+(featById(o.feat)?featLabelEN(featById(o.feat)):'')});
   const fm=r.moves.find(m=>m.x!==undefined)||{x:0,y:0};
   if(last!==tl.id){prog.push({t:'tool',tool:{num:tl.num,desc:tl.desc+' D'+(+tl.dia.toFixed(4))},idx:S.tools.indexOf(tl)});prog.push({t:'spin',s:o.rpm,first});if(idx)prog.push({t:'index',a:o.a,b:o.b,c:o.c,wcs:o.wcs,dwo:o.b!=null&&mc.axes===5});prog.push({t:'g43',x:fm.x,y:fm.y,h:tl.num});first=false;last=tl.id;lastS=o.rpm;}
   else{if(o.rpm!==lastS){prog.push({t:'spin',s:o.rpm});lastS=o.rpm;}if(idx)prog.push({t:'index',a:o.a,b:o.b,c:o.c,wcs:o.wcs,dwo:o.b!=null&&mc.axes===5});}
   prog.push(...r.moves);if(idx&&o.b!=null&&mc.axes===5)prog.push({t:'dwoOff'});pos=r.end;});
+ FOREP=null;if(S.def&&S.def.feedOpt&&prog.length){const hasFace=S.ops.some(o=>o.on&&o.type==='face');const r=C.feedOpt(prog,sr,hasFace?0:(S.stock.face||0));prog.length=0;prog.push(...r.prog);FOREP=r;}
  PROG=prog;
  const k=K(),scale=b=>{if(b.t==='cycle')return{...b,pts:b.pts.map(p=>[p[0]*k,p[1]*k]),z:b.z*k,r:b.r*k,q:b.q*k,f:b.f*k,clear:b.clear*k};if(b.t==='g43')return{...b,x:b.x*k,y:b.y*k};if(b.g!==undefined){const o={...b,x:b.x*k,y:b.y*k,z:b.z*k};if(b.f&&!b.inv)o.f=b.f*k;if(b.g>1){o.i=b.i*k;o.j=b.j*k;}return o;}return b;};
  const m=mat();GCODE=(S.post==='siemens'?C.postSiemens:C.post)(prog.map(scale),{arcfit:SETS().arcfit!==false,units:S.units,clear:SETS().safeZ*k,post:S.post,name:S.hdr.name,progNo:1001,coolant:SETS().coolant,lineNums:S.lineNums,toolStop:S.toolStop,
@@ -476,6 +479,14 @@ function render(){applySettings();document.body.classList.remove('noscroll');doc
 const inp=(k,v,attrs)=>`<label class="f">${esc(t(k))}<input inputmode="decimal" ${attrs||''} value="${esc(v)}"></label>`;
 
 /* ----- program tab ----- */
+function axCard(){const A=S.meshAx;if(!A)return'';const vi=LANG==='vi',side=A.holes.filter(h=>h.axis!=='Z'),mc=mach(),n=axesAvail();
+ const lab={'3':vi?'3 trục':'3-axis','4':vi?'Trục 4 xoay chia độ ('+A.rotary+')':'4th axis indexed ('+A.rotary+')','5_32':vi?'5 trục 3+2':'5-axis 3+2'}[A.mode];
+ const why=A.mode==='3'?(vi?'Mọi đặc trưng mở lên +Z'+(A.flip?' (lật mặt cho mặt dưới)':''):'All features open to +Z'+(A.flip?' (flip for the bottom)':'')):A.mode==='4'?(vi?'Các hướng vào dao đều vuông góc với trục '+(A.rotary==='A'?'X':'Y')+' → xoay '+A.rotary+' '+A.index.join('°, ')+'°':'All approach directions square to '+(A.rotary==='A'?'X':'Y')+' → index '+A.rotary+' '+A.index.join('°, ')+'°'):(vi?'Hướng vào dao không nằm trên một mặt xoay → nghiêng 3+2':'Directions not on one rotary plane → tilt 3+2');
+ const need=A.mode==='3'?3:A.mode==='4'?4:5;
+ return`<div class="card" style="--cc:#5c6bc0"><h2>${vi?'Hướng gia công đề nghị':'Suggested axis mode'}: ${lab}</h2><p style="margin:0">${esc(why)}</p>
+ ${need>n?`<p style="color:#b54200;font-weight:700;margin:8px 0 0">${vi?`${mc.name} có ${n} trục: gá lại từng mặt (đứng chi tiết trong ê-tô), hoặc chọn máy có trục 4/5.`:`${mc.name} has ${n} axes: re-fixture per side (stand the part in the vise), or pick a 4/5-axis machine.`}</p>`:''}
+ ${side.length?`<h3 style="margin:10px 0 4px">${vi?'Lỗ ngang tìm thấy trong mô hình':'Side holes found in the model'}</h3>${side.map(h=>`<div>Ø${h.dia.toFixed(4)} ${vi?'theo trục':'along'} ${h.axis} · ${vi?'tâm':'at'} ${h.at.map(v=>v.toFixed(3)).join(', ')} · ${h.through?(vi?'xuyên':'thru'):(vi?'sâu ':'deep ')+h.len.toFixed(3)}${C.TAPS.some(x=>Math.abs(x[3]-h.dia)<0.004)?` · ${vi?'có thể là lỗ taro':'maybe tapped'} ${C.TAPS.find(x=>Math.abs(x[3]-h.dia)<0.004)[0]}`:''}</div>`).join('')}<p class="sub" style="margin:6px 0 0;font-size:13px">${vi?'Lỗ ngang chưa tự lập trình: thêm nguyên công khoan với góc A/B, hoặc gá lại mặt bên.':'Side holes are not programmed yet: add a drill op with an A/B angle, or a side setup.'}</p>`:''}
+ ${A.undercut>0.01?`<p class="sub" style="margin:6px 0 0">${vi?'Có mặt hướng xuống (lẹm) ~':'Down-facing surfaces ~'}${(A.undercut*100).toFixed(1)}% — ${vi?'cần lật mặt hoặc 5 trục.':'needs a flip or 5-axis.'}</p>`:''}</div>`;}
 function rProgram(){if(mach().type==='lathe'){rLathe();return;}
  const z=S.zero;
  $('#main').innerHTML=`<h1>${t('progTitle')}</h1><p class="sub">${t('progSub')}</p>
@@ -485,6 +496,7 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}
     <div class="ovl tr"><button class="mini" data-act="zIn" aria-label="zoom in">${IC.plus}</button><button class="mini" data-act="zOut" aria-label="zoom out">${IC.minus}</button><button class="mini" data-act="fit" aria-label="${t('fit')}">${IC.fit}</button><button class="mini" data-act="togglePaths" aria-label="${t('paths')}" style="${VIEW.paths?'color:var(--blue)':''}">${IC.path}</button></div>
     <div class="ovl bl"><span class="pill" id="pvInfo"></span></div>
     <div class="ovl tl"><div class="seg" id="pvMode"><button data-pv="2d" class="${VIEW.mode!=='3d'?'on':''}">${t('view2d')}</button><button data-pv="3d" class="${VIEW.mode==='3d'?'on':''}">${t('model3d')}</button></div></div></div>
+   ${axCard()}
    <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${t('features')}</h2>${S.geom?`<button class="btn sm" data-act="stl">${IC.save}${t('exportStl')}</button>`:''}</div><p class="sub" style="margin:4px 0 8px;font-size:13px">${VIEW.mode==='3d'?t('fromDrawing'):''}</p><div class="feats">${S.feats.map(f=>`<button class="feat ${(S.excl||[]).includes(f.id)?'off':''}" data-feat="${f.id}"><i class="dot" style="background:${FEATCOL[f.kind]}"></i>${esc(featLabel(f))}${f.tap?' · '+esc(f.tap):''}${f.kind!=='profile'&&f.depth!==undefined?' · '+(f.depth==null?t('through'):'↧'+fl(f.depth,3)):''}</button>`).join('')||'<span class="sub">—</span>'}</div></div>
 
    <div class="row"><button class="btn pri" data-act="import" style="flex:1 1 220px;min-height:56px;justify-content:flex-start">${IC.file}<span style="display:grid;text-align:left;line-height:1.15">${t('importAny')}<small style="font-weight:500;opacity:.85;font-size:12.5px">${t('fmts')}</small></span></button><button class="btn" data-act="demo">${t('demo')}</button><button class="btn" data-act="img">${IC.img}${t('refImg')}</button></div>
@@ -960,7 +972,7 @@ document.addEventListener('change',e=>{
  if(el.id==='selMachine'){S.machine=el.value;S.post=mach().post||'prototrak';if(!mach().rot)S.rotary='none';S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();render();return;}
  if(el.id==='postSel'){S.post=el.value;if(mach().type==='lathe'){rLathe();return;}regen();return;}if(el.id==='tsChk'){S.toolStop=el.checked;regen();return;}if(el.id==='lnChk'){S.lineNums=el.checked;regen();return;}
  if(el.id==='rotSel'){S.rotary=el.value;regen();setTimeout(()=>rProgram(),200);return;}
- if(el.dataset.defsw){S.def={...DEF0,...(S.def||{})};S.def[el.dataset.defsw]=el.checked;autoProgram();buildProgram();rProgram();return;}
+ if(el.dataset.defsw){S.def={...DEF0,...(S.def||{})};S.def[el.dataset.defsw]=el.checked;if(el.dataset.defsw==='feedOpt'){buildProgram();persist();rProgram();return;}autoProgram();buildProgram();rProgram();return;}
  if(el.dataset.nb){S.nest[el.dataset.nb]=el.dataset.u==='S'?el.value:parseVal(el);if(el.dataset.nb==='mode'&&el.value==='twoSide'&&S.nest.tabT<0.06)S.nest.tabT=0.06;persist();rNest();return;}
  if(el.dataset.ni!=null){const it=S.nest.items[+el.dataset.ni];it[el.dataset.k]=el.dataset.k==='qty'?Math.max(0,parseInt(el.value)||0):el.value;persist();rNest();return;}
  if(el.dataset.lb){S.lathe[el.dataset.lb]=parseVal(el);persist();rLathe();return;}
@@ -1086,11 +1098,13 @@ $('#fileDxf').addEventListener('change',async e=>{const f=e.target.files[0];if(!
  VIEW.fitted=false;S.tab='program';render();});
 function setRef(f){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),sc=Math.min(1,1400/Math.max(im.width,im.height));c.width=im.width*sc;c.height=im.height*sc;c.getContext('2d').drawImage(im,0,0,c.width,c.height);S.ref=c.toDataURL('image/jpeg',0.85);render();};im.src=r.result;};r.readAsDataURL(f);}
 function finishImport(name){S.dxfName=name;S.excl=[];const bb=C.geomBox(S.raw);S.stock.x=+(bb[2]-bb[0]+0.25).toFixed(3);S.stock.y=+(bb[3]-bb[1]+0.25).toFixed(3);applyZero();autoProgram();toast(t('imported')+': '+S.feats.length+' '+t('features').toLowerCase());}
+function meshAnalyze(){if(!S.meshT||!S.meshInfo){S.meshAx=null;return;}try{const h=C.meshHoles(S.meshT,S.meshInfo.sc);const dirs=[[0,0,1]];h.holes.filter(x=>x.axis!=='Z').forEach(x=>{const d=[0,0,0];d['XYZ'.indexOf(x.axis)]=x.open[0]||1;dirs.push(d);});if(h.undercut>0.01)dirs.push([0,0,-1]);
+ S.meshAx={...C.decideAxes(dirs,h.undercut),holes:h.holes,undercut:h.undercut};}catch(e){S.meshAx=null;}}
 function importMesh(M,name,uSel,unit){
  const g=C.levelsTo25D(M,1e-3);if(!g)throw new Error('no top face');
  const b=C.geomBox(g),ext=Math.max(b[2]-b[0],b[3]-b[1]);let u=uSel!=='auto'?uSel:unit||(ext>40?'mm':'in');const sc=u==='mm'?1/25.4:u==='m'?39.37:1;
  S.raw=C.scaleGeom(g,sc,0,0);S.src='mesh';S.meshInfo={sc,zTop:Math.max(...M.levels.map(l=>l.z))};S._hm=null;S.cylMap=null;S.stock.part=+(g.thick*sc).toFixed(4);
- finishImport(name);if(g.ignored)WARN.push(g.ignored+' '+t('ignoredFaces'));}
+ finishImport(name);meshAnalyze();if(g.ignored)WARN.push(g.ignored+' '+t('ignoredFaces'));}
 function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('cannot load '+src));document.head.appendChild(s);});}
 async function loadPDFjs(){if(window.pdfjsLib)return;const B='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';await loadScript(B+'pdf.worker.min.js');await loadScript(B+'pdf.min.js');window.pdfjsLib.GlobalWorkerOptions.workerSrc=B+'pdf.worker.min.js';}
 async function importPDF(buf,name){
@@ -1306,7 +1320,10 @@ const LEARN=[
    ['Put tabs on straight edges, away from corners, where you can file them easily.','Đặt tab trên cạnh thẳng, tránh góc, chỗ dễ giũa.'],
    ['The tool lifts over a zone = tab width + tool diameter.','Dao nhấc lên qua vùng = rộng tab + Ø dao.'],
    ['Safety factor: tab strength ÷ cutting force ≥ 2. Thin tabs cannot take thrust from later drilling.','Hệ số an toàn: sức bền tab ÷ lực cắt ≥ 2. Tab mỏng không chịu được lực đẩy khi khoan sau.'],
-   ['Two-sided 3D parts: put tabs at the parting line (widest section), flip and machine the back, then break.','Chi tiết 3D hai mặt: đặt tab ở đường phân khuôn (chỗ rộng nhất), lật gia công mặt sau rồi mới bẻ.']],
+   ['Two-sided 3D parts: put tabs at the parting line (widest section), flip and machine the back, then break.','Chi tiết 3D hai mặt: đặt tab ở đường phân khuôn (chỗ rộng nhất), lật gia công mặt sau rồi mới bẻ.'],
+   ['4th axis: NECKS — the part stays joined to the chuck stub and a tailstock stub by short round necks on the A axis; machine every side, then saw or part the necks off.','Trục 4: CỔ NỐI — chi tiết dính với đầu phôi trong mâm cặp và đầu ụ động bằng cổ tròn ngắn trên trục A; gia công hết các mặt rồi cưa / cắt cổ nối.'],
+   ['5-axis: POSTS — square posts join the part bottom to the stock under it, so side faces can be cut all the way down; finish the bottom in OP2 and cut the posts off.','5 trục: TRỤ ĐỠ — trụ vuông nối đáy chi tiết với phôi bên dưới để phay hết chiều cao mặt bên; phay đáy ở nguyên công 2 rồi cắt trụ.'],
+   ['Heavy part drilled again while it hangs: full-thickness BRIDGES instead of thin tabs, machined off at the end.','Chi tiết nặng còn khoan tiếp khi đang treo: dùng CẦU NỐI dày bằng chi tiết thay cho tab mỏng, phay bỏ ở cuối.']],
   quiz:[[['Tabs should be placed…','Nên đặt tab…'],[['in sharp corners','ở góc nhọn'],['on straight edges','trên cạnh thẳng'],['only on arcs','chỉ trên cung tròn']],1,['Straight edges are strong and easy to clean up.','Cạnh thẳng chắc và dễ làm sạch.']]]},
  {id:'feeds',col:'#2457d6',en:['Speeds & feeds','RPM, feed, chip load, chip thinning and depth of cut.'],vi:['Tốc độ & bước tiến','RPM, bước tiến, lượng ăn/răng, chip thinning và chiều sâu cắt.'],
   pic:()=>SV(320,140,`<circle cx="90" cy="70" r="45" fill="#e9edf2" stroke="#6b737a"/><path d="M90 70L130 50" stroke="#2457d6" stroke-width="2"/><path d="M135 20h120v100H135z" fill="#c9ced3"/><path d="M135 20h30v100h-30" fill="#ffd6b8"/>${LBL(140,15,'WOC / ae')}${LBL(260,70,'DOC / ap')}${LBL(40,135,'RPM = SFM × 3.82 ÷ D')}${LBL(180,135,'IPM = RPM × Z × IPT')}`),
