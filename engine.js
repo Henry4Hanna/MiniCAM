@@ -281,6 +281,20 @@ const TAPS=[ // name, major(in), pitch(in), tap drill(in), drill label
  ['M8x1.25',8/25.4,1.25/25.4,6.8/25.4,'6.8mm'],['M10x1.5',10/25.4,1.5/25.4,8.5/25.4,'8.5mm'],['M12x1.75',12/25.4,1.75/25.4,10.2/25.4,'10.2mm']
 ];
 /* feeds: all inch internally. kind: rough|adaptive|slot|finish|face|drill|spot|tap|ream|bore|chamfer|circ */
+/* material strength (psi): yield, elongation %, shear, drilling Kc; group — AutoCAM tabcalc tables */
+const MPROPS={al6061:[40000,12,30000,120000,'aluminum'],al7075:[73000,11,48000,125000,'aluminum'],al2024:[47000,18,41000,125000,'aluminum'],al5052:[28000,12,20000,110000,'aluminum'],
+ mic6:[15000,3,12000,110000,'aluminum'],brass:[25000,25,35000,120000,'copper'],cu110:[20000,30,22000,150000,'copper'],brz932:[18000,20,25000,130000,'copper'],delrin:[10000,30,9000,20000,'plastic'],
+ s1018:[54000,15,38000,260000,'steel'],s12l14:[60000,10,40000,230000,'steel'],s1045:[77000,12,50000,290000,'steel'],s4140:[120000,15,75000,340000,'steel'],s4340:[68000,22,50000,320000,'steel'],
+ a2:[55000,15,50000,330000,'steel'],ss303:[35000,40,42000,320000,'stainless'],ss304:[31000,40,44000,330000,'stainless'],ss316:[30000,40,45000,340000,'stainless'],ss174:[105000,16,75000,360000,'stainless'],
+ ci:[25000,0.5,30000,180000,'castiron'],ti64:[128000,10,80000,300000,'superalloy'],in718:[150000,12,100000,450000,'superalloy']};
+const BREAK_T={aluminum:0.06,steel:0.04,stainless:0.03,superalloy:0.03,castiron:0.08,copper:0.05,plastic:0.08};
+function mprops(m){const p=MPROPS[m.id]||[35000,10,26000,(m.kp||1)*396000*0.92,'steel'];return{id:m.id,name:m.en,vi:m.vi,yield:p[0],elong:p[1],tau:p[2],kcd:p[3],kc:(m.kp||1)*396000,group:p[4]};}
+/* drilling cycle by depth / D (AutoCAM feeds.drill) */
+function drillCycle(depth,D,m){const r=depth/Math.max(D,1e-3),g=mprops(m).group,tough=g==='stainless'||g==='superalloy';
+ if(r<=3)return{cycle:'G81',peck:0,ratio:r};if(r<=6)return{cycle:'G73',peck:+D.toFixed(4),ratio:r};return{cycle:'G83',peck:+((tough?0.5:0.75)*D).toFixed(4),ratio:r};}
+/* tool tip deflection: stepped cantilever, flutes as 0.8·D, shank D.  δ = F/(3E)·[Lf³/If + (L³−Lf³)/Is] */
+function deflection(F,tool,stick){const D=Math.max(tool.dia,0.01),L=Math.max(stick||(tool.loc||3*D)+0.25,0.05),Lf=Math.min(tool.loc||L,L),Ds=tool.shank||D,E=tool.mat==='hss'?30e6:90e6;
+ const If=Math.PI*Math.pow(0.8*D,4)/64,Is=Math.PI*Math.pow(Ds,4)/64;return F/(3*E)*(Lf*Lf*Lf/If+(L*L*L-Lf*Lf*Lf)/Is);}
 function feeds(tool,mat,kind,opt){
   opt=opt||{};const m=mat,carb=tool.mat!=='hss',D=Math.max(tool.dia,0.001),Z=Math.max(1,tool.flutes||2),mc=opt.machine||{rpmMax:5000,hp:3,fmax:200};
   let sfm,fz=0,ipr=0,doc=0,woc=0,note='';
@@ -301,18 +315,70 @@ function feeds(tool,mat,kind,opt){
     // radial chip thinning
     if(woc>0&&woc<D/2&&kind!=='finish'){const k=D/(2*Math.sqrt(D*woc-woc*woc));fz=Math.min(fz*k,fz*3);note='chip thinning ×'+k.toFixed(2);}
   }
-  if(tool.type==='face')sfm*=1.0;
-  let rpm=sfm*3.82/effD;if(kind==='tap')rpm=Math.min(rpm,800);
-  let capped=false;if(rpm>mc.rpmMax){rpm=mc.rpmMax;capped=true;}rpm=Math.max(mc.rpmMin||40,Math.round(rpm/10)*10);
-  let feed=kind==='tap'?rpm*(tool.pitch||0.05):fz?rpm*fz*Z:rpm*ipr;
-  // horsepower limit
-  let mrr=woc&&doc?woc*doc*feed:0,hp=mrr*m.kp;
-  if(hp>mc.hp*0.8&&mrr>0){const s=mc.hp*0.8/hp;feed*=s;mrr*=s;hp=mrr*m.kp;note+=(note?' · ':'')+'HP limit';}
-  if(feed>mc.fmax&&kind!=='tap'){feed=mc.fmax;}
+  if(tool.type==='face')sfm*=1.25;
+  const steps=[];const f4=v=>(+v).toFixed(4);
+  let rpm=sfm*3.82/effD;steps.push(`RPM = SFM × 3.82 ÷ D = ${Math.round(sfm)} × 3.82 ÷ ${f4(effD)} = ${Math.round(rpm)}`);
+  if(kind==='tap'){const cap=opt.rigid===false?600:2000;if(rpm>cap){rpm=cap;steps.push(`Tap RPM held to ${cap} (${opt.rigid===false?'floating holder':'rigid tapping'})`);}}
+  let capped=false;if(rpm>mc.rpmMax){rpm=mc.rpmMax;capped=true;steps.push(`RPM capped at machine max ${mc.rpmMax}`);}rpm=Math.max(mc.rpmMin||40,Math.round(rpm/10)*10);
+  const sfmA=rpm*effD/3.82;let feed=kind==='tap'?rpm*(tool.pitch||0.05):fz?rpm*fz*Z:rpm*ipr;
+  if(kind==='tap')steps.push(`Feed = RPM × pitch = ${rpm} × ${f4(tool.pitch||0.05)} = ${feed.toFixed(2)} ipm (synchronized)`);
+  else if(fz)steps.push(`Feed = RPM × flutes × chip load = ${rpm} × ${Z} × ${(fz).toFixed(5)} = ${feed.toFixed(1)} ipm`);
+  else steps.push(`Feed = RPM × IPR = ${rpm} × ${f4(ipr)} = ${feed.toFixed(1)} ipm`);
+  // power + deflection limits: reduce DOC → WOC → feed (AutoCAM feeds.mill)
+  const finishing=kind==='finish',dlim=finishing?0.0005:0.001,hplim=0.8*mc.hp,adj=[];let fcut=1,mrr=0,hp=0,force=0,defl=0;
+  const docMin=Math.max(0.01,Math.min(doc,finishing?0.05:0.1*D)),wocMin=woc<D?Math.max(0.003,0.03*D):woc;const docUser=opt.doc>0;
+  for(let k=0;k<80;k++){const fe=feed*fcut;mrr=woc&&doc?woc*doc*fe:0;const hpc=mrr*m.kp;hp=hpc/0.85;force=sfmA>0?hpc*33000/sfmA:0;
+   defl=(woc&&doc&&tool.type!=='face')?deflection(force,tool,opt.stick):0;if((hp<=hplim&&defl<=dlim)||!mrr)break;
+   const why=hp>hplim?`HP ${hp.toFixed(2)} > ${hplim.toFixed(2)}`:`deflection ${defl.toFixed(5)} > ${dlim}`;
+   if(!docUser&&doc>docMin+1e-6){doc=Math.max(docMin,doc*0.9);adj.push('DOC→'+f4(doc)+' ('+why+')');}
+   else if(woc>wocMin+1e-6&&kind!=='slot'){woc=Math.max(wocMin,woc*0.9);adj.push('WOC→'+f4(woc)+' ('+why+')');}
+   else if(fcut>0.3){fcut*=0.9;adj.push('feed ×'+fcut.toFixed(2)+' ('+why+')');}else{note+=(note?' · ':'')+'limits not met: '+why;break;}}
+  feed*=fcut;
+  if(mrr){steps.push(`MRR = WOC × DOC × feed = ${f4(woc)} × ${f4(doc)} × ${feed.toFixed(1)} = ${mrr.toFixed(3)} in³/min`);
+   steps.push(`HP = MRR × kp ÷ 0.85 = ${hp.toFixed(2)} (limit ${hplim.toFixed(2)})`);steps.push(`Force ≈ HP × 33000 ÷ SFM = ${Math.round(force)} lbf`);
+   if(tool.type!=='face')steps.push(`Deflection (stick-out ${(opt.stick||((tool.loc||3*D)+0.25)).toFixed(3)}) = ${defl.toFixed(5)} in (limit ${dlim})`);}
+  if(adj.length){note+=(note?' · ':'')+'auto: '+adj[adj.length-1];steps.push('Auto-adjust: '+adj.slice(0,3).join('; ')+(adj.length>3?` … (${adj.length})`:''));}
+  if(feed>mc.fmax&&kind!=='tap'){feed=mc.fmax;steps.push('Feed held to machine max '+mc.fmax);}
+  let cyc=null;if(kind==='drill'&&opt.depth>0){cyc=drillCycle(opt.depth,D,m);steps.push(`Depth ÷ D = ${opt.depth.toFixed(3)} ÷ ${f4(D)} = ${cyc.ratio.toFixed(1)} → ${cyc.cycle}${cyc.peck?' Q'+cyc.peck:''}`);}
+  if(kind==='drill'||kind==='spot'){const th=0.5*mprops(m).kcd*ipr*D;force=th;steps.push(`Thrust ≈ ½ · Kc · IPR · D = ${Math.round(th)} lbf`);}
   feed=Math.round(feed*10)/10;
-  return{rpm,feed,plunge:Math.round(feed*(kind==='finish'?0.5:0.35)*10)/10,fz:fz?feed/rpm/Z:0,ipr:feed/rpm,doc,woc,sfm:Math.round(rpm*effD/3.82),mrr,hp,capped,note};
+  return{rpm,feed,plunge:Math.round(feed*(kind==='finish'?0.5:0.35)*10)/10,fz:fz?feed/rpm/Z:0,ipr:feed/rpm,doc,woc,sfm:Math.round(sfmA),mrr,hp,force:Math.round(force),defl,capped,note,steps,cycle:cyc};
 }
 
+/* ---------- holding-tab strength (AutoCAM tabcalc) ---------- */
+function tabCap(dir,y,w,t,L,e,tau){tau=tau??0.75*y;const sp=Math.max(L,0.02);if(dir==='inplane')return Math.min(tau*w*t,y*t*w*w/(6*sp));if(dir==='through')return Math.min(tau*w*t,y*w*t*t/(6*sp));return y/(1/(w*t)+6*(e||0)/(w*t*t));}
+function tabMinT(dir,y,w,L,n,F,tau,target){const need=F*(target||2),sh=Math.max(1,n/2);let lo=0.005,hi=2;if(tabCap(dir,y,w,hi,L,0,tau)*sh<need)return null;for(let k=0;k<50;k++){const mm=(lo+hi)/2;if(tabCap(dir,y,w,mm,L,0,tau)*sh>=need)hi=mm;else lo=mm;}return Math.ceil(hi*200)/200;}
+function sideForce(kc,D,ap,ae,feed,rpm){return kc*ap*ae*feed/(Math.PI*Math.max(D,0.01)*Math.max(rpm,1));}
+function tabCheck(m,w,t,L,n,loads){const p=mprops(m),sh=Math.max(1,n/2);const rows=loads.map(ld=>{const holds=tabCap(ld.dir,p.yield,w,t,L,0,p.tau)*sh,sf=ld.force>1e-9?holds/ld.force:999;
+  return{...ld,holds,sf:Math.min(sf,999),minT:tabMinT(ld.dir,p.yield,w,L,n,ld.force,p.tau)};});
+ const worst=rows.reduce((a,r)=>!a||r.sf<a.sf?r:a,null),need=Math.max(0,...rows.map(r=>r.minT||9.99)),brk=BREAK_T[p.group]||0.05;
+ return{p,rows,worst,sf:worst?worst.sf:null,minT:need<9?need:null,breakable:t<=brk,breakMax:brk};}
+function opLoads(m,o){const p=mprops(m),D=o.dia||0.25,rpm=o.rpm||1000,f=o.feed||10;
+ if(['drill','spot','tap','ream','bore'].includes(o.kind))return[{dir:'through',force:0.5*p.kcd*(f/rpm)*D,why:'thrust',label:o.label}];
+ const ap=o.doc||D,ae=o.woc||D,ft=sideForce(p.kc,D,ap,Math.min(ae,D),f,rpm);return[{dir:'inplane',force:ft,why:'side',label:o.label},{dir:'through',force:0.3*ft,why:'helix',label:o.label}];}
+/* ---------- fixture holding force (AutoCAM fixtures): holding = μ × clamping, SF ≥ 3 ---------- */
+const FIXHOLD={vise:(fx)=>2*0.20*(fx.force||4000),softjaw:(fx)=>2*0.25*(fx.force||4000),clamps:(fx)=>0.25*(fx.clamps||4)*2000,plate:(fx)=>0.25*(fx.clamps||4)*2000,angle:()=>0.25*2*3000,collet:()=>0.3*4000};
+function fixtureHold(fx){return(FIXHOLD[fx.type]||FIXHOLD.vise)(fx);}
+/* ---------- arc fitting: runs of short G1 moves on a circle → one G2/G3 (AutoCAM arcfit) ---------- */
+function circ3(a,b,c){const d=2*(a[0]*(b[1]-c[1])+b[0]*(c[1]-a[1])+c[0]*(a[1]-b[1]));if(Math.abs(d)<1e-12)return null;const a2=a[0]*a[0]+a[1]*a[1],b2=b[0]*b[0]+b[1]*b[1],c2=c[0]*c[0]+c[1]*c[1];
+ const x=(a2*(b[1]-c[1])+b2*(c[1]-a[1])+c2*(a[1]-b[1]))/d,y=(a2*(c[0]-b[0])+b2*(a[0]-c[0])+c2*(b[0]-a[0]))/d;return[x,y,Math.hypot(a[0]-x,a[1]-y)];}
+function arcOK(P,i,j,tol){const c=circ3(P[i],P[(i+j)>>1],P[j]);if(!c||c[2]>100||c[2]<0.01)return null;let sw=0,sg=0;
+ for(let k=i;k<=j;k++){if(Math.abs(Math.hypot(P[k][0]-c[0],P[k][1]-c[1])-c[2])>tol)return null;if(k<j){const mx=(P[k][0]+P[k+1][0])/2,my=(P[k][1]+P[k+1][1])/2;if(Math.abs(Math.hypot(mx-c[0],my-c[1])-c[2])>tol)return null;
+   const a0=Math.atan2(P[k][1]-c[1],P[k][0]-c[0]),a1=Math.atan2(P[k+1][1]-c[1],P[k+1][0]-c[0]);let da=a1-a0;while(da>Math.PI)da-=2*Math.PI;while(da<-Math.PI)da+=2*Math.PI;if(Math.abs(da)>Math.PI/4)return null;
+   const s_=Math.sign(da);if(!s_)return null;if(sg&&s_!==sg)return null;sg=s_;sw+=da;}}
+ if(Math.abs(sw)>Math.PI+1e-6)return null;return{c,ccw:sg>0};}
+function arcFit(prog,tol){tol=tol||0.0005;const out=[];let pos=null,run=[];
+ const flush=()=>{if(!run.length)return;const P=[pos0].concat(run.map(b=>[b.x,b.y]));let i=0;const n=P.length-1;
+  while(i<n){let best=null,bj=-1;for(let j=i+4;j<=Math.min(n,i+400);j++){const r=arcOK(P,i,j,tol);if(r){best=r;bj=j;}else if(bj>0&&j>bj+2)break;}
+   if(best){const b=run[bj-1],st=P[i];out.push({g:best.ccw?3:2,x:b.x,y:b.y,z:b.z,i:best.c[0]-st[0],j:best.c[1]-st[1],cx:best.c[0],cy:best.c[1],f:b.f});i=bj;}else{out.push(run[i]);i++;}}
+  run=[];};
+ let pos0=null;
+ for(const b of prog){const lin=b.g===1&&b.a==null&&b.b==null&&b.c==null&&!b.inv&&b.x!=null&&b.y!=null;
+  if(lin&&pos&&Math.abs((b.z??pos[2])-pos[2])<1e-7&&(!run.length||run[run.length-1].f===b.f)){if(!run.length)pos0=[pos[0],pos[1]];run.push(b);pos=[b.x,b.y,b.z??pos[2]];continue;}
+  flush();out.push(b);
+  if(b.g!==undefined&&b.x!=null)pos=[b.x,b.y??(pos?pos[1]:0),b.z??(pos?pos[2]:0)];else if(b.g!==undefined&&pos){pos=[pos[0],pos[1],b.z??pos[2]];}
+  else if(b.t==='cycle'){pos=[b.pts[b.pts.length-1][0],b.pts[b.pts.length-1][1],b.clear];}else if(b.t==='g43'){pos=[b.x,b.y,null];}else if(b.t==='tool'||b.t==='index')pos=null;}
+ flush();return out;}
 /* ---------- toolpath generation (IR) ---------- */
 function MB(clear){this.o=[];this.p=[0,0,clear];this.clear=clear;}
 MB.prototype.rapid=function(x,y,z){x=x??this.p[0];y=y??this.p[1];z=z??this.p[2];if(Math.abs(x-this.p[0])+Math.abs(y-this.p[1])+Math.abs(z-this.p[2])<1e-7)return;this.o.push({g:0,x,y,z});this.p=[x,y,z];};
@@ -703,6 +769,7 @@ function genOp(op,ctx){
 
 /* ---------- post: G-code ---------- */
 function post(prog,cfg){
+  if(cfg.arcfit)prog=arcFit(prog,cfg.units==='mm'?0.0127:0.0005);
   const mm=cfg.units==='mm',dp=mm?3:4,fmt=v=>{let s=(+v).toFixed(dp);s=s.replace(/0+$/,'').replace(/\.$/,'');if(s==='-0')s='0';return s;},ff=v=>(+v).toFixed(1).replace(/\.0$/,'');
   const out=[];let n=0;const line=s=>{if(cfg.lineNums&&s[0]!=='%'&&s[0]!=='('){n+=10;out.push('N'+n+' '+s);}else out.push(s);};
   const cm=s=>'('+String(s).toUpperCase().replace(/[()]/g,'').slice(0,60)+')';
@@ -761,6 +828,7 @@ function cycleTime(segs,rapid,toolChanges,tcSec){let t=0;for(const s of segs){co
 
 /* ---------- Siemens 840D post (milling) ---------- */
 function postSiemens(prog,cfg){
+  if(cfg.arcfit)prog=arcFit(prog,cfg.units==='mm'?0.0127:0.0005);
   const mm=cfg.units==='mm',dp=mm?3:4,fmt=v=>{let s=(+v).toFixed(dp).replace(/0+$/,'').replace(/\.$/,'');return s==='-0'?'0':s;},ff=v=>(+v).toFixed(1).replace(/\.0$/,''),fa=v=>(+v).toFixed(3).replace(/\.?0+$/,'')||'0';
   const out=[];let n=0;const line=s=>{if(cfg.lineNums&&s[0]!==';'){n+=10;out.push('N'+n+' '+s);}else out.push(s);};const cm=s=>'; '+String(s).replace(/[\r\n]/g,' ').slice(0,70);
   line(cm((cfg.name||'PART')+' - MINI CAM'));(cfg.header||[]).forEach(h=>line(cm(h)));line((mm?'G710':'G700')+' G17 G90 G40 G94');line('G54');
@@ -823,6 +891,6 @@ function postLathe(prog,cfg){const sie=cfg.post==='siemens',mm=cfg.units==='mm',
     let s='';if(b.g!==mg){s+=(sie?['G0','G1'][b.g]:['G00','G01'][b.g])+' ';mg=b.g;}s+='X'+fmt(b.x)+' Z'+fmt(b.z);if(b.g===1)s+=' F'+fr(b.f);out.push(s);}
   out.push(sie?'G0 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ):'G00 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ));out.push(sie?'M9':'M09');out.push(sie?'M5':'M05');out.push('M30');if(!sie)out.push('%');return out.join('\n');}
 
-const API={latheProfileFromGeom,rProf,genLathe,postLathe,postSiemens,simSegs4,meshCylMap,meshHeightmap,ROTARIES,parseSTL,meshLevels,parseSTEP,levelsTo25D,area,pip,bbox,perim,dist,parseDXF,buildGeom,scaleGeom,geomBox,classify,makeField,iso,layers,feeds,genOp,post,simSegs,cycleTime,circlePts,MATERIALS,MACHINES,TAPS,arcPts};
+const API={mprops,drillCycle,deflection,tabCheck,opLoads,sideForce,fixtureHold,arcFit,MPROPS,latheProfileFromGeom,rProf,genLathe,postLathe,postSiemens,simSegs4,meshCylMap,meshHeightmap,ROTARIES,parseSTL,meshLevels,parseSTEP,levelsTo25D,area,pip,bbox,perim,dist,parseDXF,buildGeom,scaleGeom,geomBox,classify,makeField,iso,layers,feeds,genOp,post,simSegs,cycleTime,circlePts,MATERIALS,MACHINES,TAPS,arcPts};
 if(typeof module!=='undefined'&&module.exports)module.exports=API;else root.CAM=API;
 })(this);
