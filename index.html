@@ -97,7 +97,8 @@ label.f textarea{height:auto;min-height:90px;padding:10px 12px;line-height:1.4}
 .sw i{position:absolute;inset:0;border-radius:99px;background:var(--line);pointer-events:none;transition:.2s}
 .sw i::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgb(0 0 0/.3);transition:.2s}
 .sw input:checked+i{background:var(--blue)}.sw input:checked+i::after{left:21px}
-pre.code{margin:0;max-height:420px;overflow:auto;background:light-dark(#0f1215,#0b0d10);color:#d7e2ea;border-radius:12px;padding:12px 14px;font:13px/1.5 "JetBrains Mono",ui-monospace,monospace}
+body.gwrap pre.code{white-space:pre-wrap;overflow-wrap:anywhere}
+pre.code{-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior:contain;margin:0;max-height:420px;overflow:auto;background:light-dark(#0f1215,#0b0d10);color:#d7e2ea;border-radius:12px;padding:12px 14px;font:13px/1.5 "JetBrains Mono",ui-monospace,monospace}
 pre.code .c{color:#7d8b96}pre.code .g{color:#7fb2ff}pre.code .m{color:#ffb37a}
 .warn{background:var(--org2);border:1px solid color-mix(in srgb,var(--org) 40%,transparent);border-radius:12px;padding:10px 12px;font-size:14px}
 .ok{color:var(--ok)}
