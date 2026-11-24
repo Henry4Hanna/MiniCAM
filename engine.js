@@ -335,7 +335,7 @@ const MACHINES=[
  {id:'dpmrx3',name:'TRAK DPM RX3 (bed)',type:'bed',ctrl:'RMX',rpmMin:40,rpmMax:5000,hp:5,taper:'40',tx:34,ty:18,tz:24,rapid:400,fmax:200,approx:true},
  {id:'dpmrx5',name:'TRAK DPM RX5 (bed)',type:'bed',ctrl:'RMX',rpmMin:40,rpmMax:5000,hp:5,taper:'40',tx:41,ty:20.5,tz:24,rapid:400,fmax:200},
  {id:'dpmrx7',name:'TRAK DPM RX7 (bed)',type:'bed',ctrl:'RMX',rpmMin:40,rpmMax:5000,hp:7.5,taper:'40',tx:60,ty:23.5,tz:23,rapid:400,fmax:200},
- {id:'vf3ss',name:'Haas VF-3SS',type:'vmc',ctrl:'Haas',post:'haas',axes:3,rot:true,rpmMin:50,rpmMax:12000,hp:30,taper:'40',tx:40,ty:20,tz:25,rapid:1400,fmax:650},
+ {id:'vf3ss',name:'Haas VF-3SS',type:'vmc',ctrl:'Haas',post:'haas',axes:3,rot:true,rpmMin:50,rpmMax:7500,hp:30,taper:'40',tx:40,ty:20,tz:25,rapid:1400,fmax:650},
  {id:'umc750',name:'Haas UMC-750',type:'5ax',ctrl:'Haas',post:'haas',axes:5,kin:'BC',bMin:-35,bMax:110,rpmMin:50,rpmMax:8100,hp:30,taper:'40',tx:30,ty:20,tz:20,rapid:1200,fmax:650},
  {id:'dmu50',name:'DMG MORI DMU 50 3rd gen',type:'5ax',ctrl:'Siemens 840D',post:'siemens',axes:5,kin:'BC',bMin:-35,bMax:110,rpmMin:20,rpmMax:15000,hp:28,taper:'SK40/HSK63',tx:25.6,ty:20.5,tz:18.7,rapid:1650,fmax:800},
  {id:'st10',name:'Haas ST-10 (lathe)',type:'lathe',ctrl:'Haas',post:'haas',axes:2,rpmMin:30,rpmMax:6000,hp:15,chuck:6.5,maxDia:14,maxLen:16,tx:7.88,tz:16,rapid:1200,fmax:400},

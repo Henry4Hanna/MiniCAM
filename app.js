@@ -115,7 +115,7 @@ const TOOLS0=[
  {num:14,type:'ball',desc:'1/4 ball end mill',dia:0.25,flutes:2,mat:'carbide',coat:'AlTiN',loc:0.75,oal:2.5}
 ];
 let uid=1;const nid=p=>p+(uid++)+Math.random().toString(36).slice(2,5);
-const S={tab:'program',units:'in',mat:'al6061',machine:'dpmrx2',post:'prototrak',
+const S={tab:'program',units:'in',mat:'al6061',machine:'vf3ss',post:'haas',
  stock:{x:4.25,y:3.25,z:1.25,face:0.03,part:0.75},zero:'ll',
  fixture:{type:'vise',jawH:1.75,parH:1.5,parAuto:true,vise:6,notes:''},
  hdr:{name:'BRACKET',no:'P-1001',rev:'A',qty:1,prog:'',oper:'',cust:'',date:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),notes:''},
@@ -1218,7 +1218,7 @@ document.addEventListener('change',e=>{
  if(el.dataset.defsw){S.def={...DEF0,...(S.def||{})};S.def[el.dataset.defsw]=el.checked;if(el.dataset.defsw==='feedOpt'){buildProgram();persist();rProgram();return;}if(el.dataset.defsw==='stockAuto'||el.dataset.defsw==='stdRound'){syncStock();buildProgram();persist();rProgram();return;}autoProgram();buildProgram();rProgram();return;}
  if(el.dataset.q){S.quote=S.quote||{};const v=parseFloat(String(el.value).replace(',','.'));if(!isNaN(v))S.quote[el.dataset.q]=v;persist();rSetup();return;}
  if(el.dataset.nb){S.nest[el.dataset.nb]=el.dataset.u==='S'?el.value:parseVal(el);if(el.dataset.nb==='mode'&&el.value==='twoSide'&&S.nest.tabT<0.06)S.nest.tabT=0.06;if(el.dataset.nb==='proc'&&PROCDEF[el.value])Object.assign(S.nest,PROCDEF[el.value]);persist();rNest();return;}
- if(el.dataset.ni!=null){const it=S.nest.items[+el.dataset.ni];it[el.dataset.k]=el.dataset.k==='qty'?Math.max(0,parseInt(el.value)||0):el.value;persist();rNest();return;}
+ if(el.dataset.ni!=null){const it=S.nest.items[+el.dataset.ni],k=el.dataset.k;if(k==='w'||k==='h'){const v=parseFloat(el.value)/K();if(v>0){if(NPDEF[it.src])it[k]=v;else{const nat=nestNative(it.src);it.w=k==='w'?v:(nat[1]?v*nat[0]/nat[1]:v);}S.nestPos={};S.nestTabs={};}}else if(k==='src'){it.src=el.value;delete it.w;delete it.h;}else it[k]=k==='qty'?Math.max(0,parseInt(el.value)||0):el.value;persist();rNest();return;}
  if(el.dataset.lb){S.lathe[el.dataset.lb]=parseVal(el);persist();rLathe();return;}
  if(el.dataset.lo!=null){const o=S.lathe.ops[+el.dataset.lo];const v2=el.dataset.u==='S'?el.value:parseVal(el);o[el.dataset.k]=el.dataset.k==='tool'?+el.value:v2;persist();rLathe();return;}
  if(el.dataset.lon!=null){S.lathe.ops[+el.dataset.lon].on=el.checked;persist();rLathe();return;}
@@ -2596,12 +2596,17 @@ function rLatheSim(){const L=latheBuild();$('#main').innerHTML=`<h1>${t('simTitl
  new ResizeObserver(()=>latheDraw(cv,LSIM.k)).observe(cv);}
 
 /* ================= NEST (many parts on one sheet) ================= */
-const NEST0={proc:'router',kerf:0.06,cutF:100,pierce:0.5,smallD:1.25,smallPct:65,leadL:0.2,overburn:0.04,onCode:'M03',offCode:'M05',mode:'flat',w:24,h:12,sheetT:0.5,partT:0.5,margin:0.5,tabW:0.25,tabT:0.03,tabEvery:5,tabFixed:0,hold:'screw',removal:'break',tool:'',items:[{src:'current',qty:0},{src:'L',qty:2},{src:'rib',qty:2},{src:'plate',qty:0}]};
+const NEST0={proc:'router',kerf:0.06,cutF:100,pierce:0.5,smallD:1.25,smallPct:65,leadL:0.2,overburn:0.04,onCode:'M03',offCode:'M05',mode:'flat',w:24,h:12,sheetT:0.5,partT:0.5,margin:0.5,tabW:0.25,tabT:0.03,tabEvery:5,tabFixed:0,hold:'screw',removal:'break',tool:'',items:[]};
 let NESTR=null,NESTG='';
-function demoPart(src){const R=(x0,y0,x1,y1)=>[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
- if(src==='L')return{name:'L-bracket',loops:[[[0,0],[4,0],[4,1],[1,1],[1,3],[0,3]]],circles:[{x:0.5,y:0.5,r:0.1005},{x:3.5,y:0.5,r:0.1005},{x:0.5,y:2.5,r:0.1005}]};
- if(src==='rib')return{name:'Rib',loops:[R(0,0,10,1)],circles:[{x:0.5,y:0.5,r:0.1328},{x:9.5,y:0.5,r:0.1328}]};
- if(src==='plate')return{name:'Plate',loops:[R(0,0,3,2)],circles:[{x:1.5,y:1,r:0.375},{x:0.4,y:0.4,r:0.1005},{x:2.6,y:0.4,r:0.1005},{x:0.4,y:1.6,r:0.1005},{x:2.6,y:1.6,r:0.1005}]};
+const NPDEF={L:[4,3],rib:[10,1],plate:[3,2]};
+function demoPart(src,it){const R=(x0,y0,x1,y1)=>[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];const d=NPDEF[src],w=Math.max(0.2,(it&&+it.w)||(d&&d[0])||1),h=Math.max(0.2,(it&&+it.h)||(d&&d[1])||1);
+ if(src==='L'){const t=Math.min(1,w/3,h/3),hr=Math.min(0.1005,t*0.25),e=t/2;return{name:'L-bracket',loops:[[[0,0],[w,0],[w,t],[t,t],[t,h],[0,h]]],circles:[{x:e,y:e,r:hr},{x:w-e,y:e,r:hr},{x:e,y:h-e,r:hr}]};}
+ if(src==='rib'){const e=Math.min(0.5,h/2,w/4),hr=Math.min(0.1328,h*0.25);return{name:'Rib',loops:[R(0,0,w,h)],circles:[{x:e,y:h/2,r:hr},{x:w-e,y:h/2,r:hr}]};}
+ if(src==='plate'){const e=Math.min(0.4,w/5,h/5),hr=Math.min(0.1005,e*0.5),cr=Math.min(0.375,Math.min(w,h)*0.2);return{name:'Plate',loops:[R(0,0,w,h)],circles:[{x:w/2,y:h/2,r:cr},{x:e,y:e,r:hr},{x:w-e,y:e,r:hr},{x:e,y:h-e,r:hr},{x:w-e,y:h-e,r:hr}]};}
+ const p0=demoPart0(src);if(!p0||!it||!(+it.w>0))return p0;const ob=p0.loops.length?C.bbox(p0.loops.reduce((a,b)=>Math.abs(C.area(b))>Math.abs(C.area(a))?b:a)):[0,0,1,1];const f=(+it.w)/((ob[2]-ob[0])||1);if(Math.abs(f-1)<1e-6)return p0;
+ return{...p0,loops:p0.loops.map(l=>l.map(q=>[q[0]*f,q[1]*f])),circles:(p0.circles||[]).map(c=>({...c,x:c.x*f,y:c.y*f,r:c.r*f}))};}
+function nestNative(src){const p=NPDEF[src]?null:demoPart0(src);if(NPDEF[src])return NPDEF[src];if(!p||!p.loops.length)return[0,0];const b=C.bbox(p.loops.reduce((a,c)=>Math.abs(C.area(c))>Math.abs(C.area(a))?c:a));return[b[2]-b[0],b[3]-b[1]];}
+function demoPart0(src){
  if(src&&src.startsWith('u:')){const u=(S.nestParts||[]).find(x=>x.id===src);if(u)return{name:u.name,loops:u.loops,circles:u.circles};}
  if(src==='current'&&S.geom){const b=C.geomBox(S.geom);const g=C.scaleGeom(S.geom,1,-b[0],-b[1]);const ex=new Set(S.excl||[]);return{name:S.hdr.name||'Part',loops:g.loops,circles:g.circles,ld:g.ld};}
  return null;}
@@ -2629,7 +2634,7 @@ async function nestImport(f){const vi=LANG==='vi';try{const txt=await f.text();c
   S.nestParts.push({id,name,loops:g2.loops,circles:g2.circles||[]});S.nest.items.push({src:id,qty:1});persist();rNest();toast((vi?'Đã thêm ':'Added ')+name+' · '+fl(bb[2]-bb[0],3)+' × '+fl(bb[3]-bb[1],3)+' '+ulab());}catch(err){toast((vi?'Lỗi đọc DXF: ':'DXF error: ')+err.message);}}
 function nestCompute(){
  const N=S.nest={...NEST0,...(S.nest||{})};const tl=toolById(N.tool)||findTool(x=>x.type==='flat'&&x.dia<=0.25)||findTool(x=>x.type==='flat');N.tool=tl?tl.id:'';const JET=N.proc&&N.proc!=='router',D=JET?(N.kerf||0.06):(tl?tl.dia:0.25),gap=JET?Math.max(D*2,0.12):D+0.125;
- const types=[];N.items.forEach((it,ti)=>{const p=demoPart(it.src);if(!p||!p.loops.length)return;const outer=p.loops.reduce((a,b)=>Math.abs(C.area(b))>Math.abs(C.area(a))?b:a);const b=C.bbox(outer);types.push({...p,ti,src:it.src,qty:+it.qty||0,outer,w:b[2]-b[0],h:b[3]-b[1],bx:b[0],by:b[1],area:(b[2]-b[0])*(b[3]-b[1])});});
+ const types=[];N.items.forEach((it,ti)=>{const p=demoPart(it.src,it);if(!p||!p.loops.length)return;const outer=p.loops.reduce((a,b)=>Math.abs(C.area(b))>Math.abs(C.area(a))?b:a);const b=C.bbox(outer);types.push({...p,ti,src:it.src,qty:+it.qty||0,outer,w:b[2]-b[0],h:b[3]-b[1],bx:b[0],by:b[1],area:(b[2]-b[0])*(b[3]-b[1])});});
  types.sort((a,b)=>b.area-a.area);const placed=[],W=N.w-N.margin,H=N.h-N.margin,warn=[];
  const fits=(x,y,w,h)=>x>=N.margin-1e-9&&y>=N.margin-1e-9&&x+w<=W+1e-9&&y+h<=H+1e-9&&!placed.some(p=>x<p.x+p.w+gap-1e-9&&x+w+gap>p.x+1e-9&&y<p.y+p.h+gap-1e-9&&y+h+gap>p.y+1e-9);
  const tryPlace=T=>{let best=null;const cands=[[N.margin,N.margin]];placed.forEach(p=>{cands.push([p.x+p.w+gap,p.y],[p.x,p.y+p.h+gap],[N.margin,p.y+p.h+gap],[p.x+p.w+gap,N.margin]);});
@@ -2757,7 +2762,7 @@ function tabCheckNotes(){const r=tabCheckRes(),N=S.nest,vi=LANG==='vi';if(!r)ret
 function rNest(){
  S.nest={...NEST0,...(S.nest||{})};const N=S.nest;nestCompute();NESTG=nestProgram();const R=NESTR;
  const L=(k,p)=>inp(k,fl(N[p]),`data-nb="${p}" data-u="L"`),Nn=(k,p)=>inp(k,N[p],`data-nb="${p}" data-u="N"`);
- const srcs=[['current',t('curPart')],['L','L-bracket'],['rib','Rib 10 × 1'],['plate','Plate 3 × 2'],...(S.nestParts||[]).map(u=>[u.id,'DXF · '+u.name])];
+ const srcs=[['current',t('curPart')],['L','L-bracket'],['rib','Rib'],['plate','Plate'],...(S.nestParts||[]).map(u=>[u.id,'DXF · '+u.name])];
  const totTabs=R.placed.reduce((a,p)=>a+p.tabs.length,0);const lines=NESTG.split('\n');const ti=lines.findIndex(l=>new RegExp('Z'+(fl(-N.partT+N.tabT,4)).replace('.','\\.')+'\\b').test(l));
  $('#main').innerHTML=`<h1>${t('nestTitle')}</h1><p class="sub">${t('nestSub')}</p>
  <div class="grid g2"><div class="grid" style="align-content:start">
@@ -2780,7 +2785,7 @@ function rNest(){
   <div class="card"><h2>${t('tabCheck')}</h2><div class="scroll"><table><thead><tr><th>${LANG==='vi'?'Lực':'Load'}</th><th class="n">${LANG==='vi'?'Lực':'Force'}</th><th class="n">${LANG==='vi'?'Tab chịu được':'Tabs hold'}</th><th class="n">SF</th><th class="n">${LANG==='vi'?'Dày tối thiểu':'Min thick'}</th></tr></thead><tbody>${tabCheckRows()}</tbody></table></div>${tabCheckNotes()}
    <p class="sub" style="margin:8px 0 0;font-size:13px">${LANG==='vi'?'Ước lượng theo lực cắt riêng của vật liệu, chưa tính rung hay dao mòn — vì vậy cần hệ số an toàn ≥ 2. Tab bẻ tay (.030–.060) chỉ dùng khi lực nằm trong mặt phẳng tab. Hàng “lực kéo lên” là khi dao xoắn ốc kéo chi tiết lên.':'Estimated from specific cutting force; vibration and tool wear are not included — so the target safety factor is ≥ 2. Hand-break tabs (.030–.060) only when the load stays in the tab plane. The helix-pull row is the cutter pulling the part up.'}</p></div>
  </div><div class="grid" style="align-content:start">
-  <div class="card"><h2>${t('parts')}</h2><div class="grid" style="gap:8px">${N.items.map((it,i)=>`<div class="row"><select class="inp" style="flex:1" data-ni="${i}" data-k="src">${srcs.map(([v,l])=>`<option value="${v}" ${it.src===v?'selected':''}>${esc(l)}</option>`).join('')}</select><input class="inp" style="width:90px" inputmode="numeric" data-ni="${i}" data-k="qty" value="${it.qty}" aria-label="${t('qtyAuto')}"><button class="mini" data-nidel="${i}" style="color:var(--bad)">${IC.del}</button></div>`).join('')}
+  <div class="card"><h2>${t('parts')}</h2><div class="grid" style="gap:8px">${N.items.map((it,i)=>`<div class="row"><select class="inp" style="flex:1" data-ni="${i}" data-k="src">${srcs.map(([v,l])=>`<option value="${v}" ${it.src===v?'selected':''}>${esc(l)}</option>`).join('')}</select><input class="inp" style="width:70px" inputmode="numeric" data-ni="${i}" data-k="qty" value="${it.qty}" aria-label="${t('qtyAuto')}"><button class="mini" data-nidel="${i}" style="color:var(--bad)">${IC.del}</button></div>${(()=>{const nat=nestNative(it.src),par=!!NPDEF[it.src],w=+it.w||nat[0],h=par?(+it.h||nat[1]):(nat[0]?nat[1]*w/nat[0]:0);return w?`<div class="row" style="gap:6px;margin:-2px 0 6px;align-items:center;font-size:14px"><span class="sub" style="margin:0">${LANG==='vi'?'Cỡ':'Size'}</span><input class="inp" style="width:84px" inputmode="decimal" data-ni="${i}" data-k="w" value="${fl(w,3)}" aria-label="W"><span>×</span><input class="inp" style="width:84px" inputmode="decimal" data-ni="${i}" data-k="h" value="${fl(h,3)}" aria-label="H"><span class="sub" style="margin:0">${ulab()}${par?'':(LANG==='vi'?' · giữ tỉ lệ':' · keeps ratio')}</span></div>`:'';})()}`).join('')||`<p class="sub" style="margin:0">${LANG==='vi'?'Chưa có chi tiết nào. Bấm <b>+ Chi tiết</b> hoặc <b>Thêm bản vẽ DXF</b>.':'No parts yet. Tap <b>+ Parts</b> or <b>Add DXF drawing</b>.'}</p>`}
    <button class="btn sm" data-act="nestAdd">${IC.plus}${t('parts')}</button><p class="sub" style="margin:0;font-size:13px">${t('qtyAuto')}</p></div></div>
   <div class="card"><h2>${t('stock')}</h2><div class="fields">${L('sheetW','w')}${L('sheetH','h')}${L('sheetT','sheetT')}${L('partT2','partT')}${L('margin','margin')}
    <label class="f">${t('contourTool')}<select data-nb="tool" data-u="S">${S.tools.filter(x=>x.type==='flat').map(x=>`<option value="${x.id}" ${x.id===N.tool?'selected':''}>T${x.num} ${esc(x.desc)}</option>`).join('')}</select></label></div></div>
@@ -2939,6 +2944,7 @@ document.addEventListener('touchmove',e=>{if(!SETS().pageZoom&&e.touches&&e.touc
 /* ================= boot ================= */
 try{LANG=localStorage.getItem('trakLang')||'vi';}catch(_){}
 const had=restore();
+if(had&&!S._mig75){S._mig75=1;if(S.machine==='dpmrx2'){S.machine='vf3ss';S.post='haas';}if(S.nest&&JSON.stringify(S.nest.items)===JSON.stringify([{src:'current',qty:0},{src:'L',qty:2},{src:'rib',qty:2},{src:'plate',qty:0}])){S.nest.items=[];S.nestPos={};S.nestTabs={};}}
 if(!had||!S.raw||S.dxfName==='demo-bracket.dxf'){WARN=[];S.raw={loops:[],circles:[],opens:[]};S.feats=[];S.ops=[];S.dwg=null;S.dxfName='';S.src='';S.ref=null;S.geom=null;}
 else{try{applyZero();}catch(e){}}
 buildProgram();render();
