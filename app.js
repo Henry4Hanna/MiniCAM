@@ -1371,7 +1371,10 @@ function importMesh(M,name,uSel,unit){
  S.raw=C.scaleGeom(g,sc,0,0);S.src='mesh';S.dwg=null;S.meshInfo={sc,zTop:Math.max(...M.levels.map(l=>l.z))};S._hm=null;S.cylMap=null;S.stock.part=+(g.thick*sc).toFixed(4);
  finishImport(name);meshAnalyze();if(g.ignored)WARN.push(g.ignored+' '+t('ignoredFaces'));}
 function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('cannot load '+src));document.head.appendChild(s);});}
-async function loadPDFjs(){if(window.pdfjsLib)return;const B='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';await loadScript(B+'pdf.worker.min.js');await loadScript(B+'pdf.min.js');window.pdfjsLib.GlobalWorkerOptions.workerSrc=B+'pdf.worker.min.js';}
+async function loadPDFjs(){if(window.pdfjsLib)return;
+ // same pdf.js generation the importer is tested with (v6, ES module); old browsers fall back to v3
+ try{const B6='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.5.438/';const L=await import(B6+'pdf.min.mjs');L.GlobalWorkerOptions.workerSrc=B6+'pdf.worker.min.mjs';window.pdfjsLib=L;return;}catch(e){console.warn('pdf.js 6 failed, using 3',e);}
+ const B='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';await loadScript(B+'pdf.worker.min.js');await loadScript(B+'pdf.min.js');window.pdfjsLib.GlobalWorkerOptions.workerSrc=B+'pdf.worker.min.js';}
 let PDFDOC=null;
 async function pdfPage(doc,L,n){const page=await doc.getPage(n);const ol=await page.getOperatorList(),O=L.OPS,sc=1/72;let m=[1,0,0,1,0,0];
  let gs={lw:1,col:'k',dash:false};const st=[];const mul=(a,b)=>[a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]];

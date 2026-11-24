@@ -92,11 +92,12 @@ tol=tol||0.004;const V=[],key=new Map(),q=x=>Math.round(x/tol);
 function pdfDetect(pieces,texts,pw,ph,opt){opt=opt||{};const TB=/^(MATERIAL|DRAWN|CHECKED|APPROVED|TOLERANCES|SCALE|SHEET|SIZE|REV|NOTES|PROPRIETARY|CONFIDENTIAL|FINISH|DIMENSIONS)/i;
   const tw=texts.filter(t=>TB.test(t.s)&&t.y<ph*0.45);let zone=null;if(tw.length>=3){zone=[1e9,1e9,-1e9,-1e9];tw.forEach(t=>{zone[0]=Math.min(zone[0],t.x);zone[1]=Math.min(zone[1],t.y);zone[2]=Math.max(zone[2],t.x);zone[3]=Math.max(zone[3],t.y);});zone=[zone[0]-1.6,0,pw,zone[3]+0.5];}
   const inZone=b=>zone&&(b[0]+b[2])/2>zone[0]&&(b[1]+b[3])/2<zone[3];
-  const angOff=P=>{let tot=0,off=0;for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1],L=dist(a,b);tot+=L;let ang=Math.abs(Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI)%90;ang=Math.min(ang,90-ang);if(ang>8&&L>0.05)off+=L;}return[tot,off];};
+  const angOff=P=>{let tot=0,off=0;for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1],L=dist(a,b);tot+=L;let ang=((Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI)%180+180)%180;if(L>0.05&&(Math.abs(ang-30)<4||Math.abs(ang-150)<4))off+=L;}return[tot,off];}; // off = length along isometric 30° / 150° axes
   // usable pieces: not the frame, not the title block, not tiny arrowheads
   // keep the visible-outline line weight (thickest common black, solid stroke); dims, centre lines and balloons are thinner / dashed / coloured
   {const W={};pieces.forEach(pc=>{if(pc.lw==null||pc.col==='c'||pc.dash)return;const k=Math.round(pc.lw*20)/20;W[k]=(W[k]||0)+1;});const ks=Object.keys(W).map(Number).sort((a,b)=>b-a),mx=Math.max(0,...Object.values(W));const vis=ks.find(k=>W[k]>=mx*0.2);
-   if(ks.length>1&&vis!=null)pieces=pieces.filter(pc=>pc.lw==null||(Math.round(pc.lw*20)/20>=vis-0.001&&pc.col!=='c'&&!pc.dash));}
+   const isClosed=pc=>pc.closed||(pc.pts.length>3&&Math.hypot(pc.pts[0][0]-pc.pts[pc.pts.length-1][0],pc.pts[0][1]-pc.pts[pc.pts.length-1][1])<0.004);
+   if(ks.length>1&&vis!=null)pieces=pieces.filter(pc=>pc.lw==null||(pc.col!=='c'&&!pc.dash&&(Math.round(pc.lw*20)/20>=vis-0.001||(isClosed(pc)&&pc.lw>=vis*0.5&&pc.pts.length>=4))));}
   const PC=[];pieces.forEach(pc=>{const P=pc.closed?pc.pts.concat([pc.pts[0]]):pc.pts;if(P.length<2)return;const b=bbox(P),w=b[2]-b[0],h=b[3]-b[1];if(w>pw*0.6||h>ph*0.6)return;if(b[0]<0.3||b[1]<0.3||b[2]>pw-0.3||b[3]>ph-0.3)return;if(inZone(b))return;if(pc.closed&&P.length<=5&&Math.max(w,h)<0.16&&!(Math.abs(w-h)<0.01&&P.length>4))return;const[len,off]=angOff(P);PC.push({pc,P,b,len,off,closed:!!pc.closed});});
   // cluster pieces that touch (end to end, or end on a point)
   const eps=0.012,par=PC.map((_,i)=>i),f=i=>par[i]===i?i:(par[i]=f(par[i])),U=(i,j)=>{par[f(i)]=f(j);};const ends=PC.map(q=>q.closed?[]:[q.P[0],q.P[q.P.length-1]]);
@@ -105,23 +106,35 @@ function pdfDetect(pieces,texts,pw,ph,opt){opt=opt||{};const TB=/^(MATERIAL|DRAW
   PC.forEach((q,i)=>ends[i].forEach((e,ei)=>{const gx=Math.round(e[0]/cell),gy=Math.round(e[1]/cell);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const L=grid.get((gx+dx)+','+(gy+dy));if(!L)continue;for(const[j,pt]of L){if(j===i)continue;if(Math.hypot(pt[0]-e[0],pt[1]-e[1])<eps){U(i,j);deg[i][ei]=1;}}}}));
   const CL=new Map();PC.forEach((q,i)=>{const r=f(i);if(!CL.has(r))CL.set(r,[]);CL.get(r).push(i);});
   const views=[];for(const idx of CL.values()){const b=[1e9,1e9,-1e9,-1e9];let len=0,off=0,ne=0,nd=0;idx.forEach(i=>{const q=PC[i];b[0]=Math.min(b[0],q.b[0]);b[1]=Math.min(b[1],q.b[1]);b[2]=Math.max(b[2],q.b[2]);b[3]=Math.max(b[3],q.b[3]);len+=q.len;off+=q.off;if(!q.closed){ne+=2;nd+=2-deg[i][0]-deg[i][1];}});
+    let nf=0;idx.forEach(i=>{if(PC[i].pc.fill)nf++;});if(nf>idx.length*0.4&&idx.length>4)continue; // shaded 3D picture
     const w=b[2]-b[0],h=b[3]-b[1];if(Math.max(w,h)<0.3||Math.min(w,h)<0.04)continue;const closedFrac=ne?1-nd/ne:1;if(closedFrac<0.75)continue;if(off/len>0.3)continue;views.push({idx,b,w,h,area:w*h,len});}
   views.forEach(v=>{v.kids=views.filter(o=>o!==v&&o.b[0]>=v.b[0]&&o.b[2]<=v.b[2]&&o.b[1]>=v.b[1]&&o.b[3]<=v.b[3]).length+PC.filter(q=>q.closed&&q.b[0]>v.b[0]&&q.b[2]<v.b[2]&&q.b[1]>v.b[1]&&q.b[3]<v.b[3]).length;});
   for(let i=views.length-1;i>=0;i--){const v=views[i];if(views.some(o=>o!==v&&o.area>v.area&&v.b[0]>=o.b[0]-0.01&&v.b[2]<=o.b[2]+0.01&&v.b[1]>=o.b[1]-0.01&&v.b[3]<=o.b[3]+0.01))views.splice(i,1);}
+  // a view labelled ISO / ISOMETRIC / 3D / PICTORIAL just above it is a picture, not a projection to machine from
+  const isoLbl=v=>texts.some(t=>/^(ISO|ISOMETRIC|3D|PICTORIAL|TRIMETRIC|DIMETRIC|AXONOMETRIC)$/i.test(String(t.s).replace(/[^A-Z0-9]/gi,''))&&t.x>v.b[0]-2.5&&t.x<v.b[2]+0.5&&t.y>v.b[3]-0.2&&t.y<v.b[3]+2.2);
+  for(let i=views.length-1;i>=0;i--)if(isoLbl(views[i]))views.splice(i,1);
   views.sort((a,b)=>b.area*(1+0.25*Math.min(b.kids,8))-a.area*(1+0.25*Math.min(a.kids,8)));
   if(!views.length)return{views:[],main:-1};const mi=Math.max(0,Math.min(views.length-1,opt.view|0)),M=views[mi];
   // numbers on the sheet (dimension values)
   const nums=[];texts.forEach(t=>{const m=String(t.s).replace(/,/g,'.').match(/^[Ø⌀]?(\d*\.\d+|\d+\.?\d*)(?:CL|"|°)?$/);if(m){const v=parseFloat(m[1]);if(v>0.02&&v<200&&!/°/.test(t.s))nums.push({v,x:t.x,y:t.y});}});
   let k=0,how='';const W=M.w,H=M.h;
   const near=q=>q.x>M.b[0]-2.5&&q.x<M.b[2]+2.5&&q.y>M.b[1]-2.5&&q.y<M.b[3]+2.5;const dn=nums.filter(q=>near(q)&&/\./.test(String(q.v))||near(q)&&q.v>=1&&texts.some(t=>t.x===q.x&&t.y===q.y&&/\./.test(t.s)));
-  for(const a of dn)for(const b of dn){if(a===b)continue;const k1=a.v/W,k2=b.v/H;if(Math.abs(k1-k2)/k1<0.02){const sc=a.v+b.v;if(!k||sc>how.sc){k=(k1+k2)/2;how={sc,txt:a.v+' × '+b.v,sure:1};}}}
+  // a W number sits above/below the view inside its X span; an H number sits left/right inside its Y span
+  const B=M.b,nearW=q=>q.x>B[0]-0.3&&q.x<B[2]+0.3&&((q.y>B[3]&&q.y<B[3]+1.4)||(q.y<B[1]&&q.y>B[1]-1.4)),nearH=q=>q.y>B[1]-0.3&&q.y<B[3]+0.3&&((q.x<B[0]&&q.x>B[0]-1.6)||(q.x>B[2]&&q.x<B[2]+1.6));
+  const dW=dn.filter(nearW),dH=dn.filter(nearH);
+  for(const a of dW)for(const b of dH){if(a===b)continue;const k1=a.v/W,k2=b.v/H;if(Math.abs(k1-k2)/k1<0.02){const sc=a.v+b.v;if(!k||sc>how.sc){k=(k1+k2)/2;how={sc,txt:a.v+' × '+b.v,sure:1};}}}
   let scaleTxt=null;texts.forEach(t=>{const m=String(t.s).match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);if(m)scaleTxt=parseFloat(m[2])/parseFloat(m[1]);});
   const joined=texts.map(t=>t.s).join(' ');const ms=joined.match(/SCALE:?\s*(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)/i);if(ms)scaleTxt=parseFloat(ms[2])/parseFloat(ms[1]);
-  if(!k&&scaleTxt){k=scaleTxt;how={txt:'SCALE 1:'+(+scaleTxt.toFixed(3))};}
-  if(!k){for(const a of nums){const kk=a.v/W;if(scaleTxt&&Math.abs(kk-scaleTxt)/scaleTxt<0.03){k=kk;how={txt:String(a.v)};}}}
+  if(!k&&scaleTxt){let best=null;for(const[a,L_]of dW.map(q=>[q,W]).concat(dH.map(q=>[q,H]))){const kk=a.v/L_;if(Math.abs(kk-scaleTxt)/scaleTxt<0.03&&(!best||a.v>best[0].v))best=[a,kk];}
+   if(best){k=best[1];how={txt:best[0].v+' (+ SCALE)',sure:1};}else{k=scaleTxt;how={txt:'SCALE 1:'+(+scaleTxt.toFixed(3))};}}
+  if(!k&&dW.length){const a=dW.reduce((p,q)=>q.v>p.v?q:p);k=a.v/W;how={txt:String(a.v)};}
   if(!k){k=opt.scale||1;how={txt:'1:1'};}
+  // "Overall: 4.57 × 1.18 × .65" in the notes / title block is a strong hint
+  {const jt=texts.map(t=>t.s).join(' ');const mo=jt.match(/OVERALL[^0-9≈]{0,6}≈?\s*(\d*\.?\d+)\s*[×xX]\s*≈?\s*(\d*\.?\d+)(?:\s*[×xX]\s*≈?\s*(\d*\.?\d+))?/i);
+   if(mo){const a=parseFloat(mo[1]),b=parseFloat(mo[2]),c=mo[3]?parseFloat(mo[3]):null;const big=Math.max(a,b),sm=Math.min(a,b),vb=Math.max(W,H),vs=Math.min(W,H);if(Math.abs(vb/vs-big/sm)/(big/sm)<0.12&&Math.abs(vb*k-big)/big>0.03){k=big/vb;how={txt:'Overall '+a+' × '+b,sure:1};}if(c&&!opt.noOverallT)how.thickHint=c;}}
   // thickness from a thin neighbour view that shares a side length
-  let thick=null;for(const v of views){if(v===M)continue;if(Math.abs(v.w-W)/W<0.02&&v.h<H*0.7)thick=v.h*k;else if(Math.abs(v.h-H)/H<0.02&&v.w<W*0.7)thick=v.w*k;if(thick){const n=nums.find(q=>Math.abs(q.v-thick)/thick<0.04);if(n)thick=n.v;thick=+thick.toFixed(4);break;}}
+  let thick=how&&how.thickHint?how.thickHint:null;for(const v of views){if(thick)break;if(v===M)continue;if(Math.abs(v.w-W)/W<0.02&&v.h<H*0.7)thick=v.h*k;else if(Math.abs(v.h-H)/H<0.02&&v.w<W*0.7)thick=v.w*k;if(thick){const n=nums.find(q=>Math.abs(q.v-thick)/thick<0.04);if(n)thick=n.v;thick=+thick.toFixed(4);break;}}
+  if(!thick){const jt=texts.map(t=>t.s).join(' ');for(const m of jt.matchAll(/(\d*\.\d+|\d+)\s*[×xX]\s*(\d*\.\d+|\d+)\s*[×xX]\s*(\d*\.\d+|\d+)/g)){const v=[+m[1],+m[2],+m[3]].sort((a,b)=>b-a);if(Math.abs(v[0]-W*k)/(W*k)<0.05&&v[2]<v[1]){thick=v[2];break;}}}
   // geometry inside the main view, scaled to real size, origin at the view's lower-left
   const inM=b=>b[0]>=M.b[0]-0.005&&b[1]>=M.b[1]-0.005&&b[2]<=M.b[2]+0.005&&b[3]<=M.b[3]+0.005;const T=q=>[(q[0]-M.b[0])*k,(q[1]-M.b[1])*k];
   const mine=new Set(M.idx);const sub=PC.filter((q,i)=>mine.has(i)||inM(q.b)).map(q=>q.pc);const g=buildGeom({pieces:sub,circles:[]},0.004);
