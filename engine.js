@@ -67,7 +67,7 @@ function buildGeom(parsed,tol){
   for(let p of closed){p=dedupe(p,tol);if(p.length<3)continue;const c=asCircle(p,tol);if(c)circles.push(c);else loops.push(p);}
   return{loops,circles,opens};
 }
-function scaleGeom(g,s,dx,dy){const f=q=>[q[0]*s+dx,q[1]*s+dy];const o={loops:g.loops.map(p=>p.map(f)),circles:g.circles.map(c=>{const n={x:c.x*s+dx,y:c.y*s+dy,r:c.r*s};if('depth' in c)n.depth=c.depth==null?null:c.depth*s;return n;}),opens:g.opens.map(p=>p.map(f))};if(g.ld)o.ld=g.ld.map(d=>d==null?null:d*s);if(g.thick)o.thick=g.thick*s;return o;}
+function scaleGeom(g,s,dx,dy){const f=q=>[q[0]*s+dx,q[1]*s+dy];const o={loops:g.loops.map(p=>p.map(f)),circles:g.circles.map(c=>{const n={x:c.x*s+dx,y:c.y*s+dy,r:c.r*s};if('depth' in c)n.depth=c.depth==null?null:c.depth*s;return n;}),opens:g.opens.map(p=>p.map(f))};if(g.ld)o.ld=g.ld.map(d=>d===undefined?undefined:d==null?null:d*s);if(g.thick)o.thick=g.thick*s;return o;}
 function geomBox(g){const b=[1e18,1e18,-1e18,-1e18];g.loops.forEach(p=>bbox(p,b));g.opens.forEach(p=>bbox(p,b));g.circles.forEach(c=>bbox([[c.x-c.r,c.y-c.r],[c.x+c.r,c.y+c.r]],b));return b[0]>b[2]?[0,0,0,0]:b;}
 
 

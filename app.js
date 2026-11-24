@@ -364,19 +364,23 @@ function importDXF(txt,name,uSel){
 }
 const ZFLIP={tl:'ll',tc:'bc',tr:'lr',ml:'ml',c:'c',mr:'mr',ll:'tl',bc:'tc',lr:'tr'};const ZK={tl:['l','t'],tc:['c','t'],tr:['r','t'],ml:['l','m'],c:['c','m'],mr:['r','m'],ll:['l','b'],bc:['c','b'],lr:['r','b']};
 const ZN={tl:['TOP LEFT','Trên trái'],tc:['TOP CENTER','Trên giữa'],tr:['TOP RIGHT','Trên phải'],ml:['MIDDLE LEFT','Giữa trái'],c:['CENTER','Tâm'],mr:['MIDDLE RIGHT','Giữa phải'],ll:['LOWER LEFT','Dưới trái'],bc:['LOWER CENTER','Dưới giữa'],lr:['LOWER RIGHT','Dưới phải']};
+/* bounds of the part: the outline plus anything outside it (open-pocket run-outs past the edge do not count) */
+function partBounds(g){if(!g)return[0,0,0,0];if(!g.loops||!g.loops.length)return C.geomBox(g);let big=null,ba=0;g.loops.forEach(l=>{const a=Math.abs(C.area(l));if(a>ba){ba=a;big=l;}});const B=C.bbox(big);const add=b=>{B[0]=Math.min(B[0],b[0]);B[1]=Math.min(B[1],b[1]);B[2]=Math.max(B[2],b[2]);B[3]=Math.max(B[3],b[3]);};
+ const cen=l=>{let x=0,y=0;l.forEach(q=>{x+=q[0];y+=q[1];});return[x/l.length,y/l.length];};
+ g.loops.forEach(l=>{if(l!==big&&!C.pip(cen(l),big))add(C.bbox(l));});(g.circles||[]).forEach(c=>{if(!C.pip([c.x,c.y],big))add([c.x-c.r,c.y-c.r,c.x+c.r,c.y+c.r]);});(g.opens||[]).forEach(o=>add(C.bbox(o)));return B;}
 function zeroOff(b){const k=ZK[S.zero]||ZK.ll;return[-(k[0]==='l'?b[0]:k[0]==='r'?b[2]:(b[0]+b[2])/2),-(k[1]==='b'?b[1]:k[1]==='t'?b[3]:(b[1]+b[3])/2)];}
 function applyZero(){
- if(!S.raw)return;const b=C.geomBox(S.raw);let dx,dy;
+ if(!S.raw)return;const b=partBounds(S.raw);let dx,dy;
  [dx,dy]=zeroOff(b);
  S._zoff=[dx,dy];S.geom=C.scaleGeom(S.raw,1,dx,dy);const old=S.feats;S.feats=C.classify(S.geom,0.0002);
  // keep op->feature links by id (deterministic ids)
  S.ops.forEach(o=>{if(!featById(o.feat))o.feat=S.feats[0]?.id;});
 }
-function stockRect(){if(!S.geom)return[0,0,S.stock.x,S.stock.y];const b=C.geomBox(S.geom),cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2;return[cx-S.stock.x/2,cy-S.stock.y/2,cx+S.stock.x/2,cy+S.stock.y/2];}
+function stockRect(){if(!S.geom)return[0,0,S.stock.x,S.stock.y];const b=partBounds(S.geom),cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2;return[cx-S.stock.x/2,cy-S.stock.y/2,cx+S.stock.x/2,cy+S.stock.y/2];}
 function thick(){return Math.max(0.01,S.stock.part||0.75);}
 const DEF0={op2:true,perf:5,stockAuto:true,side:0.125,stdRound:true,grip:0.3,safety:0.1,roughMethod:'contour',roughDoc:0.25,finLeave:0.01,finFull:true,drillCycle:'auto',pocketDepth:0.25};
 function stdUp(v){if(!(S.def&&S.def.stdRound))return +v.toFixed(4);if(S.units==='mm'){const mm=v*25.4,st=mm<=50?1:5;return +(Math.ceil(mm/st-1e-6)*st/25.4).toFixed(5);}const st=v<=2.0001?0.125:v<=6.0001?0.25:0.5;return +(Math.ceil(v/st-1e-6)*st).toFixed(4);}
-function partBox(){const g=S.geom||S.raw;if(!g)return null;const b=C.geomBox(g);return[b[2]-b[0],b[3]-b[1]];}
+function partBox(){const g=S.geom||S.raw;if(!g)return null;const b=partBounds(g);return[b[2]-b[0],b[3]-b[1]];}
 function stockCalc(){const D={...DEF0,...(S.def||{})};const pb=partBox()||[S.stock.x-2*D.side,S.stock.y-2*D.side];const z0=S.stock.part+S.stock.face+D.grip+D.safety;return{pw:pb[0],ph:pb[1],x0:pb[0]+2*D.side,y0:pb[1]+2*D.side,z0,x:stdUp(pb[0]+2*D.side),y:stdUp(pb[1]+2*D.side),z:stdUp(z0),D};}
 function syncStock(){S.def={...DEF0,...(S.def||{})};if(S.def.stockAuto){const c=stockCalc();if(partBox()){S.stock.x=c.x;S.stock.y=c.y;}S.stock.z=c.z;}}
 function stockFields(){for(const k of['x','y','z']){const e=document.querySelector('[data-b="stock.'+k+'"]');if(e&&document.activeElement!==e)e.value=fl(S.stock[k]);}const n=$('#stockWhy');if(n)n.innerHTML=stockWhy();}
@@ -656,7 +660,8 @@ function initView(){const cv=$('#pvc');if(!cv)return;const ro=new ResizeObserver
   if(pts.size===1){if(VIEW.mode==='3d'){VIEW.yaw+=(e.clientX-p[0])*0.008;VIEW.pitch=Math.max(0.05,Math.min(1.45,VIEW.pitch+(e.clientY-p[1])*0.006));}else{VIEW.ox+=e.clientX-p[0];VIEW.oy+=e.clientY-p[1];}}
   else if(pts.size===2&&SETS().viewZoom){const o=[...pts.entries()].find(([k])=>k!==e.pointerId)[1];const d0=Math.hypot(p[0]-o[0],p[1]-o[1]),d1=Math.hypot(e.clientX-o[0],e.clientY-o[1]);if(d0>0){if(VIEW.mode==='3d')VIEW.z3=Math.max(0.3,Math.min(8,VIEW.z3*d1/d0));else zoomAt((e.clientX+o[0])/2,(e.clientY+o[1])/2,d1/d0);}}
   pts.set(e.pointerId,[e.clientX,e.clientY]);drawView();});
- const up=e=>pts.delete(e.pointerId);cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+ let down=null;cv.addEventListener('pointerdown',e=>{down=pts.size===1?[e.clientX,e.clientY,Date.now()]:null;});
+ const up=e=>{const was=pts.size;pts.delete(e.pointerId);if(e.type==='pointerup'&&down&&was===1&&VIEW.mode!=='3d'&&Math.hypot(e.clientX-down[0],e.clientY-down[1])<7&&Date.now()-down[2]<600){pickFeat(e.clientX,e.clientY);}down=null;};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
  cv.addEventListener('wheel',e=>{e.preventDefault();if(!SETS().viewZoom)return;if(VIEW.mode==='3d')VIEW.z3*=e.deltaY<0?1.1:0.9;else zoomAt(e.clientX,e.clientY,e.deltaY<0?1.15:1/1.15);drawView();},{passive:false});
  cv.addEventListener('dblclick',()=>{fitView();drawView();});}
 function zoomAt(cx,cy,f){const r=$('#pvc').getBoundingClientRect(),x=cx-r.left,y=cy-r.top;VIEW.ox=x-(x-VIEW.ox)*f;VIEW.oy=y-(y-VIEW.oy)*f;VIEW.sc*=f;}
@@ -670,10 +675,14 @@ function drawView(){
  if(!S.geom){$('#pvInfo')&&($('#pvInfo').textContent='');return;}
  const sr=stockRect();g.fillStyle=dark?'rgba(180,190,200,.10)':'rgba(140,150,160,.12)';g.strokeStyle=dark?'#56606a':'#9aa3ab';g.setLineDash([6,4]);g.fillRect(X(sr[0]),Y(sr[3]),(sr[2]-sr[0])*VIEW.sc,(sr[3]-sr[1])*VIEW.sc);g.strokeRect(X(sr[0]),Y(sr[3]),(sr[2]-sr[0])*VIEW.sc,(sr[3]-sr[1])*VIEW.sc);g.setLineDash([]);
  const path=p=>{g.moveTo(X(p[0][0]),Y(p[0][1]));for(let i=1;i<p.length;i++)g.lineTo(X(p[i][0]),Y(p[i][1]));g.closePath();};
- for(const f of S.feats)if(f.kind==='profile'){g.beginPath();path(f.loop);g.fillStyle='rgba(36,87,214,.22)';g.fill();g.strokeStyle='#2457d6';g.lineWidth=2;g.stroke();}
- for(const f of S.feats){if(f.kind==='pocket'){g.beginPath();path(f.loop);(f.islands||[]).forEach(path);g.fillStyle=dark?'#1f2429':'#f6f7f8';g.fill('evenodd');g.strokeStyle='#7a4fd6';g.lineWidth=2;g.stroke();}
-  if(f.kind==='holes'){g.strokeStyle='#1c9b5f';g.lineWidth=2;for(const p of f.pts){g.beginPath();g.arc(X(p[0]),Y(p[1]),f.dia/2*VIEW.sc,0,7);g.fillStyle=dark?'#1f2429':'#f6f7f8';g.fill();g.stroke();}}
+ const EX=new Set(S.excl||[]),off=f=>EX.has(f.id),sty=f=>{if(off(f)){g.setLineDash([5,5]);g.globalAlpha=.45;}else{g.setLineDash([]);g.globalAlpha=1;}};
+ for(const f of S.feats)if(f.kind==='profile'){sty(f);g.beginPath();path(f.loop);if(!off(f)){g.fillStyle='rgba(36,87,214,.22)';g.fill();}g.strokeStyle='#2457d6';g.lineWidth=2;g.stroke();}
+ for(const f of S.feats){sty(f);if(f.kind==='pocket'){g.beginPath();path(f.loop);(f.islands||[]).forEach(path);if(!off(f)){g.fillStyle=dark?'#1f2429':'#f6f7f8';g.fill('evenodd');}g.strokeStyle='#7a4fd6';g.lineWidth=2;g.stroke();}
+  if(f.kind==='holes'){g.strokeStyle='#1c9b5f';g.lineWidth=2;for(const p of f.pts){g.beginPath();g.arc(X(p[0]),Y(p[1]),f.dia/2*VIEW.sc,0,7);if(!off(f)){g.fillStyle=dark?'#1f2429':'#f6f7f8';g.fill();}g.stroke();}}
   if(f.kind==='slot'){g.beginPath();g.moveTo(X(f.path[0][0]),Y(f.path[0][1]));f.path.forEach(q=>g.lineTo(X(q[0]),Y(q[1])));g.strokeStyle='#ff6a13';g.lineWidth=2.5;g.stroke();}}
+ g.setLineDash([]);g.globalAlpha=1;
+ // selected feature: thick orange outline
+ {const f=VIEW.sel&&featById(VIEW.sel);if(f){g.strokeStyle='#ff6a13';g.lineWidth=4;g.globalAlpha=.9;g.beginPath();if(f.loop)path(f.loop);if(f.kind==='holes')f.pts.forEach(p=>{g.moveTo(X(p[0])+f.dia/2*VIEW.sc+3,Y(p[1]));g.arc(X(p[0]),Y(p[1]),f.dia/2*VIEW.sc+3,0,7);});if(f.kind==='slot'){g.moveTo(X(f.path[0][0]),Y(f.path[0][1]));f.path.forEach(q=>g.lineTo(X(q[0]),Y(q[1])));}g.stroke();g.globalAlpha=1;}}
  if(VIEW.paths&&SEGS.length){g.lineWidth=1;let cur=-2;for(const s of SEGS){if(s[6]===0){continue;}if(s[9]!==cur){if(cur!==-2)g.stroke();cur=s[9];g.beginPath();g.strokeStyle=OPCOL[(cur<0?0:cur)%OPCOL.length];g.globalAlpha=.8;}g.moveTo(X(s[0]),Y(s[1]));g.lineTo(X(s[3]),Y(s[4]));}g.stroke();
   g.globalAlpha=.55;g.setLineDash([3,3]);g.strokeStyle='#d93a3a';g.beginPath();for(const s of SEGS)if(s[6]===0&&(s[0]!==s[3]||s[1]!==s[4])){g.moveTo(X(s[0]),Y(s[1]));g.lineTo(X(s[3]),Y(s[4]));}g.stroke();g.setLineDash([]);g.globalAlpha=1;}
  // zero
@@ -1200,6 +1209,7 @@ function setPath(obj,path,v){const ks=path.split('.');let o=obj;for(let i=0;i<ks
 function parseVal(el){const u=el.dataset.u;if(u==='S'||el.tagName==='SELECT'&&u!=='L'&&u!=='N')return el.value;const n=parseFloat(String(el.value).replace(',','.'));if(isNaN(n))return null;if(u==='L'||u==='F')return n/K();if(u==='P')return Math.max(0.1,Math.min(1,n/100));return n;}
 document.addEventListener('change',e=>{
  const el=e.target;
+ if(el.dataset.fsel==='depth'){const f=featById(VIEW.sel);if(f){const v=el.value.trim()===''?null:parseFloat(el.value);if(v===null||v>0){setFeatDepth(f,v==null?null:v/K());autoProgram();buildProgram();persist();rProgram();setTimeout(selBar,50);}}return;}
  if(el.id==='selMat'){S.mat=el.value;S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();render();return;}
  if(el.id==='selMachine'){S.machine=el.value;S.post=mach().post||'prototrak';if(!mach().rot)S.rotary='none';S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();render();return;}
  if(el.id==='fxAuto'){S.fxAuto=el.checked;fxAutoApply();persist();buildProgram();rFixtures();return;}
@@ -1240,6 +1250,7 @@ document.addEventListener('click',e=>{
  if(e.target.closest('.sw'))return;
  const b=e.target.closest('button,[data-tog],[data-simop]');if(!b)return;const d=b.dataset;
  if(d.pdfpg){closeSheet();pdfUse(+d.pdfpg);return;}
+ if(d.fsel){const f=featById(VIEW.sel);if(d.fsel==='close'||!f){VIEW.sel=null;drawView();selBar();return;}if(d.fsel==='thru'){setFeatDepth(f,null);autoProgram();buildProgram();persist();rProgram();setTimeout(selBar,50);}return;}
  if(d.tab){S.tab=d.tab;render();persist();return;}
  if(d.l){LANG=d.l;try{localStorage.setItem('trakLang',LANG);}catch(_){}render();return;}
  if(d.u){S.units=d.u;syncStock();buildProgram();render();return;}
@@ -1257,7 +1268,7 @@ document.addEventListener('click',e=>{
  if(d.usemat){S.mat=d.usemat;S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();render();toast(LANG==='vi'?'Đã chọn vật liệu':'Material selected');return;}
  if(d.lm!=null){S._lm=d.lm||null;S._la={};rLearn();window.scrollTo(0,0);return;}
  if(d.lq!=null){const m=LEARN.find(x=>x.id===S._lm);S._la=S._la||{};S._la[+d.lq]=+d.lo2;const n=Object.keys(S._la).length;if(n===m.quiz.length){const sc=m.quiz.filter((q,i)=>S._la[i]===q[2]).length;S.learnP=S.learnP||{};S.learnP[m.id]={score:sc,pass:sc===m.quiz.length};persist();}rLearn();return;}
- if(d.feat){S.excl=S.excl||[];const i=S.excl.indexOf(d.feat);i<0?S.excl.push(d.feat):S.excl.splice(i,1);autoProgram();buildProgram();rProgram();return;}
+ if(d.feat){S.excl=S.excl||[];const i=S.excl.indexOf(d.feat);i<0?S.excl.push(d.feat):S.excl.splice(i,1);if(!b.closest('#pvSel'))VIEW.sel=d.feat;autoProgram();buildProgram();rProgram();persist();setTimeout(()=>{drawView();selBar();},60);return;}
  if(d.tool){editTool(d.tool);return;}
  if(d.deltool){S.tools=S.tools.filter(x=>x.id!==d.deltool);closeSheet();buildProgram();return;}
  if(d.fx){S.fixture.type=d.fx;if(d.fx==='softjaw'&&S.fixture.parH>0)S.fixture.parH=0;rFixtures();persist();return;}
@@ -1328,7 +1339,7 @@ document.addEventListener('click',e=>{
   case'simNext':{const cur=CS()[SIM.i]?CS()[SIM.i][9]:-1;let k=CS().findIndex((s,i)=>i>SIM.i&&s[9]!==cur);if(k<0)k=CS().length;SIMSTATE.playing=false;updPlay();const t0=SIM.i;while(SIM.i<k){const s=SEGS[SIM.i];simAdvance(Math.hypot(s[3]-s[0],s[4]-s[1],s[5]-s[2])*(1-SIM.u)+1e-9);}simDraw();break;}
   case'addBolt':{const c=CALC.bc;for(let i=0;i<c.n;i++){const a=(c.a+360*i/c.n)*Math.PI/180;S.raw.circles.push({x:0,y:0,r:c.h/2,_p:[c.x+c.d/2*Math.cos(a),c.y+c.d/2*Math.sin(a)]});}
    // bolt-circle coordinates are in program coords: convert back to raw coords
-   const b=C.geomBox(S.raw);let[dx,dy]=zeroOff(b);
+   const b=partBounds(S.raw);let[dx,dy]=zeroOff(b);
    S.raw.circles.forEach(q=>{if(q._p){q.x=q._p[0]-dx;q.y=q._p[1]-dy;delete q._p;}});applyZero();autoProgram();buildProgram();toast(t('imported'));break;}
   case'print':try{window.print();}catch(_){toast(t('printFail'));}setTimeout(()=>toast(t('printFail')),400);break;
  }
@@ -1347,7 +1358,7 @@ $('#fileDxf').addEventListener('change',async e=>{const f=e.target.files[0];if(!
  }catch(err){WARN.push(f.name+': '+err.message);}
  VIEW.fitted=false;S.tab='program';render();});
 function setRef(f){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),sc=Math.min(1,1400/Math.max(im.width,im.height));c.width=im.width*sc;c.height=im.height*sc;c.getContext('2d').drawImage(im,0,0,c.width,c.height);S.ref=c.toDataURL('image/jpeg',0.85);render();};im.src=r.result;};r.readAsDataURL(f);}
-function finishImport(name){S.dxfName=name;S.excl=[];const bb=C.geomBox(S.raw);S.stock.x=+(bb[2]-bb[0]+0.25).toFixed(3);S.stock.y=+(bb[3]-bb[1]+0.25).toFixed(3);applyZero();autoProgram();toast(t('imported')+': '+S.feats.length+' '+t('features').toLowerCase());}
+function finishImport(name){S.dxfName=name;S.excl=[];const bb=partBounds(S.raw);S.stock.x=+(bb[2]-bb[0]+0.25).toFixed(3);S.stock.y=+(bb[3]-bb[1]+0.25).toFixed(3);applyZero();autoProgram();toast(t('imported')+': '+S.feats.length+' '+t('features').toLowerCase());}
 function meshAnalyze(){if(!S.meshT||!S.meshInfo){S.meshAx=null;return;}try{const h=C.meshHoles(S.meshT,S.meshInfo.sc);const dirs=[[0,0,1]];h.holes.filter(x=>x.axis!=='Z').forEach(x=>{const d=[0,0,0];d['XYZ'.indexOf(x.axis)]=x.open[0]||1;dirs.push(d);});if(h.undercut>0.01)dirs.push([0,0,-1]);
  S.meshAx={...C.decideAxes(dirs,h.undercut),holes:h.holes,undercut:h.undercut};}catch(e){S.meshAx=null;}}
 function importMesh(M,name,uSel,unit){
@@ -1409,18 +1420,17 @@ function pdfThread(notes){const out=[];const re=/(\d+)\s*X\s+(#?\d+(?:\/\d+)?-\d
 function pdfUse(i,quiet){const D=PDFDOC;if(!D||!D.det[i])return;const r=D.det[i];S.ref=D.pages[i].ref;S.pdfPage=i;
  const thr=pdfThread(D.notes);if(!r.thick){const o=D.det.find(x=>x&&x.thick);if(o)r.thick=o.thick;}const g={loops:r.geom.loops.map(l=>l.map(p=>[+p[0].toFixed(4),+p[1].toFixed(4)])),circles:r.geom.circles.map(c=>({x:+c.x.toFixed(4),y:+c.y.toFixed(4),r:c.r})),opens:[]};
  // tapped holes from the callout (e.g. 7X 10-32 UNF-2B): matching count of same-size holes → tap-drill size
- const tapped=[];thr.forEach(t=>{const cand=g.circles.filter(c=>!c._t&&2*c.r>t.tap[3]*0.8&&2*c.r<t.tap[1]*1.35);if(cand.length>=t.n){cand.forEach(c=>{c.r=t.tap[3]/2;c._t=1;});tapped.push({dia:t.tap[3],depth:t.depth!=null?+(t.depth+3*t.tap[2]).toFixed(4):undefined});}});g.circles.forEach(c=>delete c._t);
+ const tapped=[];thr.forEach(t=>{const cand=g.circles.filter(c=>!c._t&&2*c.r>t.tap[3]*0.8&&2*c.r<t.tap[1]*1.35);if(cand.length>=t.n){cand.forEach(c=>{c.r=t.tap[3]/2;c._t=1;if(t.depth!=null)c.depth=+(t.depth+3*t.tap[2]).toFixed(4);});tapped.push({dia:t.tap[3],depth:t.depth!=null?+(t.depth+3*t.tap[2]).toFixed(4):undefined});}});g.circles.forEach(c=>delete c._t);
  g.circles.forEach(c=>{c.r=+c.r.toFixed(4);});
  S.dwg=pdfDwg(D,i);
  // a pocket edge drawn a hair inside the outline (edge chamfer line) means the pocket runs out through that side
- if(g.loops.length>1){const ob=C.bbox(g.loops[0]),e=0.03;for(let j=1;j<g.loops.length;j++)g.loops[j]=g.loops[j].map(p=>[Math.abs(p[0]-ob[0])<e?ob[0]:Math.abs(p[0]-ob[2])<e?ob[2]:p[0],Math.abs(p[1]-ob[1])<e?ob[1]:Math.abs(p[1]-ob[3])<e?ob[3]:p[1]]);}
+ const RUN=0.25;if(g.loops.length>1){const ob=C.bbox(g.loops[0]),e=0.03;for(let j=1;j<g.loops.length;j++){let open=false;g.loops[j]=g.loops[j].map(p=>{let x=p[0],y=p[1];if(Math.abs(x-ob[0])<e){x=ob[0]-RUN;open=true;}else if(Math.abs(x-ob[2])<e){x=ob[2]+RUN;open=true;}if(Math.abs(y-ob[1])<e){y=ob[1]-RUN;open=true;}else if(Math.abs(y-ob[3])<e){y=ob[3]+RUN;open=true;}return[x,y];});}}
  S.raw=g;S.src='pdf';S.pdfInfo={page:i+1,of:D.pages.length,W:r.W,H:r.H,how:r.how,thick:r.thick};if(r.thick)S.stock.part=r.thick;
- finishImport(D.name);
- // pocket depths from "2X .500" style callouts on this sheet (deepest → biggest pocket)
+ // pocket depths from "2X .500" style callouts on this sheet (deepest → biggest pocket); kept in the drawing so re-zeroing keeps them
  {const N=r.notes||[],dp=[];for(let j=0;j<N.length-1;j++)if(/^\d+X$/i.test(N[j])&&/^\d*\.\d+[^\d°]?$/.test(N[j+1])){const v=parseFloat(N[j+1]);if(v>0.02&&(!r.thick||v<r.thick)&&!dp.includes(v))dp.push(v);}
-  const pk=S.feats.filter(f=>f.kind==='pocket').sort((a,b)=>Math.abs(C.area(b.loop))-Math.abs(C.area(a.loop)));dp.sort((a,b)=>b-a);
-  if(pk.length&&dp.length===pk.length){pk.forEach((f,j)=>f.depth=dp[j]);tapped.push(1);}}
- if(tapped.length){tapped.filter(t=>t.dia).forEach(t=>S.feats.filter(f=>f.kind==='holes'&&Math.abs(f.dia-t.dia)<0.0006).forEach(f=>{if(t.depth!=null)f.depth=t.depth;}));autoProgram();}
+  const idx=g.loops.map((l,j)=>j).slice(1).sort((a,b)=>Math.abs(C.area(g.loops[b]))-Math.abs(C.area(g.loops[a])));dp.sort((a,b)=>b-a);
+  if(idx.length&&dp.length===idx.length){g.ld=g.loops.map(()=>null);idx.forEach((j,k)=>g.ld[j]=dp[k]);}}
+ finishImport(D.name);
  buildProgram();VIEW.fitted=false;
  if(!quiet){S.tab='program';render();persist();}
  toast((LANG==='vi'?'Trang ':'Sheet ')+(i+1)+': '+fl(r.W,3)+' × '+fl(r.H,3)+(r.thick?' × '+fl(r.thick,3):'')+' · '+S.feats.length+' '+t('features').toLowerCase());}
@@ -1537,11 +1547,11 @@ function dpolyP(p,pts){let b=1e9;for(let i=0;i<pts.length;i++)b=Math.min(b,dsegP
 function dDfm(){const vi=LANG==='vi',out=[],th=thick(),D={...DEF0,...(S.def||{})};if(!S.feats.length)return out;const prof=S.feats.find(f=>f.kind==='profile');
  for(const f of S.feats){if(f.kind==='holes'){const d=f.dia,dep=f.through||f.depth==null?th:f.depth;if(d<=0.5){const nd=nearestDrill(d);if(Math.abs(nd[1]-d)>0.0012&&!C.TAPS.some(x=>Math.abs(x[3]-d)<0.003))out.push({sev:'warn',where:(vi?'Lỗ Ø':'Hole Ø')+d.toFixed(4),text:vi?`không có mũi khoan chuẩn (gần nhất ${nd[0]} = ${nd[1].toFixed(4)})`:`no standard drill (nearest ${nd[0]} = ${nd[1].toFixed(4)})`,fix:vi?`Hỏi dùng ${nd[1].toFixed(4)}, hoặc khoan nhỏ rồi doa / móc`:`Ask for ${nd[1].toFixed(4)}, or drill under and ream / bore`});}
    if(!f.through&&f.depth&&dep>6*d)out.push({sev:'warn',where:(vi?'Lỗ Ø':'Hole Ø')+d.toFixed(4),text:vi?`sâu ${(dep/d).toFixed(1)} × Ø, lỗ kín`:`${(dep/d).toFixed(1)} × Ø deep, blind`,fix:vi?'Khoan mổ, hoặc làm lỗ xuyên nếu được':'Peck drill, or make it through if allowed'});continue;}
-  if(f.kind!=='pocket')continue;const dep=f.through?th:(f.depth||D.pocketDepth||0.25),r=minCornerR(f.loop,prof?(q=>dpolyP(q,prof.loop)<0.035):null),b=C.bbox(f.loop),w=Math.min(b[2]-b[0],b[3]-b[1]);
+  if(f.kind!=='pocket')continue;const dep=f.through?th:(f.depth||D.pocketDepth||0.25),r=minCornerR(f.loop,prof?(q=>dpolyP(q,prof.loop)<0.035||!C.pip(q,prof.loop)):null),b=C.bbox(f.loop),w=Math.min(b[2]-b[0],b[3]-b[1]);
   if(r!=null){if(r===0)out.push({sev:'bad',where:(vi?'Hốc ':'Pocket ')+f.id,text:vi?'góc trong sắc — dao phay không cắt được':'sharp inside corner — an end mill can’t cut it',fix:vi?`Hỏi R ≥ ${Math.max(0.0625,Math.round(dep/8*16)/16).toFixed(3)}, hoặc cắt dây / chuốt góc`:`Ask for R ≥ ${Math.max(0.0625,Math.round(dep/8*16)/16).toFixed(3)}, or EDM the corners`});
    else{const ld=dep/(2*r);if(ld>4)out.push({sev:ld>6?'bad':'warn',where:(vi?'Hốc ':'Pocket ')+f.id,text:vi?`R${r.toFixed(3)} sâu ${dep.toFixed(3)} cần dao Ø${(2*r*0.95).toFixed(3)} dài ${ld.toFixed(1)} × Ø`:`R${r.toFixed(3)} ${dep.toFixed(3)} deep needs a Ø${(2*r*0.95).toFixed(3)} tool ${ld.toFixed(1)} × Ø long`,fix:vi?`Hỏi R${Math.max(r,Math.round(dep/8*32)/32).toFixed(3)} (sâu / 8) hoặc hốc nông hơn`:`Ask for R${Math.max(r,Math.round(dep/8*32)/32).toFixed(3)} (depth / 8) or a shallower pocket`});}}
   if(dep>4*w)out.push({sev:'warn',where:(vi?'Hốc ':'Pocket ')+f.id,text:vi?`sâu ${dep.toFixed(3)} trong hốc rộng ${w.toFixed(3)} (${(dep/w).toFixed(1)} × bề rộng)`:`${dep.toFixed(3)} deep in a ${w.toFixed(3)} wide pocket (${(dep/w).toFixed(1)} ×)`,fix:vi?'Dao dài chạy chậm — hoặc hốc rộng / nông hơn':'Long-reach tool, slow — or a wider / shallower pocket'});
-  if(prof){const dmin=Math.min(...f.loop.map(p=>dpolyP(p,prof.loop)));if(dmin>0.002&&(dmin<0.03||(dmin<0.06&&dep>10*dmin)))out.push({sev:dmin<0.03?'bad':'warn',where:(vi?'Hốc ':'Pocket ')+f.id,text:vi?`vách ngoài dày ${dmin.toFixed(3)}, cao ${dep.toFixed(3)}`:`outside wall ${dmin.toFixed(3)} thick, ${dep.toFixed(3)} tall`,fix:vi?'Hỏi dày ≥ 0.060, hoặc đỡ vách và phay tinh nhẹ':'Ask for ≥ 0.060, or support it and finish lightly'});}}
+  if(prof){const dmin=Math.min(...f.loop.filter(p=>C.pip(p,prof.loop)).map(p=>dpolyP(p,prof.loop)));if(dmin>0.002&&(dmin<0.03||(dmin<0.06&&dep>10*dmin)))out.push({sev:dmin<0.03?'bad':'warn',where:(vi?'Hốc ':'Pocket ')+f.id,text:vi?`vách ngoài dày ${dmin.toFixed(3)}, cao ${dep.toFixed(3)}`:`outside wall ${dmin.toFixed(3)} thick, ${dep.toFixed(3)} tall`,fix:vi?'Hỏi dày ≥ 0.060, hoặc đỡ vách và phay tinh nhẹ':'Ask for ≥ 0.060, or support it and finish lightly'});}}
  for(const f of S.feats.filter(x=>x.kind==='holes'&&x.tap)){const tp=C.TAPS.find(x=>x[0]===f.tap);const dep=f.through?th:(f.depth||th);if(tp&&dep>3*tp[1]&&!f.through)out.push({sev:'warn',where:(vi?'Ren ':'Thread ')+f.tap,text:vi?`sâu ${dep.toFixed(3)} = ${(dep/tp[1]).toFixed(1)} × Ø — dễ gãy taro`:`${dep.toFixed(3)} deep = ${(dep/tp[1]).toFixed(1)} × Ø — taps break`,fix:vi?`Hỏi sâu ${(2*tp[1]).toFixed(3)} (2 × Ø), hoặc phay ren`:`Ask for ${(2*tp[1]).toFixed(3)} deep (2 × Ø), or thread mill`});}
  return out;}
 function dDatums(texts,notes){const L=[];for(const t of texts){const m=dclean(t.text).match(/^\s*-?\s*([A-HJ-NPR-Z])\s*-?\s*$/);if(m&&!L.includes(m[1]))L.push(m[1]);}
@@ -2904,6 +2914,24 @@ document.addEventListener('click',e=>{const b=e.target.closest('#btnUndo,#btnRed
 document.addEventListener('keydown',e=>{const tg=(e.target.tagName||'').toLowerCase();if(tg==='input'||tg==='textarea'||tg==='select')return;const c=e.ctrlKey||e.metaKey;if(c&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();undo();}else if(c&&(e.key.toLowerCase()==='y'||(e.shiftKey&&e.key.toLowerCase()==='z'))){e.preventDefault();redo();}else if(c&&e.key.toLowerCase()==='s'){e.preventDefault();projSave(false);}else if(c&&e.key.toLowerCase()==='p'){e.preventDefault();postGate();}else if(!c&&e.key===' '&&S.tab==='sim'){e.preventDefault();const pb=document.getElementById('simPlay');pb&&pb.click();}});
 document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='projBox')S._projOpen=e.target.open?1:0;},true);
 if('serviceWorker' in navigator&&/github\.io$|^localhost$/.test(location.hostname)){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}
+/* tap a line / arc / circle / rectangle in the 2D view to select its feature */
+function pickFeat(cx,cy){const cv=$('#pvc');if(!cv||!S.geom)return;const r=cv.getBoundingClientRect(),px=cx-r.left,py=cy-r.top,x=(px-VIEW.ox)/VIEW.sc,y=(VIEW.oy-py)/VIEW.sc,tolP=14/VIEW.sc;
+ let best=null,bd=1e9;const dl=l=>{let m=1e9;for(let i=0;i<l.length;i++)m=Math.min(m,dsegP([x,y],l[i],l[(i+1)%l.length]));return m;};
+ for(const f of S.feats){let d=1e9;if(f.kind==='holes')f.pts.forEach(p=>{const q=Math.hypot(x-p[0],y-p[1]);d=Math.min(d,q<f.dia/2?0:Math.abs(q-f.dia/2));});else if(f.loop)d=dl(f.loop);else if(f.path){for(let i=0;i<f.path.length-1;i++)d=Math.min(d,dsegP([x,y],f.path[i],f.path[i+1]));}
+  if(d<bd){bd=d;best=f;}}
+ if(!best||bd>tolP){const inner=S.feats.filter(f=>f.kind==='pocket'&&C.pip([x,y],f.loop)).sort((a,b)=>Math.abs(C.area(a.loop))-Math.abs(C.area(b.loop)))[0]||S.feats.find(f=>f.kind==='profile'&&C.pip([x,y],f.loop));best=inner||null;}
+ VIEW.sel=best?best.id:null;drawView();selBar();}
+function selBar(){const pv=$('#pv');if(!pv)return;let el=$('#pvSel');const f=VIEW.sel&&featById(VIEW.sel);if(!f){if(el)el.remove();return;}const vi=LANG==='vi',isOff=(S.excl||[]).includes(f.id),th=thick();
+ if(!el){el=document.createElement('div');el.id='pvSel';el.className='selbar';pv.appendChild(el);}
+ const dep=f.kind==='profile'?null:(f.depth===undefined?(f.kind==='holes'?null:((S.def&&S.def.pocketDepth)||0.25)):f.depth);
+ el.innerHTML=`<b style="white-space:nowrap">${esc(featLabel(f))}</b>${f.kind!=='profile'?`<label class="chip" style="gap:4px">${vi?'Sâu':'Depth'} <input data-fsel="depth" inputmode="decimal" value="${dep==null?'':fl(dep,3)}" placeholder="${vi?'xuyên':'thru'}" style="width:62px;border:0;background:none;font:inherit;color:inherit"></label><button class="btn sm" data-fsel="thru">${vi?'Xuyên':'Thru'}</button>`:''}<button class="btn sm ${isOff?'':'pri'}" data-feat="${f.id}">${isOff?(vi?'Bật':'Turn on'):(vi?'Tắt':'Turn off')}</button><button class="btn sm" data-fsel="close" aria-label="close">✕</button>`;}
+function setFeatDepth(f,v){// write into the drawing so it survives re-zeroing / re-classify
+ const g=S.raw;if(!g)return;const zx=S._zoff||[0,0];if(f.kind==='holes'){f.pts.forEach(p=>{const c=g.circles.find(c=>Math.hypot(c.x+zx[0]-p[0],c.y+zx[1]-p[1])<1e-3);if(c)c.depth=v;});}
+ else if(f.loop){let bj=-1,bd=1e9;g.loops.forEach((l,j)=>{const a=C.bbox(l),b=C.bbox(f.loop);const d=Math.abs(a[0]+zx[0]-b[0])+Math.abs(a[1]+zx[1]-b[1])+Math.abs(a[2]+zx[0]-b[2])+Math.abs(a[3]+zx[1]-b[3]);if(d<bd){bd=d;bj=j;}});
+  if(bj>=0){if(!g.ld){g.ld=g.loops.map(()=>undefined);}g.ld[bj]=v;}}
+ f.depth=v;}
+/* desktop nav rail starts under the header, whatever its height */
+{const hd=document.querySelector('header.top');const setH=()=>{if(hd)document.documentElement.style.setProperty('--hh',Math.round(hd.getBoundingClientRect().height)+'px');};setH();window.addEventListener('resize',setH);if(window.ResizeObserver&&hd)new ResizeObserver(setH).observe(hd);}
 /* fixed scale on phones: no pinch / double-tap page zoom (canvases handle their own gestures) */
 ['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev,e=>{if(!SETS().pageZoom)e.preventDefault();},{passive:false}));
 document.addEventListener('touchmove',e=>{if(!SETS().pageZoom&&e.touches&&e.touches.length>1&&!(e.target.closest&&e.target.closest('canvas')))e.preventDefault();},{passive:false});
@@ -2914,5 +2942,5 @@ const had=restore();
 if(!had||!S.raw||S.dxfName==='demo-bracket.dxf'){WARN=[];S.raw={loops:[],circles:[],opens:[]};S.feats=[];S.ops=[];S.dwg=null;S.dxfName='';S.src='';S.ref=null;S.geom=null;}
 else{try{applyZero();}catch(e){}}
 buildProgram();render();
-if(/debug/.test(location.search))window.__mc={get S(){return S},get SIM(){return SIM},MG(){return modelGrid()},DT(){return devTarget()},DS(){return devStats()},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();},PD(){return PDFDOC}};
+if(/debug/.test(location.search))window.__mc={get S(){return S},get SIM(){return SIM},MG(){return modelGrid()},DT(){return devTarget()},DS(){return devStats()},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();},PD(){return PDFDOC},get V(){return VIEW}};
 }
