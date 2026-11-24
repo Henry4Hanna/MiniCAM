@@ -34,6 +34,7 @@ header.top{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:a
 .lg{width:40px;height:40px;border-radius:11px;display:block;box-shadow:0 4px 12px rgb(36 87 214/.3)}.lg svg{display:block}.grad{color:#ff6a13}
 .bt{display:grid;line-height:1.05}.bt b{font:700 19px/1.05 "Barlow Semi Condensed",Barlow,system-ui,sans-serif}.bt small{font-size:11.5px;color:var(--mut);font-weight:600}.bt .by{font-size:10.5px;font-weight:500}
 #langSeg{grid-area:lang}
+.mtypes{grid-column:1/-1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.mtypes::-webkit-scrollbar{display:none}.mtypes button{flex:0 0 auto;display:flex;align-items:center;gap:5px;height:32px;padding:0 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--ink,inherit);font:600 13.5px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}.mtypes button svg{width:17px;height:17px}.mtypes button.on{background:var(--mc);border-color:var(--mc);color:#fff}
 .ctx{grid-area:ctx;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
 .ctxc{position:relative;display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 10px 6px 6px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);cursor:pointer}
 .ctxc:focus-within{outline:3px solid color-mix(in srgb,var(--blue) 45%,transparent)}
@@ -202,6 +203,7 @@ label.f input,label.f select,label.f textarea,.inp,.chip select,.chip input,.cv 
  <div class="ctx">
   <label class="ctxc"><i class="ic" style="background:#2457d6"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="6" rx="1.5"/><path d="M12 8.5v5M9 13.5h6l-1.5 3h-3zM4 21.5h16M7 18.5h10v3H7z"/></svg></i><span class="cv"><small id="lblMach"></small><b id="valMach"></b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m7 10 5 5 5-5"/></svg><select id="selMachine" aria-label="Machine"></select></label>
   <label class="ctxc"><i class="ic" id="matIc"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg></i><span class="cv"><small id="lblMat"></small><b id="valMat"></b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m7 10 5 5 5-5"/></svg><select id="selMat" aria-label="Material"></select></label>
+  <div id="mtypes" class="mtypes"></div>
  </div>
  <div class="seg" id="langSeg"><button data-l="vi">VI</button><button data-l="en">EN</button></div>
 </header>
