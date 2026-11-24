@@ -427,6 +427,7 @@ function meshHoles(T,sc){sc=sc||1;const tris=T.map(t=>[[t[0]*sc,t[1]*sc,t[2]*sc]
  const key=p=>p.map(v=>Math.round(v*2000)).join(',');const out=[];let downArea=0,area0=0;
  const nrm=t=>{const u=[t[1][0]-t[0][0],t[1][1]-t[0][1],t[1][2]-t[0][2]],v=[t[2][0]-t[0][0],t[2][1]-t[0][1],t[2][2]-t[0][2]],n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],l=Math.hypot(...n)||1;return[n.map(c=>c/l),l/2];};
  const N=tris.map(nrm);N.forEach(([n,a],i)=>{area0+=a;const zc=(tris[i][0][2]+tris[i][1][2]+tris[i][2][2])/3;if(n[2]<-0.2&&zc>bb[2]+0.01)downArea+=a;});
+ const INH=new Set();
  for(const ax of[0,1,2]){const u=(ax+1)%3,v=(ax+2)%3;const W=[];N.forEach(([n,a],i)=>{if(Math.abs(n[ax])<0.05&&a>1e-8)W.push(i);});
   const vmap={};W.forEach(i=>tris[i].forEach(p=>{const k=key(p);(vmap[k]=vmap[k]||[]).push(i);}));const seen=new Set();
   for(const i0 of W){if(seen.has(i0))continue;const comp=[],st=[i0];seen.add(i0);while(st.length){const i=st.pop();comp.push(i);for(const p of tris[i])for(const j of vmap[key(p)]||[])if(!seen.has(j)){seen.add(j);st.push(j);}}
@@ -439,7 +440,8 @@ function meshHoles(T,sc){sc=sc||1;const tris=T.map(t=>[[t[0]*sc,t[1]*sc,t[2]*sc]
    const angs=new Set();let inward=0;for(const i of comp){const c=tris[i].reduce((s,p)=>[s[0]+p[u]/3,s[1]+p[v]/3],[0,0]);angs.add(Math.floor((Math.atan2(c[1]-cy,c[0]-cx)+Math.PI)/(2*Math.PI)*36));const n=N[i][0];if(n[u]*(cx-c[0])+n[v]*(cy-c[1])>0)inward++;}
    if(angs.size<27||inward<comp.length*0.6)continue;
    const zs=P.map(q=>q[2]),z0=Math.min(...zs),z1=Math.max(...zs),thru=z0<=bb[ax]+0.005&&z1>=bb[ax+3]-0.005;const c3=[0,0,0];c3[u]=cx;c3[v]=cy;c3[ax]=(z0+z1)/2;
-   const open=thru?[1,-1]:z1>=bb[ax+3]-0.005?[1]:z0<=bb[ax]+0.005?[-1]:[];out.push({axis:'XYZ'[ax],dia:2*r,at:c3,len:z1-z0,through:thru,open});}}
+   const open=thru?[1,-1]:z1>=bb[ax+3]-0.005?[1]:z0<=bb[ax]+0.005?[-1]:[];comp.forEach(i=>INH.add(i));out.push({axis:'XYZ'[ax],dia:2*r,at:c3,len:z1-z0,through:thru,open});}}
+ downArea=0;N.forEach(([n,a],i)=>{if(INH.has(i))return;const zc=(tris[i][0][2]+tris[i][1][2]+tris[i][2][2])/3;if(n[2]<-0.2&&zc>bb[2]+0.01)downArea+=a;});
  return{holes:out,bbox:bb,undercut:area0?downArea/area0:0};}
 function decideAxes(dirs,undercut){const T=1e-3;const U=[];for(const d of dirs){const l=Math.hypot(...d)||1,n=d.map(c=>c/l);if(!U.some(q=>q[0]*n[0]+q[1]*n[1]+q[2]*n[2]>1-T))U.push(n);}
  const ang=(d,ab)=>{const[x,y,z]=d;return(((ab==='A'?Math.atan2(y,z):Math.atan2(-x,z))*180/Math.PI)%360+360)%360;};
