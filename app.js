@@ -523,7 +523,8 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
    ${axCard()}${sideCard()}
    <div class="card"><h2 style="margin:0">${t('features')}</h2>${S.geom?`<div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-act="stl">${IC.save}${t('exportStl')}</button><button class="btn sm" data-act="step">${IC.save}${LANG==='vi'?'Xuất STEP':'Export STEP'}</button></div>`:''}<p class="sub" style="margin:4px 0 8px;font-size:13px">${VIEW.mode==='3d'?t('fromDrawing'):''}</p><div class="feats">${S.feats.map(f=>`<button class="feat ${(S.excl||[]).includes(f.id)?'off':''}" data-feat="${f.id}"><i class="dot" style="background:${FEATCOL[f.kind]}"></i>${esc(featLabel(f))}${f.tap?' · '+esc(f.tap):''}${f.kind!=='profile'&&f.depth!==undefined?' · '+(f.depth==null?t('through'):'↧'+fl(f.depth,3)):''}</button>`).join('')||'<span class="sub">—</span>'}</div></div>
 
-   <div class="row"><button class="btn pri" data-act="import" style="flex:1 1 220px;min-height:56px;justify-content:flex-start">${IC.file}<span style="display:grid;text-align:left;line-height:1.15">${t('importAny')}<small style="font-weight:500;opacity:.85;font-size:12.5px">${t('fmts')}</small></span></button><button class="btn" data-act="demo">${t('demo')}</button><button class="btn" data-act="img">${IC.img}${t('refImg')}</button></div>
+   <div class="row"><button class="btn pri" data-act="import" style="flex:1 1 220px;min-height:56px;justify-content:flex-start">${IC.file}<span style="display:grid;text-align:left;line-height:1.15">${t('importAny')}<small style="font-weight:500;opacity:.85;font-size:12.5px">${t('fmts')}</small></span></button><button class="btn" data-act="img">${IC.img}${t('refImg')}</button></div>
+   <div class="row" style="gap:6px;align-items:center"><b style="font-size:14px">${LANG==='vi'?'Chi tiết mẫu:':'Demo parts:'}</b>${[['demo','2.5D','#2457d6'],['demo3','3D','#1c9b5f'],['demo4',LANG==='vi'?'Trục 4':'4th axis','#0a9bb0'],['demo5',LANG==='vi'?'5 trục':'5-axis','#8b4fd6']].map(([a,l,c])=>`<button class="btn sm" data-act="${a}" style="border-color:${c};color:${c};font-weight:700">${l}</button>`).join('')}</div>
    <div class="row"><label class="chip">${t('dxfUnits')} <select id="dxfU"><option value="auto">${t('auto')}</option><option value="in">in</option><option value="mm">mm</option></select></label><label class="chip">${t('pdfScale')} 1 : <input id="pdfSc" inputmode="decimal" value="${S.pdfScale||1}" style="width:48px;border:0;background:none;font:inherit;font-size:16px"></label></div>
    <p class="sub" style="margin:0;font-size:13.5px">${S.src==='pdf'?t('pdfNote'):S.src==='mesh'?t('meshNote'):t('dwgNote')}${S.dxfName?' · <b>'+esc(S.dxfName)+'</b>':''}</p>
    ${S.ref?`<img src="${S.ref}" alt="" style="max-width:100%;border-radius:12px;border:1px solid var(--line)">`:''}
@@ -1108,6 +1109,7 @@ document.addEventListener('click',e=>{
   case'lCopy':copyText(S.lathe.gcode);break;
   case'lAdd':{const ty=$('#lAddSel').value;S.lathe.ops.push({type:ty,tool:{lface:1,lrough:1,lfinish:2,lgroove:3,lthread:4,ldrill:5,lpart:6}[ty],on:true,doc:0.06,leaveX:0.01,zPos:-0.5,width:0.125,dia:0.9,peckX:0.05,pitch:0.05,zEnd:-0.75,passes:8,depth:0.5,peck:0.15});rLathe();break;}
   case'lReset':if(LSIM){LSIM.playing=false;LSIM.k=0;LSIM.r.fill(S.lathe.stockD/2);latheDraw($('#lcv'),0);}break;
+  case'demo3':loadDemo('3');break;case'demo4':loadDemo('4');break;case'demo5':loadDemo('5');break;
   case'tplSave':{const n=($('#tplName')||{}).value;tplSave(n&&n.trim());rProgram();toast(LANG==='vi'?'Đã lưu mẫu':'Template saved');break;}case'quoteCopy':{const tx=quoteText();(navigator.clipboard?navigator.clipboard.writeText(tx):Promise.reject()).then(()=>toast(LANG==='vi'?'Đã chép báo giá':'Quote copied')).catch(()=>toast(tx.slice(0,80)));break;}case'pjSave':S._projOpen=1;projSave(false);rProgram();break;case'projSaveNew':S._projOpen=1;projSave(true);rProgram();break;
   case'nestAdd':S.nest.items.push({src:'plate',qty:1});rNest();break;case'nestTap':S.nestTapOn=!S.nestTapOn;if(S.nestTapOn)S.nestMoveOn=false;rNest();break;case'nestMove':S.nestMoveOn=!S.nestMoveOn;if(S.nestMoveOn)S.nestTapOn=false;else S.nestSel=null;rNest();break;case'nestRot':nestRotSel();break;case'nestPosReset':S.nestPos={};S.nestSel=null;persist();rNest();break;case'nestTabAuto':S.nestTabs={};persist();rNest();break;case'nestDxf':$('#fileNest').click();break;
   case'nestCopy':copyText(NESTG);break;
@@ -1603,6 +1605,48 @@ function pvCyl(J){const cv=$('#pvc');if(!cv)return;const c=J.c,path=[];const o=J
   for(const z of c.zones){const p=T([Math.max(z.z0,z.z1),z.dia/2]),q=T([Math.min(z.z0,z.z1),-z.dia/2]);g.fillStyle=z.side==='id'?'#1b2026':'#5b83ea';g.fillRect(q[0],p[1],p[0]-q[0],q[1]-p[1]);}return T;},path,
   {tool:(g,c_,cur)=>{g.fillStyle='rgba(139,90,60,.85)';g.fillRect(c_[0]-14,c_[1]-40,28,40);},text:()=>(o.mode==='plunge'?(LANG==='vi'?'Ăn thẳng':'Plunge'):(LANG==='vi'?`Chạy dọc · ${o.pR}+${o.pF} lượt`:`Traverse · ${o.pR}+${o.pF} passes`))});PV.speed=0.8;}
 
+
+/* demo parts */
+/* ================= demo 3D / 4th / 5th parts (generated meshes, inch) ================= */
+function meshBox(T,x0,y0,z0,x1,y1,z1){const P=[[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]];const F=[[0,3,2,1],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]];for(const f of F){const a=P[f[0]],b=P[f[1]],c=P[f[2]],d=P[f[3]];T.push([...a,...b,...c],[...a,...c,...d]);}}
+function meshHeight(T,x0,y0,x1,y1,bot,nx,ny,fz){const X=i=>x0+(x1-x0)*i/nx,Y=j=>y0+(y1-y0)*j/ny,Z=(i,j)=>fz(X(i),Y(j)),v=(i,j)=>[X(i),Y(j),Z(i,j)],q=(a,b,c,d)=>{T.push([...a,...b,...c],[...a,...c,...d]);};
+ for(let j=0;j<ny;j++)for(let i=0;i<nx;i++)q(v(i,j),v(i+1,j),v(i+1,j+1),v(i,j+1));
+ for(let i=0;i<nx;i++){q([X(i),y0,bot],[X(i+1),y0,bot],v(i+1,0),v(i,0));q([X(i+1),y1,bot],[X(i),y1,bot],v(i,ny),v(i+1,ny));}
+ for(let j=0;j<ny;j++){q([x0,Y(j+1),bot],[x0,Y(j),bot],v(0,j),v(0,j+1));q([x1,Y(j),bot],[x1,Y(j+1),bot],v(nx,j+1),v(nx,j));}
+ q([x0,y0,bot],[x0,y1,bot],[x1,y1,bot],[x1,y0,bot]);}
+function demoMesh3(){const T=[];const sm=(e0,e1,v)=>{const t_=Math.max(0,Math.min(1,(v-e0)/(e1-e0)));return t_*t_*(3-2*t_);};
+ meshHeight(T,0,0,4,3,-1,96,72,(x,y)=>{const g1=Math.exp(-(((x-1.35)**2)/0.30+((y-1.5)**2)/0.42)),g2=Math.exp(-(((x-2.95)**2)/0.10+((y-1.5)**2)/0.10));const rim=sm(0.25,0.45,Math.min(x,y,4-x,3-y));
+  return +(Math.min(0,(-0.55*g1+0.22*g2-0.18*Math.max(0,Math.sin((x-2.3)*3.2))*Math.exp(-((y-1.5)**2)/0.6)*(x>2.3&&x<3.3?0:0))*rim)).toFixed(5)-(rim<1?0:0);});
+ return T;}
+function demoMesh4(){const T=[],L=4,nx=140,nt=96,Rf=0.85;const r=(x,th)=>{let R=1.0;if(x<0.15||x>L-0.15)R=0.9;
+   if(x>1.4&&x<2.4){const c=Math.cos(th);R=0.78+0.26*Math.max(0,c)**2;}
+   if(x>2.7&&x<3.75){const ph=th-2*Math.PI*(x-2.7)/0.9;const g=Math.cos(ph*3);R=1.0-0.11*Math.max(0,g)**4;}
+   return R;};
+ const P=(x,th)=>{const R=r(x,th);let y=R*Math.cos(th),z=R*Math.sin(th);if(x>0.3&&x<1.2&&z>Rf){z=Rf;}return[x,y,z];};
+ const X=i=>L*i/nx,A=j=>2*Math.PI*j/nt;
+ for(let i=0;i<nx;i++)for(let j=0;j<nt;j++){const a=P(X(i),A(j)),b=P(X(i+1),A(j)),c=P(X(i+1),A(j+1)),d=P(X(i),A(j+1));T.push([...a,...d,...c],[...a,...c,...b]);}
+ for(let j=0;j<nt;j++){const a=P(0,A(j)),b=P(0,A(j+1));T.push([0,0,0,...b,...a]);const c=P(L,A(j)),d=P(L,A(j+1));T.push([L,0,0,...c,...d]);}
+ return T;}
+function demoMesh5(){const T=[],H=0.68,B=-0.75;const sm=(e0,e1,v)=>{const t_=Math.max(0,Math.min(1,(v-e0)/(e1-e0)));return t_*t_*(3-2*t_);};meshHeight(T,0,0,4,4,-1.5,100,100,(x,y)=>{const d=Math.min(x,y,4-x,4-y);return +(B*sm(0.4,0.6,d)).toFixed(5);});
+ // twisted, leaning blade on the base: overhang -> undercut -> 5-axis
+ const ns=36,nh=28,c=2.6,tk=0.42;const sec=(h,u,side)=>{const t_=h/H,tw=-0.6*t_,lean=0.5*t_;const xa=(u-0.5)*c*(1-0.25*t_),yt=side*tk*Math.sqrt(Math.max(0,u*(1-u)))*(1-0.4*t_)*1.9;const x=xa*Math.cos(tw)-yt*Math.sin(tw),y=xa*Math.sin(tw)+yt*Math.cos(tw);return[2+x,2+y+lean,B+h];};
+ for(let k=0;k<nh;k++)for(let i=0;i<ns;i++){const h0=H*k/nh,h1=H*(k+1)/nh,u0=i/ns,u1=(i+1)/ns;const a=sec(h0,u0,1),b_=sec(h0,u1,1),c_=sec(h1,u1,1),d=sec(h1,u0,1);T.push([...a,...c_,...b_],[...a,...d,...c_]);const e=sec(h0,u0,-1),f=sec(h0,u1,-1),g=sec(h1,u1,-1),hh=sec(h1,u0,-1);T.push([...e,...f,...g],[...e,...g,...hh]);}
+ const ctr=sec(H,0.5,0);for(let i=0;i<ns;i++){const u0=i/ns,u1=(i+1)/ns;T.push([...sec(H,u1,1),...sec(H,u0,1),...ctr],[...sec(H,u0,-1),...sec(H,u1,-1),...ctr]);}
+ return T;}
+function loadDemo(kind){const vi=LANG==='vi';WARN=[];S.meshT=null;S.cylMap=null;S._hm=null;S.nestTabs={};
+ const pick=id=>{if(C.MACHINES.find(m=>m.id===id)){S.machine=id;S.post=mach().post||'haas';}};
+ const T=kind==='3'?demoMesh3():kind==='4'?demoMesh4():demoMesh5();
+ if(kind==='3'){pick('vf3ss');S.rotary='none';}else if(kind==='4'){pick('vf3ss');S.rotary='hrt160';}else{pick('umc750');S.rotary='none';}
+ S.mat='al6061';S.meshT=T;const M=C.meshLevels(T,1e-3);importMesh(M,kind==='3'?'demo-3d-mold.stl':kind==='4'?'demo-4th-shaft.stl':'demo-5ax-blade.stl','in',null);
+ S.hdr.name=kind==='3'?'MOLD 3D':kind==='4'?'SHAFT 4TH':'BLADE 5AX';
+ const fl_=findTool(x=>x.type==='flat'&&x.dia<=0.5&&x.dia>=0.25)||findTool(x=>x.type==='flat'),bl=findTool(x=>x.type==='ball');
+ if(kind==='3'||kind==='5'){S.ops.forEach(o=>{if(o.type==='surfRough'||o.type==='surfFinish'){o.on=true;return;}if(o.type==='face')return;const f=featById(o.feat);o.on=kind==='3'&&!!(f&&f.kind==='profile'&&['contour','chamfer'].includes(o.type));});}
+ if(kind==='4'){S.ops=S.ops.filter(o=>!['surfRough','surfFinish'].includes(o.type)||true).map(o=>{if(o.type.startsWith('surf'))o.on=false;return o;});
+  S.ops.forEach(o=>{o.on=false;});SIMSTATE.axis='4';SIMSTATE.dirty=true;
+  if(fl_)S.ops.push(newOp('rotRough',null,fl_.id,{d0:2.25,d1:2.06,x0:0,x1:4,on:true}));if(bl)S.ops.push(newOp('rotFinish',null,bl.id,{on:true,woc:0.03}));S.ops.forEach(o=>o.auto&&applyFeeds(o));}
+ if(kind==='5'&&bl){S.ops.push(newOp('flow5',null,bl.id,{on:true,lead5:5,lean5:0,maxTilt:60}));S.ops.forEach(o=>o.auto&&applyFeeds(o));}
+ MODEL=null;VIEW.fitted=false;VIEW.mode='3d';SIMSTATE.dirty=true;if(kind!=='4')SIMSTATE.axis='3';buildProgram();persist();S.tab='program';render();
+ toast((vi?'Đã mở chi tiết mẫu ':'Demo part loaded: ')+S.hdr.name);}
 
 /* ================= templates · quote · projects ================= */
 const TPL_KEYS=['doc','woc','leave','lead','leadOut','leadEntry','leadR','leadL','overlap','corner','ramp','entry','peck','cycle','dwell','rings','docFix','chamfer'];

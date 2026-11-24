@@ -626,7 +626,7 @@ function genSlot(op,ctx,mb,W){
 function genFace(op,ctx,mb){
   const s=ctx.stockRect,r=ctx.tool.dia/2,step=Math.max(op.woc||r,0.01),x0=s[0]-r-0.1,x1=s[2]+r+0.1,ya=s[3]-r*0.5,yb=s[1]+r*0.5;
   const n=Math.max(1,Math.ceil((ya-yb)/step)),rows=[];for(let i=0;i<=n;i++)rows.push(n?ya-(ya-yb)*i/n:(ya+yb)/2);
-  for(const z of layers(op.zTop,op.zBot,op.doc)){let fwd=true;mb.retract(ctx.clear);mb.rapid(x0,rows[0]);mb.rapid(null,null,z+0.1);mb.feed(null,null,z,op.plunge);
+  let zp=op.zTop;for(const z of layers(op.zTop,op.zBot,op.doc)){let fwd=true;mb.retract(ctx.clear);mb.rapid(x0,rows[0]);mb.rapid(null,null,z+0.1);mb.feed(null,null,z,op.plunge);
     for(const y of rows){mb.feed(fwd?x0:x1,y,z,op.feed);mb.feed(fwd?x1:x0,y,z,op.feed);fwd=!fwd;}mb.retract(z+0.1);}
   mb.retract(ctx.clear);
 }
@@ -686,8 +686,8 @@ function gen3D(op,ctx,mb,W){
   for(const z of layers(op.zTop,op.zBot,op.doc)){let fwd=true;
     for(const y of rows){const runs=[];let s=null;for(let x=xa;x<=xb+1e-9;x+=res){const ok=CL(x,y)<=z+1e-6;if(ok&&s==null)s=x;if(!ok&&s!=null){runs.push([s,x-res]);s=null;}}if(s!=null)runs.push([s,xb]);
       const rr=fwd?runs:runs.slice().reverse().map(q=>[q[1],q[0]]);
-      for(const q of rr){if(Math.abs(q[1]-q[0])<res)continue;mb.retract(R);mb.rapid(q[0],y);mb.rapid(null,null,z+0.05);mb.feed(null,null,z,op.plunge);mb.feed(q[1],y,z,op.feed);}fwd=!fwd;}
-    mb.retract(R);}
+      for(const q of rr){if(Math.abs(q[1]-q[0])<res)continue;mb.retract(R);mb.rapid(q[0],y);mb.rapid(null,null,Math.max(z,zp)+0.05);mb.feed(null,null,z,op.plunge);mb.feed(q[1],y,z,op.feed);}fwd=!fwd;}
+    mb.retract(R);zp=z;}
   mb.retract(ctx.clear);}
 
 /* ---------- extra 2.5D strategies ---------- */
@@ -796,7 +796,7 @@ function genRotFinish(op,ctx,mb,W){
   rapidA(mb,null,zc,0);const xs=x0,xe=x0+(nx-1)*resx;rapidA(mb,xs,zc,0);
   const revs=Math.max(1,Math.ceil((xe-xs)/st)),N=revs*nth;let first=true;
   for(let k=0;k<=N;k++){const x=xs+(xe-xs)*k/N,j=k%nth,i=Math.round((x-x0)/resx);const z=Math.max(0.01,rho(i,j)-(ball?r:0)+leave);const a=+(k*360/nth).toFixed(3);
-    if(first){rapidA(mb,x,z+0.1,a);mvA(mb,x,z,a,op.plunge,z);first=false;}else mvA(mb,x,z,a,op.feed,Math.max(z,0.05));}
+    if(first){rapidA(mb,x,Rmax+0.15,a);mvA(mb,x,z,a,op.plunge,z);first=false;}else mvA(mb,x,z,a,op.feed,Math.max(z,0.05));}
   rapidA(mb,null,zc,null);}
 /* ---------- 5-axis on the mesh: flow (lead/lag/lean) and deburr ---------- */
 function vec2bc(v,prevC,bMax){let vz=Math.max(-1,Math.min(1,v[2]));let B=Math.acos(vz)/D2R;if(bMax!=null&&B>bMax){const s=Math.sin(bMax*D2R)/Math.max(1e-9,hyp(v[0],v[1]));v=[v[0]*s,v[1]*s,Math.cos(bMax*D2R)];B=bMax;}
