@@ -351,9 +351,12 @@ function importDXF(txt,name,uSel){
  toast(t('imported')+': '+S.feats.length+' '+t('features').toLowerCase());
  if(sk.length)WARN.push(t('dxfSkipped')+' '+sk.join(', '));
 }
+const ZK={tl:['l','t'],tc:['c','t'],tr:['r','t'],ml:['l','m'],c:['c','m'],mr:['r','m'],ll:['l','b'],bc:['c','b'],lr:['r','b']};
+const ZN={tl:['TOP LEFT','Trên trái'],tc:['TOP CENTER','Trên giữa'],tr:['TOP RIGHT','Trên phải'],ml:['MIDDLE LEFT','Giữa trái'],c:['CENTER','Tâm'],mr:['MIDDLE RIGHT','Giữa phải'],ll:['LOWER LEFT','Dưới trái'],bc:['LOWER CENTER','Dưới giữa'],lr:['LOWER RIGHT','Dưới phải']};
+function zeroOff(b){const k=ZK[S.zero]||ZK.ll;return[-(k[0]==='l'?b[0]:k[0]==='r'?b[2]:(b[0]+b[2])/2),-(k[1]==='b'?b[1]:k[1]==='t'?b[3]:(b[1]+b[3])/2)];}
 function applyZero(){
  if(!S.raw)return;const b=C.geomBox(S.raw);let dx,dy;
- if(S.zero==='ll'){dx=-b[0];dy=-b[1];}else if(S.zero==='tl'){dx=-b[0];dy=-b[3];}else if(S.zero==='lr'){dx=-b[2];dy=-b[1];}else{dx=-(b[0]+b[2])/2;dy=-(b[1]+b[3])/2;}
+ [dx,dy]=zeroOff(b);
  S._zoff=[dx,dy];S.geom=C.scaleGeom(S.raw,1,dx,dy);const old=S.feats;S.feats=C.classify(S.geom,0.0002);
  // keep op->feature links by id (deterministic ids)
  S.ops.forEach(o=>{if(!featById(o.feat))o.feat=S.feats[0]?.id;});
@@ -454,9 +457,9 @@ function buildProgram(){
  FOREP=null;if(S.def&&S.def.feedOpt&&prog.length){const hasFace=S.ops.some(o=>o.on&&o.type==='face');const r=C.feedOpt(prog,sr,hasFace?0:(S.stock.face||0));prog.length=0;prog.push(...r.prog);FOREP=r;}
  PROG=prog;
  const k=K(),scale=b=>{if(b.t==='cycle')return{...b,pts:b.pts.map(p=>[p[0]*k,p[1]*k]),z:b.z*k,r:b.r*k,q:b.q*k,f:b.f*k,clear:b.clear*k};if(b.t==='g43')return{...b,x:b.x*k,y:b.y*k};if(b.g!==undefined){const o={...b,x:b.x*k,y:b.y*k,z:b.z*k};if(b.f&&!b.inv)o.f=b.f*k;if(b.g>1){o.i=b.i*k;o.j=b.j*k;}return o;}return b;};
- const m=mat();GCODE=(S.post==='siemens'?C.postSiemens:C.post)(prog.map(scale),{arcfit:SETS().arcfit!==false,units:S.units,clear:SETS().safeZ*k,post:S.post,name:S.hdr.name,progNo:1001,coolant:SETS().coolant,lineNums:S.lineNums,toolStop:S.toolStop,
-  header:['MINI CAM BY RYAN NGUYEN '+S.hdr.date,'MACHINE '+mc.name+(S.rotary&&S.rotary!=='none'?' + '+C.ROTARIES.find(x=>x.id===S.rotary).name:''),'MATERIAL '+m.en,'STOCK '+fl(S.stock.x,3)+' X '+fl(S.stock.y,3)+' X '+fl(S.stock.z,3)+' '+ulab(),'X0 Y0 '+({ll:'LOWER LEFT',tl:'UPPER LEFT',lr:'LOWER RIGHT',c:'CENTER'}[S.zero])+' - Z0 TOP OF FINISHED PART']});
- SEGS=C.simSegs(prog,1);SEGS4=C.simSegs4(prog);const tc=prog.filter(b=>b.t==='tool').length;CT=C.cycleTime(SEGS,mc.rapid,tc,SETS().tcSec);
+ const m=mat();GCODE=(S.post==='siemens'?C.postSiemens:C.post)(prog.map(scale),{arcfit:SETS().arcfit!==false,units:S.units,clear:SETS().safeZ*k,post:S.post,name:S.hdr.name,progNo:1001,coolant:SETS().coolant,lineNums:S.lineNums,toolStop:S.toolStop,stopCode:S.stopCode||'M00',
+  header:['MINI CAM BY RYAN NGUYEN '+S.hdr.date,'MACHINE '+mc.name+(S.rotary&&S.rotary!=='none'?' + '+C.ROTARIES.find(x=>x.id===S.rotary).name:''),'MATERIAL '+m.en,'STOCK '+fl(S.stock.x,3)+' X '+fl(S.stock.y,3)+' X '+fl(S.stock.z,3)+' '+ulab(),'X0 Y0 '+((ZN[S.zero]||ZN.ll)[0])+' - Z0 TOP OF FINISHED PART']});
+ GCODE=gAscii(GCODE);SEGS=C.simSegs(prog,1);SEGS4=C.simSegs4(prog);const tc=prog.filter(b=>b.t==='tool').length;CT=C.cycleTime(SEGS,mc.rapid,tc,SETS().tcSec);
  const b=C.geomBox(S.geom||{loops:[],circles:[],opens:[]});if(S.geom&&(b[2]-b[0]>mc.tx||b[3]-b[1]>mc.ty))WARN.push(mc.name+': travel X'+mc.tx+' Y'+mc.ty+' in');
  autoPar();const fc=fixtureCheck();if(fc&&fc.bad)WARN.push(t('fixBad'));{const pk=peakForce();if(pk.f>0&&C.fixtureHold(S.fixture)/pk.f<3)WARN.push(LANG==='vi'?'Lực giữ phôi thấp (hệ số an toàn < 3) — xem tab Đồ gá':'Low holding force (SF < 3) — see Fixtures');}if(fc&&fc.low)WARN.push(t('fixLow'));
  SIMSTATE.dirty=true;MODEL=null;persist();
@@ -509,7 +512,8 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
    <div class="card"><h2>${t('stock')}</h2>
     <div class="row" style="margin-bottom:10px"><div class="seg" id="unitSeg"><button data-u="in" class="${S.units==='in'?'on':''}">inch</button><button data-u="mm" class="${S.units==='mm'?'on':''}">mm</button></div></div>
     <div class="fields">${inp('sx',fl(S.stock.x),'data-b="stock.x" data-u="L"')}${inp('sy',fl(S.stock.y),'data-b="stock.y" data-u="L"')}${inp('sz',fl(S.stock.z),'data-b="stock.z" data-u="L"')}${inp('face',fl(S.stock.face),'data-b="stock.face" data-u="L"')}${inp('partT',fl(S.stock.part),'data-b="stock.part" data-u="L"')}</div>
-    <h3 style="margin-top:14px">${t('zero')}</h3><div class="seg" id="zeroSeg">${['ll','tl','lr','c'].map(k=>`<button data-z="${k}" class="${z===k?'on':''}">${t(k==='c'?'ctr':k)}</button>`).join('')}</div>
+    <h3 style="margin-top:14px">${t('zero')}</h3><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div style="position:relative;width:180px;height:120px;margin:12px 14px"><div style="position:absolute;inset:0;border:2px solid var(--line);border-radius:8px;background:color-mix(in srgb,#5b83ea 14%,transparent)"></div>${['tl','tc','tr','ml','c','mr','ll','bc','lr'].map((k,i)=>{const cx=(i%3)*50,cy=Math.floor(i/3)*50;return`<button data-z="${k}" title="${esc(ZN[k][LANG==='vi'?1:0])}" aria-label="${esc(ZN[k][LANG==='vi'?1:0])}" style="position:absolute;left:${cx}%;top:${cy}%;transform:translate(-50%,-50%);width:${z===k?34:26}px;height:${z===k?34:26}px;border-radius:50%;border:2px solid ${z===k?'#d93a3a':'var(--line)'};background:${z===k?'conic-gradient(#14181c 0 25%,#fff 0 50%,#14181c 0 75%,#fff 0)':'var(--panel)'};cursor:pointer;padding:0;box-shadow:0 1px 4px #0003"></button>`;}).join('')}</div>
+ <div><b style="font-size:17px">${esc(ZN[z][LANG==='vi'?1:0])}</b><div class="sub" style="font-size:13px">${LANG==='vi'?'Bấm 1 trong 9 điểm':'Tap one of the 9 points'}</div></div></div>
     <p class="sub" style="margin:8px 0 0;font-size:13.5px">${t('z0')}</p></div>
    <div class="card"><h2>${t('defs')}</h2>${(()=>{const D={...DEF0,...(S.def||{})};const L=(k,p)=>inp(k,fl(D[p]),`data-b="def.${p}" data-u="L"`);const sw=(k,p)=>`<label class="row" style="gap:8px;font-weight:600;font-size:14px;min-height:46px"><span class="sw"><input type="checkbox" data-defsw="${p}" ${D[p]?'checked':''}><i></i></span>${t(k)}</label>`;
     return`<div class="fields">${L('grip','grip')}${L('safety','safety')}${L('roughDoc','roughDoc')}${L('finLeave','finLeave')}${L('pocketDepth','pocketDepth')}
@@ -571,7 +575,7 @@ function renderCode(){
  <div class="row" style="margin-bottom:10px">
   <label class="chip">${t('post')} <select id="postSel"><option value="prototrak" ${S.post==='prototrak'?'selected':''}>ProtoTRAK RMX/KMX/SMX</option><option value="haas" ${S.post==='haas'?'selected':''}>Haas NGC</option><option value="fanuc" ${S.post==='fanuc'?'selected':''}>Fanuc</option><option value="siemens" ${S.post==='siemens'?'selected':''}>Siemens 840D</option></select></label>
   ${mach().rot?`<label class="chip">${t('rotary')} <select id="rotSel">${C.ROTARIES.map(r=>`<option value="${r.id}" ${(S.rotary||'none')===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label>`:''}
-  <label class="row" style="gap:6px;font-size:14px;font-weight:600"><span class="sw"><input type="checkbox" id="tsChk" ${S.toolStop?'checked':''}><i></i></span>M00</label>
+  <label class="chip">${LANG==='vi'?'Dừng khi thay dao':'Stop at tool change'} <select id="tsSel"><option value="" ${!S.toolStop?'selected':''}>${LANG==='vi'?'Không':'None'}</option><option value="M00" ${S.toolStop&&(S.stopCode||'M00')==='M00'?'selected':''}>M00</option><option value="M01" ${S.toolStop&&S.stopCode==='M01'?'selected':''}>M01 (${LANG==='vi'?'tùy chọn':'optional'})</option></select></label>
   <label class="row" style="gap:6px;font-size:14px;font-weight:600"><span class="sw"><input type="checkbox" id="lnChk" ${S.lineNums?'checked':''}><i></i></span>N#</label></div>
  <pre class="code">${hlG(GCODE.length>60000?GCODE.slice(0,60000)+'\n( … )':GCODE)}</pre>
  <p class="sub" style="margin:8px 0 0;font-size:13px">${t('gcdHint')} ${t('verify')}</p>`;
@@ -923,7 +927,7 @@ function hardCard(){const c=CALC.hd,r=hardConv(c.v,c.s),vi=LANG==='vi';const f=(
 /* ----- setup sheet ----- */
 function rSetup(){
  const h=S.hdr,m=mat(),mc=mach();const used=[];S.ops.forEach(o=>{if(o.on&&!used.includes(o.tool))used.push(o.tool);});
- const zDesc={ll:['lower-left corner of part','góc dưới bên trái chi tiết'],tl:['upper-left corner of part','góc trên bên trái chi tiết'],lr:['lower-right corner of part','góc dưới bên phải chi tiết'],c:['center of part','tâm chi tiết']}[S.zero];
+ const zDesc=S.zero==='c'?['center of part','tâm chi tiết']:[(ZN[S.zero]||ZN.ll)[0].toLowerCase()+' of part',((ZN[S.zero]||ZN.ll)[1]).toLowerCase()+' chi tiết'];
  const fx=S.fixture,fc=fixtureCheck();const B=(en,vi)=>`${esc(en)}<br><span class="bi">${esc(vi)}</span>`;
  const steps=[
   ['Clean the table and the '+t('vise').toLowerCase()+'; indicate the fixed jaw within 0.0005".','Vệ sinh bàn máy và đồ gá; rà hàm cố định trong 0.0005".'],
@@ -970,7 +974,7 @@ document.addEventListener('change',e=>{
  const el=e.target;
  if(el.id==='selMat'){S.mat=el.value;S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();render();return;}
  if(el.id==='selMachine'){S.machine=el.value;S.post=mach().post||'prototrak';if(!mach().rot)S.rotary='none';S.ops.forEach(o=>o.auto&&applyFeeds(o));buildProgram();render();return;}
- if(el.id==='postSel'){S.post=el.value;if(mach().type==='lathe'){rLathe();return;}regen();return;}if(el.id==='tsChk'){S.toolStop=el.checked;regen();return;}if(el.id==='lnChk'){S.lineNums=el.checked;regen();return;}
+ if(el.id==='postSel'){S.post=el.value;if(mach().type==='lathe'){rLathe();return;}regen();return;}if(el.id==='tsChk'){S.toolStop=el.checked;regen();return;}if(el.id==='tsSel'){S.toolStop=!!el.value;if(el.value)S.stopCode=el.value;persist();regen();return;}if(el.id==='lnChk'){S.lineNums=el.checked;regen();return;}
  if(el.id==='rotSel'){S.rotary=el.value;regen();setTimeout(()=>rProgram(),200);return;}
  if(el.dataset.defsw){S.def={...DEF0,...(S.def||{})};S.def[el.dataset.defsw]=el.checked;if(el.dataset.defsw==='feedOpt'){buildProgram();persist();rProgram();return;}autoProgram();buildProgram();rProgram();return;}
  if(el.dataset.nb){S.nest[el.dataset.nb]=el.dataset.u==='S'?el.value:parseVal(el);if(el.dataset.nb==='mode'&&el.value==='twoSide'&&S.nest.tabT<0.06)S.nest.tabT=0.06;persist();rNest();return;}
@@ -1079,7 +1083,7 @@ document.addEventListener('click',e=>{
   case'simNext':{const cur=CS()[SIM.i]?CS()[SIM.i][9]:-1;let k=CS().findIndex((s,i)=>i>SIM.i&&s[9]!==cur);if(k<0)k=CS().length;SIMSTATE.playing=false;updPlay();const t0=SIM.i;while(SIM.i<k){const s=SEGS[SIM.i];simAdvance(Math.hypot(s[3]-s[0],s[4]-s[1],s[5]-s[2])*(1-SIM.u)+1e-9);}simDraw();break;}
   case'addBolt':{const c=CALC.bc;for(let i=0;i<c.n;i++){const a=(c.a+360*i/c.n)*Math.PI/180;S.raw.circles.push({x:0,y:0,r:c.h/2,_p:[c.x+c.d/2*Math.cos(a),c.y+c.d/2*Math.sin(a)]});}
    // bolt-circle coordinates are in program coords: convert back to raw coords
-   const b=C.geomBox(S.raw);let dx,dy;if(S.zero==='ll'){dx=-b[0];dy=-b[1];}else if(S.zero==='tl'){dx=-b[0];dy=-b[3];}else if(S.zero==='lr'){dx=-b[2];dy=-b[1];}else{dx=-(b[0]+b[2])/2;dy=-(b[1]+b[3])/2;}
+   const b=C.geomBox(S.raw);let[dx,dy]=zeroOff(b);
    S.raw.circles.forEach(q=>{if(q._p){q.x=q._p[0]-dx;q.y=q._p[1]-dy;delete q._p;}});applyZero();autoProgram();buildProgram();toast(t('imported'));break;}
   case'print':try{window.print();}catch(_){toast(t('printFail'));}setTimeout(()=>toast(t('printFail')),400);break;
  }
@@ -1413,7 +1417,7 @@ function wireGcode(J){const L=[],ln=s=>L.push(s),vi=LANG==='vi';ln('%');ln('O100
 /* ---------- shared UI for grind / wire ---------- */
 function mtField(k,lab,v,unit){return`<label class="f">${lab}<input inputmode="decimal" data-mtb="${k}" value="${esc(v)}">${unit?`<span class="sub" style="font-size:12px">${unit}</span>`:''}</label>`;}
 function mtChecks(ch){return`<div class="scroll"><table><tbody>${ch.map(x=>`<tr><td>${x.c?'✅':'⚠️'}</td><td><b>${esc(x.n)}</b></td><td>${esc(x.d)}</td></tr>`).join('')}</tbody></table></div>`;}
-function mtCode(code){code=gAscii(code);MTCODE=code;return`<div class="card" style="--cc:#ff6a13"><h2>${t('gcode')}</h2><div class="row" style="margin-bottom:10px"><button class="btn go" data-mt="save">${IC.save}${t('saveFile')}</button><button class="btn" data-mt="copy">${IC.copy}${t('copy')}</button></div><pre class="code">${hlG(code)}</pre></div>`;}
+function mtCode(code){code=gAscii(code).toUpperCase();MTCODE=code;return`<div class="card" style="--cc:#ff6a13"><h2>${t('gcode')}</h2><div class="row" style="margin-bottom:10px"><button class="btn go" data-mt="save">${IC.save}${t('saveFile')}</button><button class="btn" data-mt="copy">${IC.copy}${t('copy')}</button></div><pre class="code">${hlG(code)}</pre></div>`;}
 let MTCODE='';
 const gAscii=s=>String(s).replace(/Ø/g,'D').replace(/[αΑ]/g,'A').replace(/×/g,'X').replace(/[–—]/g,'-').replace(/°/g,' DEG').replace(/µ/g,'U').replace(/±/g,'+/-').replace(/đ/g,'d').replace(/Đ/g,'D').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x09\x0a\x0d\x20-\x7e]/g,'');
 function rGrind(){const M=mach(),vi=LANG==='vi';const cyl=M.type==='cylgrind';const J=cyl?cylBuild():grindBuild();
@@ -1510,7 +1514,7 @@ function buildSide(face){const vi=LANG==='vi',sc=S.meshInfo.sc,xf=SIDE_XF[face],
   prog.push(...r.moves);pos=r.end;});
  const k=K(),scl=bb=>{if(bb.t==='cycle')return{...bb,pts:bb.pts.map(p=>[p[0]*k,p[1]*k]),z:bb.z*k,r:bb.r*k,q:bb.q*k,f:bb.f*k,clear:bb.clear*k};if(bb.t==='g43')return{...bb,x:bb.x*k,y:bb.y*k};if(bb.g!==undefined){const o={...bb,x:bb.x*k,y:bb.y*k,z:bb.z*k};if(bb.f&&!bb.inv)o.f=bb.f*k;if(bb.g>1){o.i=bb.i*k;o.j=bb.j*k;}return o;}return bb;};
  const wcs='G'+(55+['+X','-X','+Y','-Y','-Z'].indexOf(face));
- let code=(S.post==='siemens'?C.postSiemens:C.post)(prog.map(scl),{arcfit:SETS().arcfit!==false,units:S.units,clear:SETS().safeZ*k,post:S.post,name:(S.hdr.name||'PART')+' '+face,progNo:1002+['+X','-X','+Y','-Y','-Z'].indexOf(face),coolant:SETS().coolant,lineNums:S.lineNums,toolStop:S.toolStop,
+ let code=(S.post==='siemens'?C.postSiemens:C.post)(prog.map(scl),{arcfit:SETS().arcfit!==false,units:S.units,clear:SETS().safeZ*k,post:S.post,name:(S.hdr.name||'PART')+' '+face,progNo:1002+['+X','-X','+Y','-Y','-Z'].indexOf(face),coolant:SETS().coolant,lineNums:S.lineNums,toolStop:S.toolStop,stopCode:S.stopCode||'M00',
   header:['MINI CAM BY RYAN NGUYEN - SIDE SETUP '+face,'STAND THE PART WITH THE '+face+' FACE UP (OR INDEX THE ROTARY)','X0 Y0 LOWER LEFT OF THE FACE AS SEEN FROM ABOVE - Z0 HIGHEST POINT OF THIS FACE','USE WORK OFFSET '+wcs+' FOR THIS SETUP']});
  if(S.post!=='siemens')code=code.replace(/\bG54\b/g,wcs);code=gAscii(code);
  const segs=C.simSegs(prog,1),tc=prog.filter(x=>x.t==='tool').length,time=C.cycleTime(segs,mc.rapid,tc,SETS().tcSec);
@@ -1733,7 +1737,7 @@ function rSettings(){const st=SETS();const seg=(key,opts)=>`<div class="seg">${o
  <div class="card"><h2>${t('machDefs')}</h2><div class="fields">${inp('safeZ',fl(st.safeZ),'data-sb="safeZ" data-u="L"')}${inp('retractZ',fl(st.retract),'data-sb="retract" data-u="L"')}${inp('tcSec',st.tcSec,'data-sb="tcSec" data-u="N"')}
   <label class="f">${t('post')}<select id="postSel2">${[['prototrak','ProtoTRAK'],['haas','Haas'],['fanuc','Fanuc'],['siemens','Siemens 840D']].map(([v,l])=>`<option value="${v}" ${S.post===v?'selected':''}>${l}</option>`).join('')}</select></label>
   <label class="f">${t('fileType')}<select id="extSel">${['gcd','cam','nc','ncc','tap','mpf','txt'].map(x=>`<option ${(S.ext||'gcd')===x?'selected':''}>${x}</option>`).join('')}</select></label></div>
-  <div class="row" style="margin-top:8px">${sw('arcfit','arcfitL')}${sw('coolant','coolant')}<label class="row" style="gap:10px;font-weight:600;min-height:48px"><span class="sw"><input type="checkbox" id="tsChk" ${S.toolStop?'checked':''}><i></i></span>M00</label><label class="row" style="gap:10px;font-weight:600;min-height:48px"><span class="sw"><input type="checkbox" id="lnChk" ${S.lineNums?'checked':''}><i></i></span>N#</label></div>
+  <div class="row" style="margin-top:8px">${sw('arcfit','arcfitL')}${sw('coolant','coolant')}<label class="chip">${LANG==='vi'?'Dừng khi thay dao':'Stop at tool change'} <select id="tsSel"><option value="" ${!S.toolStop?'selected':''}>${LANG==='vi'?'Không':'None'}</option><option value="M00" ${S.toolStop&&(S.stopCode||'M00')==='M00'?'selected':''}>M00</option><option value="M01" ${S.toolStop&&S.stopCode==='M01'?'selected':''}>M01</option></select></label><label class="row" style="gap:10px;font-weight:600;min-height:48px"><span class="sw"><input type="checkbox" id="lnChk" ${S.lineNums?'checked':''}><i></i></span>N#</label></div>
   <button class="btn sm" data-tab="program" style="margin-top:6px">${t('defs')} →</button></div>
  <div class="card"><h2>${LANG==='vi'?'Dữ liệu xưởng (app đã học)':'Shop data (learned)'}</h2>${shopSummary()}${sw('useShop','useShopL')}<button class="btn sm" data-act="importJson">${IC.file}${LANG==='vi'?'Nhập thêm bài học (.json)':'Add lessons (.json)'}</button></div>
  <div class="card"><h2>${t('dataT')}</h2><div class="grid" style="gap:10px"><button class="btn go" data-act="projSave">${IC.save}${t('exportProj')}</button><button class="btn" data-act="importJson">${IC.file}${t('importProj')}</button><button class="btn" data-act="resetAll" style="color:var(--bad)">${IC.del}${t('resetAll')}</button></div></div>
@@ -1836,8 +1840,8 @@ function latheBuild(){const L=L0();const prog=[];L.ops.forEach((o,i)=>{if(!o.on)
   const moves=C.genLathe({...o,feed:o.type==='lthread'?o.pitch:f,peckX:o.peckX||0.05},{...L,toolW:tl.width||0.125});prog.push({t:'op',i,name:(i+1)+' '+TX[o.type][0]});
   prog.push({t:'tool',num:tl.num,desc:tl.desc,css:!['ldrill','lthread'].includes(o.type),sfm:o.sfm||fd.sfm,max:fd.max,rpm:Math.round(Math.min(fd.max,(o.sfm||fd.sfm)*3.82/Math.max(0.1,L.stockD)))});prog.push(...moves);});
  L.prog=prog;const mc=mach();L.gcode=C.postLathe(prog,{post:S.post,units:S.units,safeX:L.stockD+1,safeZ:1,name:S.hdr.name||'SHAFT',header:['MINI CAM '+S.hdr.date,'MACHINE '+mc.name,'MATERIAL '+mat().en,'STOCK D'+fl(L.stockD,3)+' X L'+fl(L.len+0.25,3),'Z0 AT FINISHED FACE - X IN DIAMETER']});
- if(mc.live){const lg=liveGcode(L.stockD);if(lg){const ls=L.gcode.split('\n');const re=new RegExp('^(\\(|; )\\d+ '+TX.lpart[0].toUpperCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i');let k=ls.findIndex(x=>re.test(x));if(k<0)k=Math.max(0,ls.length-(S.post==='siemens'?4:5));ls.splice(k,0,lg);L.gcode=ls.join('\n');}}
- const segs=[];let p=[L.stockD+1,1];let tn=0;for(const b of prog){if(b.t==='tool'){tn=b.num;continue;}if(b.t==='op'){segs.push({op:b.i});continue;}if(b.g===undefined)continue;segs.push({a:p,b:[b.x,b.z],g:b.g,f:b.f||0.01,tn});p=[b.x,b.z];}L.segs=segs.filter(s=>s.a);
+ if(mc.live){const lg=liveGcode(L.stockD);if(lg){const ls=L.gcode.split('\n');const re=new RegExp('^(\\(|; )\\d+ '+TX.lpart[0].toUpperCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i');let k=ls.findIndex(x=>re.test(x));if(k<0)k=Math.max(0,ls.length-(S.post==='siemens'?4:5));ls.splice(k,0,lg);L.gcode=ls.join('\n').toUpperCase();}}
+ L.gcode=gAscii(L.gcode);const segs=[];let p=[L.stockD+1,1];let tn=0;for(const b of prog){if(b.t==='tool'){tn=b.num;continue;}if(b.t==='op'){segs.push({op:b.i});continue;}if(b.g===undefined)continue;segs.push({a:p,b:[b.x,b.z],g:b.g,f:b.f||0.01,tn});p=[b.x,b.z];}L.segs=segs.filter(s=>s.a);
  let tsec=0;for(const s of L.segs){const d=Math.hypot((s.b[0]-s.a[0])/2,s.b[1]-s.a[1]);tsec+=s.g===0?d/mc.rapid*60:d/Math.max(0.05,s.f*Math.min(fd0(),mc.rpmMax))*60;}L.time=tsec;return L;}
 function fd0(){return 1500;}
 function lToolSVG(tl,big){const ins=tl.type==='turn'||tl.type==='bore'?tl.insert||'CNMG':'';const col='#f2c14e',sh='url(#lgS)';let s=`<defs><linearGradient id="lgS" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#b8bfc5"/><stop offset=".5" stop-color="#eef1f3"/><stop offset="1" stop-color="#8d959c"/></linearGradient></defs>`;
@@ -1954,9 +1958,9 @@ function nestProgram(){
  R.placed.forEach((p,k)=>{run(tl,{type:'contour',zBot:-(thick+0.02),leave:0,lead:'arc',tabs:{pts:p.tabs.map(q=>[q.x,q.y]),w:N.tabW,z:tz}},{kind:'profile',loop:p.outer},'5 CONTOUR+TABS '+p.T.name+' '+(k+1));});
  prog.push({t:'op',i:-1,name:'6 MEASURE PARTS ON MACHINE (M00)'});
  const k_=K(),scale=b=>{if(b.t==='cycle')return{...b,pts:b.pts.map(p=>[p[0]*k_,p[1]*k_]),z:b.z*k_,r:b.r*k_,q:b.q*k_,f:b.f*k_,clear:b.clear*k_};if(b.t==='g43')return{...b,x:b.x*k_,y:b.y*k_};if(b.g!==undefined){const o={...b,x:b.x*k_,y:b.y*k_,z:b.z*k_};if(b.f&&!b.inv)o.f=b.f*k_;if(b.g>1){o.i=b.i*k_;o.j=b.j*k_;}return o;}return b;};
- const g=(S.post==='siemens'?C.postSiemens:C.post)(prog.map(scale),{arcfit:SETS().arcfit!==false,units:S.units,clear:k_,post:S.post,name:(S.hdr.name||'NEST')+' NEST',progNo:2001,coolant:true,lineNums:S.lineNums,toolStop:S.toolStop,
+ const g=(S.post==='siemens'?C.postSiemens:C.post)(prog.map(scale),{arcfit:SETS().arcfit!==false,units:S.units,clear:k_,post:S.post,name:(S.hdr.name||'NEST')+' NEST',progNo:2001,coolant:true,lineNums:S.lineNums,toolStop:S.toolStop,stopCode:S.stopCode||'M00',
   header:['MINI CAM NEST '+S.hdr.date,'MACHINE '+mc.name,'MATERIAL '+m.en,'SHEET '+fl(N.w,3)+' X '+fl(N.h,3)+' X '+fl(N.sheetT,3),'X0 Y0 LOWER LEFT OF SHEET - Z0 TOP OF FINISHED PART',(N.hold==='screw'?'SCREW SHEET TO SUBPLATE AFTER OP 1':'VACUUM HOLD'),'TABS '+fl(N.tabW,3)+' W X '+fl(N.tabT,3)+' T']});
- const segs=C.simSegs(prog,1);R.time=C.cycleTime(segs,mc.rapid,prog.filter(b=>b.t==='tool').length,S.toolStop?60:30);R.prog=prog;return g;}
+ const segs=C.simSegs(prog,1);R.time=C.cycleTime(segs,mc.rapid,prog.filter(b=>b.t==='tool').length,S.toolStop?60:30);R.prog=prog;return gAscii(g);}
 function nestSVG(){
  const N=S.nest,R=NESTR;const pad=0.6,W=N.w+2*pad,H=N.h+2*pad;const sw=W/500;const P=l=>l.map((q,i)=>(i?'L':'M')+q[0].toFixed(3)+' '+(-q[1]).toFixed(3)).join('')+'Z';
  const cols=['#2457d6','#8b4fd6','#1c9b5f','#e0457b','#0a9bb0','#c48a00'];

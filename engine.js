@@ -855,7 +855,7 @@ function post(prog,cfg){
     if(blk.t==='dwoOff'){if(cfg.post==='haas')line('G255');continue;}
     if(blk.t==='tool'){const t=blk.tool;
       if(!first){if(inv){line('G94');inv=false;}if(tcpc){line('G49');tcpc=false;}line('G00 Z'+fmt(cfg.clear));line('M09');line('M05');if(cfg.post!=='prototrak'){line('G91 G28 Z0.');line('G90');}}
-      if(cfg.toolStop&&!first)line('M00 '+cm('LOAD T'+t.num+' '+t.desc));
+      if(cfg.toolStop&&!first)line((cfg.stopCode||'M00')+' '+cm('LOAD T'+t.num+' '+t.desc));
       line(cm('T'+t.num+' '+t.desc));line('T'+t.num+' M06');first=false;mg=-1;mf=-1;cx=cy=cz=null;continue;}
     if(blk.t==='spin'){line('S'+Math.round(blk.s)+' M03');if(blk.first&&cfg.post!=='prototrak')line('G54');continue;}
     if(blk.t==='g43'){line('G00 G90 X'+fmt(blk.x)+' Y'+fmt(blk.y));line('G43 H'+blk.h+' Z'+fmt(cfg.clear));if(cfg.coolant)line('M08');cx=blk.x;cy=blk.y;cz=cfg.clear;mg=0;continue;}
@@ -870,7 +870,7 @@ function post(prog,cfg){
       s=s.trim();if(s&&s!=='G00'&&s!=='G01')line(s);cx=blk.x;cy=blk.y;cz=blk.z;}
   }
   if(inv)line('G94');if(tcpc)line('G49');line('G00 Z'+fmt(cfg.clear));line('M09');line('M05');if(cfg.post!=='prototrak'){line('G91 G28 Z0.');line('G90');}line('M30');line('%');
-  return out.join('\n');
+  return out.join('\n').toUpperCase();
 }
 /* expand program into straight segments for simulation: [x0,y0,z0,x1,y1,z1,kind(0 rapid/1 feed),toolIdx,feed] */
 function simSegs(prog,clear){
@@ -906,7 +906,7 @@ function postSiemens(prog,cfg){
   let mg=-1,mf=-1,first=true,cx=null,cy=null,cz=null,ca=null,cb=null,cc=null,inv=false,tra=false;
   for(const b of prog){
     if(b.t==='op'){line(cm(b.name));continue;}
-    if(b.t==='tool'){if(!first){if(tra){line('TRAFOOF');tra=false;}line('G0 Z'+fmt(cfg.clear)+' M9');line('M5');line('G0 SUPA Z0 D0');}if(cfg.toolStop&&!first)line('M0 '+cm('LOAD T'+b.tool.num));line(cm('T'+b.tool.num+' '+b.tool.desc));line('T'+b.tool.num);line('M6');line('D1');first=false;mg=-1;mf=-1;cx=cy=cz=null;continue;}
+    if(b.t==='tool'){if(!first){if(tra){line('TRAFOOF');tra=false;}line('G0 Z'+fmt(cfg.clear)+' M9');line('M5');line('G0 SUPA Z0 D0');}if(cfg.toolStop&&!first)line((cfg.stopCode==='M01'?'M1':'M0')+' '+cm('LOAD T'+b.tool.num));line(cm('T'+b.tool.num+' '+b.tool.desc));line('T'+b.tool.num);line('M6');line('D1');first=false;mg=-1;mf=-1;cx=cy=cz=null;continue;}
     if(b.t==='spin'){line('S'+Math.round(b.s)+' M3');continue;}
     if(b.t==='g43'){line('G0 X'+fmt(b.x)+' Y'+fmt(b.y));line('G0 Z'+fmt(cfg.clear)+(cfg.coolant?' M8':''));cx=b.x;cy=b.y;cz=cfg.clear;mg=0;continue;}
     if(b.t==='index'){if(b.b!=null||b.c!=null){line('CYCLE800(1,"TC1",200000,57,0,0,0,'+fa(b.a??0)+','+fa(b.b??0)+','+fa(b.c??0)+',0,0,0,1,100,1)');}else if(b.a!=null)line('G0 A'+fa(b.a));if(b.wcs)line(b.wcs);mg=-1;continue;}
@@ -923,7 +923,7 @@ function postSiemens(prog,cfg){
       if(b.a!=null&&b.a!==ca){s+='A'+fa(b.a)+' ';ca=b.a;}if(b.b!=null&&b.b!==cb){s+='B'+fa(b.b)+' ';cb=b.b;}if(b.c!=null&&b.c!==cc){s+='C'+fa(b.c)+' ';cc=b.c;}
       if(b.inv&&!inv){s='G93 '+s;inv=true;mf=-1;}else if(!b.inv&&inv&&b.g>0){s='G94 '+s;inv=false;mf=-1;}
       if(b.g>0&&(b.f!==mf||inv)){s+='F'+(inv?(+b.f).toFixed(3):ff(b.f));mf=b.f;}s=s.trim();if(s&&s!=='G0'&&s!=='G1')line(s);cx=b.x;cy=b.y;cz=b.z;}}
-  if(inv)line('G94');if(tra)line('TRAFOOF');line('G0 Z'+fmt(cfg.clear)+' M9');line('M5');line('M30');return out.join('\n');}
+  if(inv)line('G94');if(tra)line('TRAFOOF');line('G0 Z'+fmt(cfg.clear)+' M9');line('M5');line('M30');return out.join('\n').toUpperCase();}
 /* ---------- LATHE: profile (z,r) -> turning ops; X in diameter ---------- */
 function latheProfileFromGeom(g){
   let src=null;if(g.opens.length)src=g.opens.reduce((a,b)=>perim(b)>perim(a)?b:a);if(g.loops.length){const L=g.loops.reduce((a,b)=>Math.abs(area(b))>Math.abs(area(a))?b:a);if(!src||Math.abs(area(L))>0)src=L.concat([L[0]]);}
@@ -960,7 +960,7 @@ function postLathe(prog,cfg){const sie=cfg.post==='siemens',mm=cfg.units==='mm',
     if(b.t==='comp'){out.push(b.on?(b.on===42?'G42':'G41'):'G40');continue;}
     if(b.g===33){out.push((sie?'G33':'G32')+' X'+fmt(b.x)+' Z'+fmt(b.z)+' '+(sie?'K':'F')+fr(b.f));mg=33;continue;}
     let s='';if(b.g!==mg){s+=(sie?['G0','G1'][b.g]:['G00','G01'][b.g])+' ';mg=b.g;}s+='X'+fmt(b.x)+' Z'+fmt(b.z);if(b.g===1)s+=' F'+fr(b.f);out.push(s);}
-  out.push(sie?'G0 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ):'G00 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ));out.push(sie?'M9':'M09');out.push(sie?'M5':'M05');out.push('M30');if(!sie)out.push('%');return out.join('\n');}
+  out.push(sie?'G0 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ):'G00 X'+fmt(cfg.safeX)+' Z'+fmt(cfg.safeZ));out.push(sie?'M9':'M09');out.push(sie?'M5':'M05');out.push('M30');if(!sie)out.push('%');return out.join('\n').toUpperCase();}
 
 const API={feedOpt,meshHoles,decideAxes,textStrokes,textWidth,mprops,drillCycle,deflection,tabCheck,opLoads,sideForce,fixtureHold,arcFit,MPROPS,latheProfileFromGeom,rProf,genLathe,postLathe,postSiemens,simSegs4,meshCylMap,meshHeightmap,ROTARIES,parseSTL,meshLevels,parseSTEP,levelsTo25D,area,pip,bbox,perim,dist,parseDXF,buildGeom,scaleGeom,geomBox,classify,makeField,iso,layers,feeds,genOp,post,simSegs,cycleTime,circlePts,MATERIALS,MACHINES,TAPS,arcPts};
 if(typeof module!=='undefined'&&module.exports)module.exports=API;else root.CAM=API;
