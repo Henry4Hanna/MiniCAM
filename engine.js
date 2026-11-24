@@ -535,16 +535,38 @@ function genContour(op,ctx,mb,W,L,zList){
     let li=0,ll=-1;for(let i=0;i<lp0.length;i++){const d=dist(lp0[i],lp0[(i+1)%lp0.length]);if(d>ll){ll=d;li=i;}}
     const A=lp0[li],B=lp0[(li+1)%lp0.length],m=[(A[0]+B[0])/2,(A[1]+B[1])/2],dx=(B[0]-A[0])/ll,dy=(B[1]-A[1])/ll;
     const lp=[m].concat(lp0.slice(li+1),lp0.slice(0,li+1));
-    const LR=op.leadR>0?op.leadR:Math.max(0.03,ctx.tool.dia*0.3),mode=op.lead||'arc',nl=[-dy,dx],ck=op.corner==null?0.6:op.corner,r=ctx.tool.dia/2;
-    const ok=p=>fd.signed(p[0],p[1])>=L-1e-4;
-    let kind='none',cc=null,sp=m,ep=m;
-    if(mode==='arc'){cc=[m[0]+nl[0]*LR,m[1]+nl[1]*LR];sp=[cc[0]-dx*LR,cc[1]-dy*LR];ep=[cc[0]+dx*LR,cc[1]+dy*LR];const mid1=[cc[0]-(dx+nl[0])*LR*0.7071,cc[1]-(dy+nl[1])*LR*0.7071],mid2=[cc[0]+(dx-nl[0])*LR*0.7071,cc[1]+(dy-nl[1])*LR*0.7071];if(ok(sp)&&ok(ep)&&ok(mid1)&&ok(mid2))kind='arc';}
-    if(kind==='none'&&mode!=='none'){sp=ep=[m[0]+nl[0]*LR,m[1]+nl[1]*LR];if(ok(sp))kind='line';else{sp=ep=m;}}
+    const r=ctx.tool.dia/2,ck=op.corner==null?0.6:op.corner,ok=p=>fd.signed(p[0],p[1])>=L-1e-4;
+    const segOk=(a,b)=>{for(let i=0;i<=8;i++){const t=i/8;if(!ok([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]))return false;}return true;};
+    const LR0=op.leadR>0?op.leadR:Math.max(0.03,ctx.tool.dia*0.3),LL0=op.leadL>0?op.leadL:LR0;
+    const mIn=op.lead||'arc',mOut=!op.leadOut||op.leadOut==='same'?mIn:op.leadOut;
+    // overlap: walk past the start point along the loop
+    const ov=Math.max(0,op.overlap||0);let ovPts=[],e=m,te=[dx,dy];
+    if(ov>1e-6){let left=ov,cur=m;for(let k=1;k<=lp.length&&left>1e-9;k++){const nx_=lp[k%lp.length],d=dist(cur,nx_);if(d<1e-9){cur=nx_;continue;}const u=[(nx_[0]-cur[0])/d,(nx_[1]-cur[1])/d];if(d>=left){cur=[cur[0]+u[0]*left,cur[1]+u[1]*left];te=u;ovPts.push(cur);left=0;break;}ovPts.push(nx_);te=u;left-=d;cur=nx_;}e=cur;}
+    // build a lead at point q with tangent t; dir=-1 lead-in (path ends at q), +1 lead-out (path starts at q)
+    const mkLead=(mode,q,t,dir)=>{const nl=[-t[1],t[0]];
+      for(const sc of[1,0.6,0.35,0.2]){const R_=LR0*sc,L_=LL0*sc;
+        if(mode==='arc'||mode==='linearc'){const cc=[q[0]+nl[0]*R_,q[1]+nl[1]*R_],far=[cc[0]+dir*t[0]*R_,cc[1]+dir*t[1]*R_],mid=[cc[0]+(dir*t[0]-nl[0])*R_*0.7071,cc[1]+(dir*t[1]-nl[1])*R_*0.7071];
+          if(ok(far)&&ok(mid)&&ok(cc)){if(mode==='arc')return{k:'arc',far,cc,R:R_};const lf=[far[0]+nl[0]*L_,far[1]+nl[1]*L_];if(segOk(far,lf))return{k:'linearc',far,cc,lf,R:R_};}}
+        if(mode==='tline'){const lf=[q[0]+dir*t[0]*L_,q[1]+dir*t[1]*L_];if(segOk(q,lf)&&ok(lf))return{k:'line',lf};}
+        if(mode==='line'||((mode==='arc'||mode==='linearc')&&sc===0.2)){const lf=[q[0]+nl[0]*L_,q[1]+nl[1]*L_];if(segOk(q,lf))return{k:'line',lf};}}
+      return{k:'none'};};
+    const LI=mIn==='none'?{k:'none'}:mkLead(mIn,m,[dx,dy],-1),LO=mOut==='none'?{k:'none'}:mkLead(mOut,e,te,1);
+    const sp=LI.k==='linearc'?LI.lf:LI.k==='arc'?LI.far:LI.k==='line'?LI.lf:m,ep=LO.k==='linearc'?LO.lf:LO.k==='arc'?LO.far:LO.k==='line'?LO.lf:e;
+    const ramp=op.leadEntry==='ramp'&&LI.k!=='none';
+    if((mIn!=='none'&&LI.k==='none')||(mOut!=='none'&&LO.k==='none'))W.push('leadNone');
     mb.retract(ctx.clear);mb.rapid(sp[0],sp[1]);mb.rapid(null,null,R);
+    const tb=op.tabs&&op.tabs.pts&&op.tabs.pts.length?op.tabs:null;let zPrev=op.zTop,here=sp;
     for(const z of zList){
-      const tb=op.tabs&&op.tabs.pts&&op.tabs.pts.length?op.tabs:null;
-      if(kind==='arc'){mb.feed(sp[0],sp[1],z,op.plunge);mb.arc(3,m[0],m[1],z,cc[0],cc[1],op.feed);cutLoopFrom(mb,lp,0,z,op.feed,r,ck,tb);mb.arc(3,ep[0],ep[1],z,cc[0],cc[1],op.feed);if(zList.length>1){mb.feed(sp[0],sp[1],z,op.feed);}}
-      else{mb.feed(sp[0],sp[1],z,op.plunge);mb.feed(m[0],m[1],z,op.feed);cutLoopFrom(mb,lp,0,z,op.feed,r,ck,tb);mb.feed(ep[0],ep[1],z,op.feed);}}
+      if(dist(here,sp)>1e-6){if(segOk(here,sp))mb.feed(sp[0],sp[1],mb.p[2],op.feed);else{mb.retract(R);mb.rapid(sp[0],sp[1]);}}
+      const zs=ramp?Math.max(z,zPrev):z;mb.feed(sp[0],sp[1],zs,op.plunge);
+      if(LI.k==='linearc'){mb.feed(LI.far[0],LI.far[1],z,ramp?op.plunge:op.feed);mb.arc(3,m[0],m[1],z,LI.cc[0],LI.cc[1],op.feed);}
+      else if(LI.k==='arc'){mb.arc(3,m[0],m[1],z,LI.cc[0],LI.cc[1],ramp?op.plunge:op.feed);}
+      else if(LI.k==='line'){mb.feed(m[0],m[1],z,ramp?op.plunge:op.feed);}
+      cutLoopFrom(mb,lp,0,z,op.feed,r,ck,tb);for(const q of ovPts)mb.feed(q[0],q[1],z,op.feed);
+      if(LO.k==='arc'||LO.k==='linearc'){mb.arc(3,LO.far[0],LO.far[1],z,LO.cc[0],LO.cc[1],op.feed);if(LO.k==='linearc')mb.feed(LO.lf[0],LO.lf[1],z,op.feed);}
+      else if(LO.k==='line')mb.feed(LO.lf[0],LO.lf[1],z,op.feed);
+      here=ep;zPrev=z;
+      if(LO.k==='none'||LI.k==='none'){mb.retract(R);here=null;mb.rapid(sp[0],sp[1]);here=sp;}}
     mb.retract(R);
   }
   mb.retract(ctx.clear);

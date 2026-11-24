@@ -84,7 +84,7 @@ const TX={
  meshNote:['3D model: Z up, machined from the top in one setup. Pocket and hole depths come from the model.','Mô hình 3D: trục Z hướng lên, gia công từ mặt trên trong 1 lần gá. Độ sâu hốc và lỗ lấy từ mô hình.'],
  ignoredFaces:['lower faces outside pockets were ignored (side steps need a 2nd setup or manual ops)','mặt bậc ngoài hốc bị bỏ qua (bậc cạnh cần gá lần 2 hoặc thêm nguyên công tay)'],
  entry:['Entry','Cách vào dao'],helix:['Helical','Xoắn ốc'],rampE:['Ramp','Xuống dốc'],plungeE:['Plunge','Cắm thẳng'],
- lead:['Lead in/out','Vào/ra dao'],leadArc:['Arc','Cung tròn'],leadLine:['Line','Đường thẳng'],leadNone:['None','Không'],leadR:['Lead radius','Bán kính vào dao'],
+ lead:['Lead in','Vào dao'],leadOut:['Lead out','Ra dao'],leadArc:['Arc','Cung tròn'],leadLA:['Line + arc','Thẳng + cung'],leadT:['Tangent line','Thẳng tiếp tuyến'],leadLine:['Perpendicular line','Thẳng vuông góc'],leadNone:['None (on the line)','Không (cắt ngay trên đường)'],leadSame:['Same as lead in','Giống vào dao'],leadR:['Lead radius','Bán kính vào/ra'],leadL:['Lead line length','Dài đoạn thẳng'],overlap:['Overlap past start','Chồng lấn qua điểm đầu'],entryK:['Go down','Cách xuống dao'],entPl:['Plunge (straight down)','Cắm thẳng'],entRp:['Ramp along the lead','Ramp theo đường vào'],warnLead:['no room for a lead — tool goes straight down on the line (may leave a mark)','không đủ chỗ vào/ra dao — dao xuống thẳng trên đường (có thể để vết)'],
  corner:['Corner feed %','Feed ở góc %'],passes:['passes','lớp'],through:['through','xuyên'],
  saveFile:['Save file','Lưu file'],saveHtml:['Save HTML','Lưu HTML'],fileType:['File type','Loại file'],
  gcdHint:['.gcd runs G-code directly. .cam makes the ProtoTRAK convert it into conversational events, which you can then save on the control as .pt4 (SMX/KMX) or .pt10 (RMX). G-code on ProtoTRAK may need the Converters option.','.gcd chạy G-code trực tiếp. .cam để ProtoTRAK tự đổi sang chương trình hội thoại (conversational), rồi lưu trên máy thành .pt4 (SMX/KMX) hoặc .pt10 (RMX). Chạy G-code trên ProtoTRAK có thể cần mở khoá tuỳ chọn Converters.'],
@@ -401,6 +401,16 @@ function applyFeeds(o){const tl=toolById(o.tool);if(!tl)return;let kind=KIND[o.t
  if(o.type==='drill'&&(!o.cycle||o.cycAuto)&&r.cycle){o.cycle=r.cycle.cycle;o.peck=r.cycle.peck;o.cycAuto=true;}
  o.shop=false;applyShop(o,tl);perfApply(o,tl,r);
 }
+const LEADS=[['arc','leadArc'],['linearc','leadLA'],['tline','leadT'],['line','leadLine'],['none','leadNone']];
+function leadSVG(li,lo){const y=50,x=75,R=22;const g=(m,io)=>{if(m==='none')return'';const s=io;
+  if(m==='arc')return io<0?`M${x-R} ${y-R} A${R} ${R} 0 0 0 ${x} ${y}`:`M${x} ${y} A${R} ${R} 0 0 0 ${x+R} ${y-R}`;
+  if(m==='linearc')return io<0?`M${x-R} ${y-R-22} L${x-R} ${y-R} A${R} ${R} 0 0 0 ${x} ${y}`:`M${x} ${y} A${R} ${R} 0 0 0 ${x+R} ${y-R} L${x+R} ${y-R-22}`;
+  if(m==='tline')return io<0?`M${x-45} ${y-3} L${x} ${y-3}`:`M${x} ${y-3} L${x+45} ${y-3}`;return`M${x+s*3} ${y} L${x+s*3} ${y-34}`;};
+ return`<svg viewBox="0 0 150 80" width="170" height="90" style="display:block;margin:6px 0"><rect x="8" y="${y}" width="134" height="24" rx="3" fill="#8a96a3" opacity=".35"/><path d="M8 ${y}H142" stroke="#2457d6" stroke-width="3"/><path d="${g(li,-1)}" fill="none" stroke="#1c9b5f" stroke-width="3" stroke-linecap="round"/><path d="${g(lo,1)}" fill="none" stroke="#e0457b" stroke-width="3" stroke-dasharray="5 4" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r="4" fill="#ff6a13"/><text x="8" y="10" font-size="10" font-weight="700" fill="#1c9b5f">${LANG==='vi'?'— vào':'— in'}</text><text x="104" y="10" font-size="10" font-weight="700" fill="#e0457b">${LANG==='vi'?'- - ra':'- - out'}</text><text x="12" y="${y+16}" font-size="9" fill="currentColor" opacity=".7">${LANG==='vi'?'chi tiết':'part'}</text></svg>`;}
+function leadUI(o,tl,lenF){const li=o.lead||'arc',lo=!o.leadOut||o.leadOut==='same'?li:o.leadOut,sel=(k,v,opts)=>`<label class="f">${t(k)}<select data-op="${o.id}" data-k="${k}" data-u="S">${opts.map(([a,b])=>`<option value="${a}" ${v===a?'selected':''}>${t(b)}</option>`).join('')}</select></label>`;const d=tl?tl.dia:0.25;
+ return sel('lead',li,LEADS)+sel('leadOut',o.leadOut||'same',[['same','leadSame'],...LEADS])+`<label class="f">${t('entryK')}<select data-op="${o.id}" data-k="leadEntry" data-u="S"><option value="plunge" ${o.leadEntry!=='ramp'?'selected':''}>${t('entPl')}</option><option value="ramp" ${o.leadEntry==='ramp'?'selected':''}>${t('entRp')}</option></select></label>`
+  +lenF('leadR',o.leadR||Math.max(0.03,d*0.3))+lenF('leadL',o.leadL||o.leadR||Math.max(0.03,d*0.3))+lenF('overlap',o.overlap||0)
+  +`<div style="grid-column:1/-1">${leadSVG(li,lo)}<div class="sub" style="font-size:12.5px">${LANG==='vi'?'Tự động: nếu không đủ chỗ, app thu nhỏ bán kính (100% → 60% → 35% → 20%), rồi đổi sang đường thẳng.':'Auto: if there is no room the app shrinks the radius (100% → 60% → 35% → 20%), then falls back to a line.'}</div></div>`;}
 function newOp(type,feat,tool,extra){const o=Object.assign({id:nid('o'),type,feat,tool,on:true,auto:true,zTop:0,zBot:-0.25,doc:0.25,woc:0.05,leave:0,ramp:2,peck:0,chamfer:0.02,width:0,entry:'helix',lead:'arc',corner:0.6,cycle:'',dwell:0.2,rings:1,a:null,b:null,c:null,wcs:'',wrapD:1,d0:1,d1:0.75,x0:0,x1:1,tilt:5},extra||{});if(o.auto)applyFeeds(o);return o;}
 function findTool(pred,sort){const c=S.tools.filter(pred);if(!c.length)return null;c.sort(sort||((a,b)=>b.dia-a.dia));return c[0];}
 function ensureTool(spec){let tl=S.tools.find(x=>x.type===spec.type&&Math.abs(x.dia-spec.dia)<0.0015&&(!spec.pitch||Math.abs((x.pitch||0)-spec.pitch)<1e-4));if(tl)return tl;
@@ -454,7 +464,7 @@ function buildProgram(){
   if(!opOK(o)){WARN.push('#'+(i+1)+' '+opLabel(o.type)+': '+(o.type.startsWith('surf')?t('needMesh'):t('warnFeature')));return;}
   const need=FIVE.includes(o.type)?5:ROT.includes(o.type)||o.a!=null?4:(o.b!=null||o.c!=null)?5:3;if(need>ax)WARN.push('#'+(i+1)+' '+opLabel(o.type)+': '+t('needAxes').replace('{n}',need)+' ('+mc.name+')');
   const ctx={tool:tl,feat:featById(o.feat)||{kind:'none'},stockRect:sr,clear:SETS().safeZ,retract:SETS().retract,tol:0.0002,pos,hm:(o.type.startsWith('surf')||o.type==='flow5')?getHM():null,cyl:o.type==='rotFinish'?getCyl():null};
-  const r=C.genOp(o,ctx);r.warn.forEach(w=>WARN.push('#'+(i+1)+' '+opLabel(o.type)+': '+(w==='tooBig'?t('warnTooBig'):w==='nothing'?t('warnNothing'):w==='feature'?t('warnFeature'):w==='mesh'?t('needMesh'):w)));
+  const r=C.genOp(o,ctx);r.warn.forEach(w=>WARN.push('#'+(i+1)+' '+opLabel(o.type)+': '+(w==='tooBig'?t('warnTooBig'):w==='nothing'?t('warnNothing'):w==='feature'?t('warnFeature'):w==='mesh'?t('needMesh'):w==='leadNone'?t('warnLead'):w)));
   if(!r.moves.length)return;
   const idx=o.a!=null||o.b!=null||o.c!=null||o.wcs;
   const FIN=(o.type==='contour'&&!(o.leave>0))||['surfFinish'].includes(o.type);prog.push({meta:{i,label:(i+1)+' '+opLabel(o.type,o),dia:tl.dia,tune:['adaptive','pocket','contour','slot','circ','rest'].includes(o.type),finish:FIN,r0:['adaptive','pocket','rest'].includes(o.type)?Math.min(0.5,(o.woc||tl.dia*0.4)/tl.dia):0.5,noStamp:['tap','engrave','chamfer','radius','spot'].includes(o.type)||o.a!=null||o.b!=null||o.c!=null},t:'op',i,multi:ROT.includes(o.type)?'rot':(o.a||o.b||o.c)?'idx':false,name:(i+1)+' '+(TX[{face:'face_',pocket:'pocket_',slot:'slot_'}[o.type]||o.type]||[o.type])[0]+' '+(featById(o.feat)?featLabelEN(featById(o.feat)):'')});
@@ -566,7 +576,7 @@ function renderOps(){
    ${axesAvail()>=5&&!MULTI.includes(o.type)?inp('bAng',o.b??'',`data-op="${o.id}" data-k="b" data-u="N" placeholder="—"`)+inp('cAng',o.c??'',`data-op="${o.id}" data-k="c" data-u="N" placeholder="—"`):''}
    ${axesAvail()>=4?`<label class="f">${t('wcs')}<select data-op="${o.id}" data-k="wcs" data-u="S">${['','G54','G55','G56','G57','G58','G59'].map(w=>`<option ${(o.wcs||'')===w?'selected':''} value="${w}">${w||'—'}</option>`).join('')}</select></label>`:''}
    ${['adaptive','pocket'].includes(o.type)?`<label class="f">${t('entry')}<select data-op="${o.id}" data-k="entry" data-u="S">${[['helix','helix'],['ramp','rampE'],['plunge','plungeE']].map(([v,k])=>`<option value="${v}" ${(o.entry||'ramp')===v?'selected':''}>${t(k)}</option>`).join('')}</select></label>`:''}
-   ${['contour','chamfer','radius'].includes(o.type)?`<label class="f">${t('lead')}<select data-op="${o.id}" data-k="lead" data-u="S">${[['arc','leadArc'],['line','leadLine'],['none','leadNone']].map(([v,k])=>`<option value="${v}" ${(o.lead||'arc')===v?'selected':''}>${t(k)}</option>`).join('')}</select></label>${lenF('leadR',o.leadR||tl&&tl.dia*0.3||0.1)}`:''}
+   ${['contour','chamfer','radius'].includes(o.type)?leadUI(o,tl,lenF):''}
    ${['adaptive','pocket','contour'].includes(o.type)?inp('corner',Math.round((o.corner==null?0.6:o.corner)*100),`data-op="${o.id}" data-k="corner" data-u="P"`):''}
    ${['adaptive','pocket','slot','circ'].includes(o.type)?inp('ramp',o.ramp,`data-op="${o.id}" data-k="ramp" data-u="N"`):''}
    ${inp('rpm',o.rpm,`data-op="${o.id}" data-k="rpm" data-u="N"`)}${feedF('feed',o.feed)}${['drill','spot','tap','ream','bore'].includes(o.type)?'':feedF('plunge',o.plunge)}
@@ -2159,4 +2169,5 @@ try{LANG=localStorage.getItem('trakLang')||'vi';}catch(_){}
 const had=restore();
 if(!had||!S.raw){WARN=[];importDXF(demoDXF(),'demo-bracket.dxf','in');}else{applyZero();}
 buildProgram();render();
+if(/debug/.test(location.search))window.__mc={get S(){return S},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();}};
 }
