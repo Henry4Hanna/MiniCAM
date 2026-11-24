@@ -483,7 +483,7 @@ function getCyl(){if(!S.meshT||!S.meshInfo)return null;if(S.cylMap)return S.cylM
  S.cylMap=C.meshCylMap(S.meshT,sc,(y0+y1)/2*sc,(z0+z1)/2*sc,Math.max((x1-x0)*sc/220,0.005),120);return S.cylMap;}
 function buildProgram(){fxAutoApply();
  syncStock();
- WARN=WARN.filter(w=>w.startsWith(t('dxfSkipped'))||w.includes(t('ignoredFaces')));const prog=[];let last=null,first=true,pos=null,lastS=0;const sr=stockRect(),mc=mach(),ax=axesAvail();
+ WARN=WARN.filter(w=>w.startsWith(t('dxfSkipped'))||w.includes(t('ignoredFaces'))||w.startsWith('🤖')||/^(Chi tiết tiện|Turned part)/.test(w));const prog=[];let last=null,first=true,pos=null,lastS=0;const sr=stockRect(),mc=mach(),ax=axesAvail();
  S.ops.forEach((o,i)=>{if(!o.on||opSU(o)!==SU())return;const tl=toolById(o.tool);if(!tl){WARN.push('#'+(i+1)+': '+t('tool')+'?');return;}
   if(!opOK(o)){WARN.push('#'+(i+1)+' '+opLabel(o.type)+': '+(o.type.startsWith('surf')?t('needMesh'):t('warnFeature')));return;}
   const need=FIVE.includes(o.type)?5:ROT.includes(o.type)||o.a!=null?4:(o.b!=null||o.c!=null)?5:3;if(need>ax)WARN.push('#'+(i+1)+' '+opLabel(o.type)+': '+t('needAxes').replace('{n}',need)+' ('+mc.name+')');
@@ -559,7 +559,7 @@ function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylg
    ${axCard()}${sideCard()}
    <div class="card"><h2 style="margin:0">${t('features')}</h2>${S.geom?`<div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-act="stl">${IC.save}${t('exportStl')}</button><button class="btn sm" data-act="step">${IC.save}${LANG==='vi'?'Xuất STEP':'Export STEP'}</button></div>`:''}<p class="sub" style="margin:4px 0 8px;font-size:13px">${VIEW.mode==='3d'?t('fromDrawing'):''}</p><div class="feats">${S.feats.map(f=>`<button class="feat ${(S.excl||[]).includes(f.id)?'off':''}" data-feat="${f.id}"><i class="dot" style="background:${FEATCOL[f.kind]}"></i>${esc(featLabel(f))}${f.tap?' · '+esc(f.tap):''}${f.kind!=='profile'&&f.depth!==undefined?' · '+(f.depth==null?t('through'):'↧'+fl(f.depth,3)):''}</button>`).join('')||'<span class="sub">—</span>'}</div></div>
 
-   <div class="row"><button class="btn pri" data-act="import" style="flex:1 1 220px;min-height:56px;justify-content:flex-start">${IC.file}<span style="display:grid;text-align:left;line-height:1.15">${t('importAny')}<small style="font-weight:500;opacity:.85;font-size:12.5px">${t('fmts')}</small></span></button><button class="btn" data-act="img">${IC.img}${t('refImg')}</button>${S.geom||S.ref?`<button class="btn" data-act="clearPart" style="color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)">${IC.del}${LANG==='vi'?'Xóa bản vẽ':'Remove drawing'}</button>`:''}</div>
+   <div class="row"><button class="btn pri" data-act="import" style="flex:1 1 220px;min-height:56px;justify-content:flex-start">${IC.file}<span style="display:grid;text-align:left;line-height:1.15">${t('importAny')}<small style="font-weight:500;opacity:.85;font-size:12.5px">${t('fmts')}</small></span></button><button class="btn" data-act="img">${IC.img}${t('refImg')}</button>${S.ref&&AIS?`<button class="btn go" data-act="aiRead" ${AIBUSY?'disabled':''}>🤖 ${AIBUSY?(LANG==='vi'?'Đang đọc ảnh…':'Reading…'):(LANG==='vi'?'Đọc ảnh bản vẽ bằng AI':'Read drawing image with AI')}</button>`:''}${S.geom||S.ref?`<button class="btn" data-act="clearPart" style="color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)">${IC.del}${LANG==='vi'?'Xóa bản vẽ':'Remove drawing'}</button>`:''}</div>
    <div class="row" style="gap:6px;align-items:center"><b style="font-size:14px">${LANG==='vi'?'Chi tiết mẫu:':'Demo parts:'}</b>${[['demo','2.5D','#2457d6'],['demo3','3D','#1c9b5f'],['demo4',LANG==='vi'?'Trục 4':'4th axis','#0a9bb0'],['demo5',LANG==='vi'?'5 trục':'5-axis','#8b4fd6']].map(([a,l,c])=>`<button class="btn sm" data-act="${a}" style="border-color:${c};color:${c};font-weight:700">${l}</button>`).join('')}</div>
    <div class="row"><label class="chip">${t('dxfUnits')} <select id="dxfU"><option value="auto">${t('auto')}</option><option value="in">in</option><option value="mm">mm</option></select></label><label class="chip">${t('pdfScale')} 1 : <input id="pdfSc" inputmode="decimal" value="${S.pdfScale||1}" style="width:48px;border:0;background:none;font:inherit;font-size:16px"></label>${PDFDOC?`<button class="btn sm" data-act="pdfPick">PDF · ${LANG==='vi'?'trang':'sheet'} ${(S.pdfPage||0)+1}/${PDFDOC.pages.length}</button>`:''}</div>${S.pdfInfo&&S.src==='pdf'?`<p class="sub" style="margin:6px 0 0;font-size:12.5px">PDF: ${fl(S.pdfInfo.W,3)} × ${fl(S.pdfInfo.H,3)}${S.pdfInfo.thick?' × '+fl(S.pdfInfo.thick,3):''} · ${LANG==='vi'?'tỉ lệ':'scale'} ${esc(S.pdfInfo.how||'')}</p>`:''}
    <p class="sub" style="margin:0;font-size:13.5px">${S.src==='pdf'?t('pdfNote'):S.src==='mesh'?t('meshNote'):t('dwgNote')}${S.dxfName?' · <b>'+esc(S.dxfName)+'</b>':''}</p>
@@ -1306,6 +1306,7 @@ document.addEventListener('click',e=>{
   case'copyG':copyText(GCODE);break;
   case'saveG':postGate();break;
   case'pdfPick':pdfPicker();break;
+  case'aiRead':aiRead();break;
   case'clearPart':{const vi=LANG==='vi';undoNow();Object.assign(S,{raw:{loops:[],circles:[],opens:[]},geom:null,feats:[],ops:[],excl:[],dwg:null,dxfName:'',src:'',ref:null,pdfInfo:null,pdfPage:0,meshT:null,meshInfo:null,meshAx:null,cylMap:null,_hm:null});PDFDOC=null;VIEW.sel=null;WARN=[];buildProgram();render();persist();toast(vi?'Đã xóa bản vẽ — bấm ↶ (Hoàn tác) nếu muốn lấy lại':'Drawing removed — tap ↶ (Undo) to bring it back');break;}
   case'gateForce':{closeSheet&&closeSheet();const ext=S.ext||'gcd',base=(S.hdr.name||'PART').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,20)||'PART';const body=GCODE.replace(/\n/g,'\r\n');
    if(S.ops.some(o=>o.on&&opSU(o)==='op2')){const keep=SU(),F=[];for(const su of['op1','op2']){S.setup=su;buildProgram();F.push({name:base+'_'+su.toUpperCase()+'.'+ext,data:new TextEncoder().encode(GCODE.replace(/\n/g,'\r\n'))});}S.setup=keep;buildProgram();saveFile(base+'.zip',makeZip(F),true);toast(LANG==='vi'?'Đã lưu OP1 + OP2 (2 chương trình)':'Saved OP1 + OP2 (2 programs)');break;}
@@ -1354,7 +1355,7 @@ $('#fileNest').addEventListener('change',e=>{const f=e.target.files[0];e.target.
 $('#fileDxf').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';const ext=(f.name.split('.').pop()||'').toLowerCase();const uSel=$('#dxfU')?.value||'auto';WARN=[];
  try{
   if(ext==='dwg'){toast('DWG → DXF');WARN=[t('dwgNote')];}
-  else if(/^image\//.test(f.type)||['jpg','jpeg','png','heic','webp'].includes(ext)){$('#fileImg').files;setRef(f);return;}
+  else if(/^image\//.test(f.type)||['jpg','jpeg','png','heic','webp'].includes(ext)){setRef(f,()=>{if(AIS)aiRead();else toast(LANG==='vi'?'Ảnh đã gắn làm hình tham khảo — đọc tự động bằng AI chỉ có khi mở app trong Claude':'Image kept as reference — AI reading needs the app opened inside Claude');});return;}
   else if(ext==='stl'){toast('STL…');const T=C.parseSTL(await f.arrayBuffer());const M=C.meshLevels(T,1e-3);S.meshT=T;importMesh(M,f.name,uSel,null);}
   else if(ext==='step'||ext==='stp'){toast('STEP…');S.meshT=null;const txt=await f.text();const M=C.parseSTEP(txt,1e-3);if(!M.levels.length)throw new Error('no flat faces found');importMesh(M,f.name,uSel,M.unit);}
   else if(ext==='pdf'){toast('PDF…');S.meshT=null;await importPDF(await f.arrayBuffer(),f.name);if(PDFDOC){S.tab='program';render();persist();return;}}
@@ -1362,7 +1363,45 @@ $('#fileDxf').addEventListener('change',async e=>{const f=e.target.files[0];if(!
   buildProgram();
  }catch(err){WARN.push(f.name+': '+err.message);}
  VIEW.fitted=false;S.tab='program';render();});
-function setRef(f){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),sc=Math.min(1,1400/Math.max(im.width,im.height));c.width=im.width*sc;c.height=im.height*sc;c.getContext('2d').drawImage(im,0,0,c.width,c.height);S.ref=c.toDataURL('image/jpeg',0.85);render();};im.src=r.result;};r.readAsDataURL(f);}
+/* ---------- read a raster drawing (jpg / png / webp / scanned PDF) with Claude ---------- */
+let AIS=null,AIBUSY=false;
+try{if(window.claude&&window.claude.use)window.claude.use('sample').then(x=>{AIS=x;if(x&&S.tab==='program')rProgram();}).catch(()=>{});}catch(e){}
+const AIPROMPT=`You are reading ONE mechanical / machining drawing image for a CAM program. Read every dimension text carefully (use the printed numbers, not pixel measurements). Answer with ONLY a JSON object, no prose, in this shape:
+{"units":"in"|"mm","kind":"mill"|"lathe","material":string|null,"thickness":number|null,
+ "outline":[[x,y],...],
+ "pockets":[{"pts":[[x,y],...],"depth":number,"name":string}],
+ "holes":[{"x":number,"y":number,"dia":number,"depth":number|null,"cbore":{"dia":number,"depth":number}|null,"csk":{"dia":number,"angle":number}|null,"thread":string|null}],
+ "lathe":{"profile":[[z,diameter],...]}|null,
+ "notes":[string],"uncertain":[string]}
+Rules:
+- Mill parts: coordinates of the TOP view, origin at the part's lower-left corner, x to the right, y up, in the drawing's units. outline = closed outer boundary; approximate arcs and fillets with points every 10 degrees.
+- thickness = overall part height (from the side / section view).
+- pockets: closed boundary of each recessed area, depth below the top face. A slot or step that runs out through the part edge must extend 0.25 in (6 mm) past that edge.
+- holes: one entry per hole; depth null means through; thread like "M8x1.25" or "1/4-20" when the drawing calls a thread.
+- Lathe parts (turned, round): kind "lathe", fill lathe.profile from the left end z=0 to the right end, with the OUTER diameter at each change; outline may be [].
+- If something is not dimensioned, estimate it from the proportions and add a short note to "uncertain".`;
+async function aiBlob(){const r=await fetch(S.ref);return await r.blob();}
+async function aiRead(){const vi=LANG==='vi';if(!AIS){toast(vi?'Chỉ có khi mở MINI CAM trong Claude':'Only available inside Claude');return;}if(!S.ref){toast(vi?'Chưa có ảnh bản vẽ':'No drawing image yet');return;}if(AIBUSY)return;
+ AIBUSY=true;rProgram();toast(vi?'Đang đọc ảnh bản vẽ… (10–40 giây)':'Reading the drawing… (10–40 s)');
+ try{const blob=await aiBlob();const res=await AIS(AIPROMPT,{images:[blob],modelTier:'complex',cache:false});let t=(res&&res.text)||'';const m=t.match(/\{[\s\S]*\}/);if(!m)throw new Error(vi?'AI không trả về dữ liệu':'no data from AI');const J=JSON.parse(m[0]);aiApply(J);}
+ catch(e){const code=e&&e.code;WARN.push((vi?'Đọc ảnh bằng AI: ':'AI read: ')+(code==='rate_limited'?(vi?'đang bận, thử lại sau ít phút':'busy, try again in a few minutes'):code==='not_granted'?(vi?'chưa cho phép':'not allowed'):(e.message||e)));if(code==='not_granted')AIS=null;}
+ AIBUSY=false;S.tab='program';render();}
+function aiApply(J){const vi=LANG==='vi',mm=/mm/i.test(J.units||''),k=mm?1/25.4:1;const P=a=>(a||[]).filter(q=>Array.isArray(q)&&q.length>=2&&isFinite(q[0])&&isFinite(q[1])).map(q=>[+q[0],+q[1]]);
+ const loops=[],ld=[],circles=[],opens=[];const out=P(J.outline);if(out.length>=3){loops.push(out);ld.push(undefined);}
+ (J.pockets||[]).forEach(pk=>{const q=P(pk.pts);if(q.length>=3){loops.push(q);ld.push(isFinite(pk.depth)&&pk.depth>0?+pk.depth:undefined);}});
+ const taps=[];(J.holes||[]).forEach(h=>{if(!isFinite(h.x)||!isFinite(h.y)||!(h.dia>0))return;let d=+h.dia;const tp=h.thread?C.TAPS.find(x=>x[0].toLowerCase().replace(/\s/g,'')===String(h.thread).toLowerCase().replace(/\s/g,'').replace('×','x')):null;if(tp){d=tp[3]/k;taps.push(tp[0]);}
+  const c={x:+h.x,y:+h.y,r:d/2};c.depth=h.depth==null||!(h.depth>0)?null:+h.depth;circles.push(c);if(h.cbore&&h.cbore.dia>d)circles.push({x:+h.x,y:+h.y,r:h.cbore.dia/2,depth:+h.cbore.depth||0.1*(1/k)});});
+ if(J.kind==='lathe'&&J.lathe&&Array.isArray(J.lathe.profile)&&J.lathe.profile.length>1){const pr=P(J.lathe.profile).map(q=>[q[0],q[1]/2]);opens.push([[pr[0][0],0]].concat(pr,[[pr[pr.length-1][0],0]]));}
+ if(!loops.length&&!circles.length&&!opens.length)throw new Error(vi?'AI không thấy hình chi tiết':'AI found no part geometry');
+ let g={loops,circles,opens};if(ld.some(x=>x!==undefined))g.ld=ld;g=C.scaleGeom(g,k,0,0);
+ S.raw=g;S.src='ai';S.rawUnits=mm?'mm':'in';S.dwg={texts:(J.notes||[]).concat(J.material?['MATERIAL: '+J.material]:[]).map(x=>({text:String(x),x:0,y:0,h:0.1})),dims:[],title:J.material?{material:J.material}:null};
+ if(J.thickness>0)S.stock.part=+(J.thickness*k).toFixed(4);
+ if(J.material){for(const[re,kk]of MATWORDS)if(re.test(String(J.material).toUpperCase())){S.mat=kk;break;}}
+ finishImport((S.refName||'image')+' (AI)');
+ if(J.kind==='lathe'&&opens.length){L0();S.lathe.src='dxf';WARN.push(vi?'Chi tiết tiện: bấm Tiện để xem chương trình tiện từ biên dạng AI đọc được.':'Turned part: tap Lathe to see the program from the profile.');}
+ WARN.push((vi?'🤖 AI đã đọc ảnh — kiểm tra lại kích thước trước khi chạy máy.':'🤖 Read by AI — check the dimensions before cutting.')+((J.uncertain||[]).length?(vi?' Chưa chắc: ':' Not sure: ')+J.uncertain.join(' · '):''));
+ buildProgram();VIEW.fitted=false;persist();toast((vi?'AI đọc xong: ':'AI read: ')+S.feats.length+' '+t('features').toLowerCase());}
+function setRef(f,then){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),sc=Math.min(1,1600/Math.max(im.width,im.height));c.width=im.width*sc;c.height=im.height*sc;const cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);cx.drawImage(im,0,0,c.width,c.height);S.ref=c.toDataURL('image/jpeg',0.88);S.refName=f.name;render();if(then)then();};im.src=r.result;};r.readAsDataURL(f);}
 function finishImport(name){S.dxfName=name;S.excl=[];const bb=partBounds(S.raw);S.stock.x=+(bb[2]-bb[0]+0.25).toFixed(3);S.stock.y=+(bb[3]-bb[1]+0.25).toFixed(3);applyZero();autoProgram();toast(t('imported')+': '+S.feats.length+' '+t('features').toLowerCase());}
 function meshAnalyze(){if(!S.meshT||!S.meshInfo){S.meshAx=null;return;}try{const h=C.meshHoles(S.meshT,S.meshInfo.sc);const dirs=[[0,0,1]];h.holes.filter(x=>x.axis!=='Z').forEach(x=>{const d=[0,0,0];d['XYZ'.indexOf(x.axis)]=x.open[0]||1;dirs.push(d);});if(h.undercut>0.01)dirs.push([0,0,-1]);
  S.meshAx={...C.decideAxes(dirs,h.undercut),holes:h.holes,undercut:h.undercut};}catch(e){S.meshAx=null;}}
@@ -3201,5 +3240,5 @@ if(had&&!S._mig75){S._mig75=1;if(S.machine==='dpmrx2'){S.machine='vf3ss';S.post=
 if(!had||!S.raw||S.dxfName==='demo-bracket.dxf'){WARN=[];S.raw={loops:[],circles:[],opens:[]};S.feats=[];S.ops=[];S.dwg=null;S.dxfName='';S.src='';S.ref=null;S.geom=null;}
 else{try{applyZero();}catch(e){}}
 buildProgram();render();
-if(/debug/.test(location.search))window.__mc={get S(){return S},get SIM(){return SIM},MG(){return modelGrid()},DT(){return devTarget()},DS(){return devStats()},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();},PD(){return PDFDOC},get V(){return VIEW}};
+if(/debug/.test(location.search))window.__mc={get S(){return S},get SIM(){return SIM},MG(){return modelGrid()},DT(){return devTarget()},DS(){return devStats()},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();},PD(){return PDFDOC},get V(){return VIEW},get AIS(){return AIS}};
 }
