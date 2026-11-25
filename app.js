@@ -3221,10 +3221,10 @@ function rLatheSim(){const L=latheBuild(),vi=LANG==='vi',sh=S.lsSh||{},md=S.lsMo
 TX.cad=['CAD','CAD'];
 IC.cad='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l3.5-1L19 7.5 16.5 5 5 16.5z"/><path d="M14.5 7l2.5 2.5"/><path d="M3 3h5M3 3v5"/></svg>';
 TABCOL.cad='#0f8a5f';
-function CD(){const d={ents:[],T:0.5,grid:0.125,snap:true,tool:'line',units:'in',f:{}};if(!S.cad)S.cad={};for(const k in d)if(S.cad[k]==null)S.cad[k]=d[k];return S.cad;}
-const CADV={sel:null,pts:[],cur:null,drag:null,hist:[],fut:[],view:null,yaw:-0.6,pitch:0.95,show3d:true};
+function CD(){const d={ents:[],T:0.5,grid:0.125,snap:true,tool:'line',units:'in',f:{},feats:[],base:true,cons:[],q:'normal',xf:{dx:1,dy:0,ang:45,sc:2,about:'sel',cx:0,cy:0,off:0.125,nx:3,px:1,ny:1,py:1,cn:6,cang:360,copy:false}};if(!S.cad)S.cad={};for(const k in d)if(S.cad[k]==null)S.cad[k]=d[k];return S.cad;}
+const CADV={sel:null,msel:[],multi:false,fp:null,fedit:null,ptPick:null,cpick:null,pts:[],cur:null,drag:null,hist:[],fut:[],view:null,yaw:-0.6,pitch:0.95,zoom:1,show3d:true};
 const CTOOLS=[['select','Chọn / kéo','Select / move','<path d="M5 3l14 8-6 1.5L10 19z"/>'],['line','Đường thẳng','Line','<path d="M4 20L20 4"/><circle cx="4" cy="20" r="1.6"/><circle cx="20" cy="4" r="1.6"/>'],['rect','Chữ nhật','Rectangle','<rect x="3.5" y="6" width="17" height="12" rx="1.5"/>'],['circle','Tròn','Circle','<circle cx="12" cy="12" r="8"/><path d="M12 12h8"/>'],['arc','Cung','Arc','<path d="M4 18A10 10 0 0 1 20 10"/><circle cx="12" cy="18" r="1.4"/>'],['poly','Đa giác','Polygon','<path d="M12 3l8 4.6v8.8L12 21l-8-4.6V7.6z"/>'],['slot','Rãnh dài','Slot','<rect x="3" y="8" width="18" height="8" rx="4"/>'],['trim','Cắt bỏ (trim)','Trim','<path d="M4 20L20 4"/><path d="M9 9l-5-5M15 15l5 5" stroke-dasharray="2 2"/><circle cx="12" cy="12" r="2"/>'],['fillet','Bo góc R','Fillet','<path d="M4 20V11a7 7 0 0 1 7-7h9"/>'],['chamfer','Vát mép','Chamfer','<path d="M4 20V10l6-6h10"/>'],['dim','Kích thước','Dimension','<path d="M4 8v8M20 8v8M4 12h16"/><path d="M7 10l-3 2 3 2M17 10l3 2-3 2"/>'],['erase','Xóa hình','Delete','<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'],['pan','Kéo màn hình','Pan','<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>']];
-const CGRP=[['Chọn','Pick','#5c6b7a',['select','pan']],['Vẽ','Draw','#0f8a5f',['line','rect','circle','arc','poly','slot']],['Sửa','Modify','#e0701b',['trim','fillet','chamfer','erase']],['Ghi','Annotate','#8b4fd6',['dim']]];
+const CGRP=[['Chọn','Pick','#5c6b7a',['select','pan']],['Vẽ','Draw','#0f8a5f',['line','rect','circle','arc','poly','slot']],['Sửa','Modify','#e0701b',['trim','fillet','chamfer','erase']],['Ghi','Annotate','#8b4fd6',['dim']],['Ràng buộc','Constrain','#0e7c86',['cH','cV','cPar','cPerp','cEq','cCoin','cConc','cTan','cFix','cLen','cRad','cDist','cAng']]];
 const CFIELDS={line:[['x1',0],['y1',0],['x2',2],['y2',0]],rect:[['x',0],['y',0],['w',3],['h',2],['r',0]],circle:[['x',0],['y',0],['d',0.5]],arc:[['x',0],['y',0],['r',1],['a0',0],['a1',90]],poly:[['x',0],['y',0],['n',6],['af',1]],slot:[['x1',0],['y1',0],['x2',1.5],['y2',0],['w',0.25]],fillet:[['r',0.125]],chamfer:[['c',0.06]]};
 const CFL={x1:'X1',y1:'Y1',x2:'X2',y2:'Y2',x:'X',y:'Y',w:['Rộng W','Width W'],h:['Cao H','Height H'],r:['R góc / R','Corner R / R'],d:'Ø',a0:['Góc đầu °','Start °'],a1:['Góc cuối °','End °'],n:['Số cạnh','Sides'],af:['Đối cạnh','Across flats'],c:['Cỡ vát','Chamfer size']};
 const cfl=k=>{const v=CFL[k];return Array.isArray(v)?v[LANG==='vi'?0:1]:v;};
@@ -3244,7 +3244,7 @@ function cSnaps(){const o=[];for(const e of CD().ents){if(e.t==='line')o.push(e.
  else if(e.t==='rect'){const x0=Math.min(e.x,e.x+e.w),y0=Math.min(e.y,e.y+e.h),W=Math.abs(e.w),H=Math.abs(e.h);o.push([x0,y0],[x0+W,y0],[x0+W,y0+H],[x0,y0+H],[x0+W/2,y0+H/2]);}else if(e.t==='slot')o.push(e.a,e.b);}o.push([0,0]);return o;}
 function cSnap(p,px){const c=CD(),s=CADV.view.s;let best=null,bd=14*s;for(const q of cSnaps()){const d=Math.hypot(q[0]-p[0],q[1]-p[1]);if(d<bd){bd=d;best=q;}} if(best)return{p:best.slice(),k:'pt'};if(c.snap){const g=+c.grid||0.125;return{p:[Math.round(p[0]/g)*g,Math.round(p[1]/g)*g],k:'grid'};}return{p,k:''};}
 const r4=v=>Math.round(v*1e4)/1e4;
-function cPush(){const c=CD();CADV.hist.push(JSON.stringify(c.ents));if(CADV.hist.length>60)CADV.hist.shift();CADV.fut=[];}
+function cPush(){CADV.hist.push(cSnapS());if(CADV.hist.length>60)CADV.hist.shift();CADV.fut=[];}
 function cFit(){const c=CD(),cv=$('#cadSvg');if(!cv)return;const r=cv.getBoundingClientRect();let b=[-0.5,-0.5,4,3];const P=c.ents.flatMap(e=>e.t==='dim'?cDimBox(e):cEnt2P(e).P);if(P.length){b=[Math.min(...P.map(p=>p[0])),Math.min(...P.map(p=>p[1])),Math.max(...P.map(p=>p[0])),Math.max(...P.map(p=>p[1]))];}
  const w=Math.max(0.5,b[2]-b[0]),h=Math.max(0.5,b[3]-b[1]);CADV.view={cx:(b[0]+b[2])/2,cy:(b[1]+b[3])/2,s:Math.max(w/(r.width-60),h/(r.height-60))};}
 function cEntFromPts(tool,P,f){const c=CD();if(tool==='line')return{t:'line',a:P[0],b:P[1]};if(tool==='rect')return{t:'rect',x:Math.min(P[0][0],P[1][0]),y:Math.min(P[0][1],P[1][1]),w:Math.abs(P[1][0]-P[0][0]),h:Math.abs(P[1][1]-P[0][1]),r:+(f.r||0)};
@@ -3264,7 +3264,7 @@ function cXform(e,fn,kind){const m=p=>fn(p).map(r4);if(e.t==='dim'){if(e.a)e.a=m
  if(e.t==='arc'){if(kind==='mx'){const a0=180-e.a1,a1=180-e.a0;e.a0=a0;e.a1=a1;}else if(kind==='my'){const a0=-e.a1,a1=-e.a0;e.a0=a0;e.a1=a1;}else{e.a0+=90;e.a1+=90;}}
  if(e.t==='poly'){e.rot=kind==='mx'?180-(e.rot||0):kind==='my'?-(e.rot||0):(e.rot||0)+90;}}
 /* closed loops for 3D + classify (outer / pockets / holes) */
-function cLoops(){const c=CD(),loops=[],open=[];for(const e of c.ents){const q=cEnt2P(e);if(!q.P.length)continue;if(q.closed)loops.push({P:q.P,e});else open.push({P:q.P.map(p=>p.slice()),e});}
+function cLoops(){const c=CD(),loops=[],open=[],fu=fUsed();for(const e of c.ents){if(fu.has(e.id))continue;const q=cEnt2P(e);if(!q.P.length)continue;if(q.closed)loops.push({P:q.P,e});else open.push({P:q.P.map(p=>p.slice()),e});}
  // chain open pieces end to end
  const tol=1e-3,used=new Set();for(let i=0;i<open.length;i++){if(used.has(i))continue;used.add(i);let ch=open[i].P.slice(),grow=true;const es=[open[i].e];while(grow){grow=false;for(let j=0;j<open.length;j++){if(used.has(j))continue;const Q=open[j].P,e0=ch[ch.length-1],s0=ch[0];const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1])<tol;
    if(d(e0,Q[0])){ch=ch.concat(Q.slice(1));}else if(d(e0,Q[Q.length-1])){ch=ch.concat(Q.slice(0,-1).reverse());}else if(d(s0,Q[Q.length-1])){ch=Q.slice(0,-1).concat(ch);}else if(d(s0,Q[0])){ch=Q.slice(1).reverse().concat(ch);}else continue;used.add(j);es.push(open[j].e);grow=true;}}
@@ -3277,7 +3277,7 @@ function cDepth(e,T){const d=e.depth;if(d==='thru')return T;if(d!==''&&d!=null&&
 function cadDXF(){const c=CD(),F=v=>(+v).toFixed(5),L=[];L.push('0','SECTION','2','HEADER','9','$INSUNITS','70',c.units==='mm'?'4':'1','0','ENDSEC','0','SECTION','2','ENTITIES');
  const lay=e=>e.depth==='thru'?'THRU':(e.depth!==''&&e.depth!=null&&+e.depth>0?'DEPTH_'+(+e.depth):'0');
  const lw=(e,V,closed)=>{L.push('0','LWPOLYLINE','8',lay(e),'90',String(V.length),'70',closed?'1':'0');for(const v of V){L.push('10',F(v[0]),'20',F(v[1]));if(v[2])L.push('42',F(v[2]));}};
- for(const e of c.ents){const l=lay(e);
+ const used=fUsed();for(const e of c.ents){if(used.has(e.id))continue;const l=lay(e);
   if(e.t==='line')L.push('0','LINE','8',l,'10',F(e.a[0]),'20',F(e.a[1]),'11',F(e.b[0]),'21',F(e.b[1]));
   else if(e.t==='circle')L.push('0','CIRCLE','8',l,'10',F(e.c[0]),'20',F(e.c[1]),'40',F(e.r));
   else if(e.t==='arc'){let a0=((e.a0%360)+360)%360,a1=((e.a1%360)+360)%360;L.push('0','ARC','8',l,'10',F(e.c[0]),'20',F(e.c[1]),'40',F(e.r),'50',F(a0),'51',F(a1));}
@@ -3300,14 +3300,16 @@ function rCad(){const c=CD(),vi=LANG==='vi',tool=c.tool,sel=c.ents.find(e=>e.id=
    <div class="view" style="height:min(56vh,520px);margin-top:8px;position:relative;background:#fbfcfd;touch-action:none"><svg id="cadSvg" style="width:100%;height:100%;display:block;touch-action:none;user-select:none"></svg>
     <div class="ovl tr" style="flex-direction:column;gap:6px"><button class="mini" data-cad="zin">${IC.plus}</button><button class="mini" data-cad="zout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg></button><button class="mini" data-cad="fit" style="font-size:11px;font-weight:700">FIT</button></div>
     <div class="ovl bl" style="pointer-events:none"><span class="pill" id="cadInfo">${vi?'Chạm để bắt đầu':'Tap to start'}</span></div></div>
-   <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-cad="undo">↶ ${vi?'Hoàn tác':'Undo'}</button><button class="btn sm" data-cad="redo">↷</button><button class="btn sm" data-cad="done">✓ ${vi?'Xong nét':'End chain'}</button><button class="btn sm ${c.snap?'pri':''}" data-cad="snap">🧲 ${vi?'Bắt lưới':'Snap'}</button><label class="chip">${vi?'Lưới':'Grid'} <select id="cadGrid">${(c.units==='mm'?[0.5,1,2,5,10]:[0.0625,0.125,0.25,0.5,1]).map(g=>`<option value="${g}" ${+c.grid===g?'selected':''}>${g}</option>`).join('')}</select></label><label class="chip">${vi?'Đơn vị':'Units'} <select id="cadUnits"><option value="in" ${c.units!=='mm'?'selected':''}>inch</option><option value="mm" ${c.units==='mm'?'selected':''}>mm</option></select></label><button class="btn sm" data-cad="clear" style="color:var(--bad)">${IC.del}${vi?'Xóa hết':'Clear all'}</button></div></div>
+   <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-cad="undo">↶ ${vi?'Hoàn tác':'Undo'}</button><button class="btn sm" data-cad="redo">↷</button><button class="btn sm" data-cad="done">✓ ${vi?'Xong nét':'End chain'}</button>${tool==='select'?`<button class="btn sm ${CADV.multi?'pri':''}" data-cx="multi">☑ ${vi?'Chọn nhiều':'Multi-select'}</button><button class="btn sm" data-cx="all">${vi?'Chọn hết':'Select all'}</button>`:''}<button class="btn sm ${c.snap?'pri':''}" data-cad="snap">🧲 ${vi?'Bắt lưới':'Snap'}</button><label class="chip">${vi?'Lưới':'Grid'} <select id="cadGrid">${(c.units==='mm'?[0.5,1,2,5,10]:[0.0625,0.125,0.25,0.5,1]).map(g=>`<option value="${g}" ${+c.grid===g?'selected':''}>${g}</option>`).join('')}</select></label><label class="chip">${vi?'Đơn vị':'Units'} <select id="cadUnits"><option value="in" ${c.units!=='mm'?'selected':''}>inch</option><option value="mm" ${c.units==='mm'?'selected':''}>mm</option></select></label><button class="btn sm" data-cad="clear" style="color:var(--bad)">${IC.del}${vi?'Xóa hết':'Clear all'}</button></div></div>
   <div class="card" style="--cc:#0f8a5f"><h2>${sel?(vi?'Hình đang chọn':'Selected shape')+' · '+esc(CTOOLS.find(x=>x[0]===sel.t)?.[vi?1:2]||(sel.t==='dim'?(vi?'Kích thước':'Dimension'):sel.t)):(vi?'Gõ số':'Type numbers')+' · '+esc(CTOOLS.find(x=>x[0]===tool)?.[vi?1:2]||'')}</h2>
-   ${['fillet','chamfer'].includes(tool)&&!sel?`<p class="sub" style="margin:0 0 8px;font-size:13px">${vi?'Chạm cạnh thứ nhất rồi cạnh thứ hai (chạm phía muốn giữ). Chạm chữ nhật / đa giác để làm cả các góc.':'Tap the first edge, then the second (tap the side to keep). Tap a rectangle / polygon to do every corner.'}</p>`:''}${fields.length?`<div class="fields">${fields.map(k=>`<label class="f">${cfl(k)}<input inputmode="decimal" ${sel?'data-ce':'data-cf'}="${k}" value="${r4(+f[k]||0)}"></label>`).join('')}${sel&&sel.t!=='dim'?`<label class="f">${vi?'Độ sâu':'Depth'}<select data-ce="depth"><option value="" ${sel.depth===''||sel.depth==null?'selected':''}>${vi?'Tự động':'Auto'}</option><option value="thru" ${sel.depth==='thru'?'selected':''}>${vi?'Xuyên':'Through'}</option>${[0.05,0.1,0.125,0.25,0.375,0.5,0.75,1].filter(d=>d<+c.T).map(d=>`<option value="${d}" ${+sel.depth===d?'selected':''}>${d}</option>`).join('')}</select></label><label class="f">${vi?'Sâu khác':'Other depth'}<input inputmode="decimal" data-ce="depthN" value="${sel.depth!=='thru'&&sel.depth!==''&&sel.depth!=null?sel.depth:''}"></label>`:''}</div>`:`<p class="sub" style="margin:0">${tool==='select'?(vi?'Chạm vào một hình để chọn, kéo để dời. Kéo chỗ trống để di chuyển màn hình.':'Tap a shape to select it, drag to move it. Drag empty space to pan.'):tool==='trim'?(vi?'Chạm vào đoạn muốn bỏ — cắt tới chỗ giao với hình khác. Chữ nhật / đa giác tự tách thành cạnh.':'Tap the piece to remove — it is cut back to where it crosses other shapes. Rectangles / polygons split into edges.'):tool==='erase'?(vi?'Chạm vào hình để xóa.':'Tap a shape to delete it.'):tool==='dim'?(vi?'Chạm 1 cạnh (hoặc 2 điểm) rồi chạm chỗ đặt số. Chạm vòng tròn = Ø, chạm cung = R. Kích thước chỉ để xem, không ra G-code.':'Tap an edge (or 2 points), then where the numbers go. Tap a circle = Ø, an arc = R. Dimensions are for reading only, not for G-code.'):(vi?'Kéo để di chuyển màn hình, chụm 2 ngón để phóng to.':'Drag to pan, pinch to zoom.')}</p>`}
+   ${['fillet','chamfer'].includes(tool)&&!sel?`<p class="sub" style="margin:0 0 8px;font-size:13px">${vi?'Chạm cạnh thứ nhất rồi cạnh thứ hai (chạm phía muốn giữ). Chạm chữ nhật / đa giác để làm cả các góc.':'Tap the first edge, then the second (tap the side to keep). Tap a rectangle / polygon to do every corner.'}</p>`:''}${fields.length?`<div class="fields">${fields.map(k=>`<label class="f">${cfl(k)}<input inputmode="decimal" ${sel?'data-ce':'data-cf'}="${k}" value="${r4(+f[k]||0)}"></label>`).join('')}${sel&&sel.t!=='dim'?`<label class="f">${vi?'Độ sâu':'Depth'}<select data-ce="depth"><option value="" ${sel.depth===''||sel.depth==null?'selected':''}>${vi?'Tự động':'Auto'}</option><option value="thru" ${sel.depth==='thru'?'selected':''}>${vi?'Xuyên':'Through'}</option>${[0.05,0.1,0.125,0.25,0.375,0.5,0.75,1].filter(d=>d<+c.T).map(d=>`<option value="${d}" ${+sel.depth===d?'selected':''}>${d}</option>`).join('')}</select></label><label class="f">${vi?'Sâu khác':'Other depth'}<input inputmode="decimal" data-ce="depthN" value="${sel.depth!=='thru'&&sel.depth!==''&&sel.depth!=null?sel.depth:''}"></label>`:''}</div>`:`<p class="sub" style="margin:0">${tool==='select'?(vi?'Chạm vào một hình để chọn, kéo để dời. Kéo chỗ trống để di chuyển màn hình.':'Tap a shape to select it, drag to move it. Drag empty space to pan.'):tool==='trim'?(vi?'Chạm vào đoạn muốn bỏ — cắt tới chỗ giao với hình khác. Chữ nhật / đa giác tự tách thành cạnh.':'Tap the piece to remove — it is cut back to where it crosses other shapes. Rectangles / polygons split into edges.'):tool==='erase'?(vi?'Chạm vào hình để xóa.':'Tap a shape to delete it.'):tool==='dim'?(vi?'Chạm 1 cạnh (hoặc 2 điểm) rồi chạm chỗ đặt số. Chạm vòng tròn = Ø, chạm cung = R. Kích thước chỉ để xem, không ra G-code.':'Tap an edge (or 2 points), then where the numbers go. Tap a circle = Ø, an arc = R. Dimensions are for reading only, not for G-code.'):CONK[tool]?cConHelp(tool):(vi?'Kéo để di chuyển màn hình, chụm 2 ngón để phóng to.':'Drag to pan, pinch to zoom.')}</p>`}
    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">${sel?`<button class="btn sm" data-cad="dup">⧉ ${vi?'Nhân bản':'Duplicate'}</button><button class="btn sm" data-cad="mx">⇋ ${vi?'Lật ngang':'Mirror X'}</button><button class="btn sm" data-cad="my">⇵ ${vi?'Lật dọc':'Mirror Y'}</button><button class="btn sm" data-cad="rot">⟲ 90°</button><button class="btn sm" data-cad="del" style="color:var(--bad)">${IC.del}${vi?'Xóa':'Delete'}</button><button class="btn sm" data-cad="unsel">✕ ${vi?'Bỏ chọn':'Deselect'}</button>`:fields.length&&!['fillet','chamfer'].includes(tool)?`<button class="btn sm pri" data-cad="addNum">${IC.plus}${vi?'Thêm hình theo số':'Add from numbers'}</button>`:''}</div></div>
+  ${cXfCard()}${cConCard()}
  </div><div class="grid" style="align-content:start">
   <div class="card" style="--cc:#8b4fd6"><h2>3D</h2><div class="view" style="height:min(40vh,340px);position:relative;background:#eef1f4"><canvas id="cad3d" style="width:100%;height:100%;display:block;touch-action:none"></canvas><div class="ovl bl"><span class="pill" id="cad3i"></span></div></div>
-   <div class="fields" style="margin-top:8px"><label class="f">${vi?'Chiều dày chi tiết':'Part thickness'}<input inputmode="decimal" id="cadT" value="${c.T}"></label></div><p class="sub" style="margin:6px 0 0;font-size:12.5px">${vi?'Kéo để xoay. Màu đậm = hốc, lỗ đen = xuyên.':'Drag to turn it. Darker = pocket, black = through.'}</p></div>
-  <div class="card" style="--cc:#2457d6"><h2>${vi?'Xuất ra chương trình':'Make the program'}</h2><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn go" data-cad="send">⚙ ${vi?'Gửi sang Phay → G-code':'Send to Mill → G-code'}</button><button class="btn" data-cad="sendL">⟳ ${vi?'Gửi sang Tiện (nửa mặt cắt)':'Send to Lathe (half section)'}</button><button class="btn" data-cad="sendW">⚡ ${vi?'Gửi sang Cắt dây':'Send to Wire EDM'}</button><button class="btn" data-cad="dxf">${IC.save}${vi?'Tải DXF':'Save DXF'}</button></div>
+   <div class="fields" style="margin-top:8px"><label class="f">${vi?'Chiều dày chi tiết':'Part thickness'}<input inputmode="decimal" id="cadT" value="${c.T}"></label></div><p class="sub" style="margin:6px 0 0;font-size:12.5px">${vi?'Kéo để xoay, cuộn / chụm để phóng. Chiều dày dùng cho khối nền.':'Drag to turn, wheel / pinch to zoom. Thickness is for the base solid.'}</p></div>
+  ${cFeatCard()}
+  <div class="card" style="--cc:#2457d6"><h2>${vi?'Xuất ra chương trình':'Make the program'}</h2><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn go" data-cad="send">⚙ ${vi?'Gửi sang Phay → G-code':'Send to Mill → G-code'}</button><button class="btn" data-cad="sendL">⟳ ${vi?'Gửi sang Tiện (nửa mặt cắt)':'Send to Lathe (half section)'}</button><button class="btn" data-cad="sendW">⚡ ${vi?'Gửi sang Cắt dây':'Send to Wire EDM'}</button><button class="btn" data-cad="dxf">${IC.save}${vi?'Tải DXF':'Save DXF'}</button><button class="btn go" data-cad="send3">◆ ${vi?'Gửi khối 3D → đường dao 3D':'Send 3D solid → 3D toolpaths'}</button><button class="btn" data-cad="stl">${IC.save}${vi?'Tải STL':'Save STL'}</button></div>
    <p class="sub" style="margin:8px 0 0;font-size:12.5px">${vi?'Tiện: vẽ nửa mặt cắt bằng đường thẳng / cung — trục X là tâm quay, Y là bán kính.':'Lathe: draw the half section with lines / arcs — the X axis is the spindle centerline, Y is the radius.'}</p></div>
   <div class="card"><h2>${vi?'Mẫu nhanh':'Quick templates'}</h2><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-ctpl="plate">${vi?'Tấm 4 lỗ + hốc':'Plate, 4 holes + pocket'}</button><button class="btn sm" data-ctpl="flange">${vi?'Mặt bích 6 lỗ':'Flange, 6 holes'}</button><button class="btn sm" data-ctpl="bracket">${vi?'Bát chữ L':'L bracket'}</button></div>
    <p class="sub" style="margin:8px 0 0;font-size:12.5px">${c.ents.length} ${vi?'hình':'shapes'} · ${vi?'kích thước':'size'} ${cSizeTxt()}</p></div></div></div>`;
@@ -3322,8 +3324,11 @@ function cDraw(){const sv=$('#cadSvg');if(!sv)return;const c=CD(),V=CADV.view,r=
  const lp=cLoops(),outS=new Set(lp.outer?(lp.outer.es||[lp.outer.e]):[]);
  const pathOf=q=>q.P.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('')+(q.closed?'Z':'');
  if(lp.outer)o+=`<path d="${lp.outer.P.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('')}Z${lp.inner.map(l=>l.P.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('')+'Z').join('')}" fill="rgba(15,138,95,.10)" fill-rule="evenodd"/>`;
- for(const e of c.ents){const q=cEnt2P(e),isSel=e.id===CADV.sel||e.id===CADV.pick1;if(e.t==='dim'){o+=cDimSVG(e,X,Y,isSel);continue;}const col=isSel?'#ff6a13':outS.has(e)?'#0f8a5f':(e.depth==='thru'||(e.t==='circle'&&(e.depth===''||e.depth==null)))?'#2457d6':'#8b4fd6';o+=`<path d="${pathOf(q)}" fill="none" stroke="${col}" stroke-width="${isSel?3.5:2}" stroke-linejoin="round"/>`;
+ const used=fUsed(),ms=new Set(CADV.msel||[]),fe=(c.feats||[]).find(f=>f.id===(CADV.fp?CADV.fp.fid:CADV.fedit)),slot=new Map();if(fe){[['prof','#0f8a5f'],['prof2','#2457d6'],['path','#e0701b']].forEach(([k,cl])=>(fe[k]||[]).forEach(id=>slot.set(id,cl)));if(fe.type==='revolve'&&fe.axis!=='x'&&fe.axis!=='y')slot.set(fe.axis,'#8b4fd6');}
+ if(fe&&fe.type==='revolve'&&(fe.axis==='x'||fe.axis==='y'))o+=fe.axis==='x'?`<line x1="0" y1="${Y(0)}" x2="${W}" y2="${Y(0)}" stroke="#8b4fd6" stroke-width="1.5" stroke-dasharray="10 4 2 4"/>`:`<line x1="${X(0)}" y1="0" x2="${X(0)}" y2="${H}" stroke="#8b4fd6" stroke-width="1.5" stroke-dasharray="10 4 2 4"/>`;
+ for(const e of c.ents){const q=cEnt2P(e),isSel=e.id===CADV.sel||e.id===CADV.pick1||ms.has(e.id)||(CADV.cpick&&CADV.cpick.id===e.id);if(e.t==='dim'){o+=cDimSVG(e,X,Y,isSel);continue;}const sc_=slot.get(e.id);const col=isSel?'#ff6a13':sc_?sc_:used.has(e.id)?'#8a949e':outS.has(e)?'#0f8a5f':(e.depth==='thru'||(e.t==='circle'&&(e.depth===''||e.depth==null)))?'#2457d6':'#8b4fd6';o+=`<path data-eid="${e.id}" d="${pathOf(q)}" fill="${sc_&&q.closed?sc_+'22':'none'}" stroke="${col}" stroke-width="${isSel||sc_?3.5:2}" stroke-linejoin="round" ${used.has(e.id)&&!sc_&&!isSel?'stroke-dasharray="7 4"':''}/>`;
   if(isSel){const P=q.P,xs=P.map(p=>p[0]),ys=P.map(p=>p[1]);o+=`<text x="${X((Math.min(...xs)+Math.max(...xs))/2)}" y="${Y(Math.max(...ys))-8}" text-anchor="middle" font-size="12" font-weight="700" fill="#ff6a13">${cDimTxt(e)}</text>`;}}
+ o+=cConSVG(X,Y);if(CADV.cpick&&CADV.cpick.w){const e=c.ents.find(x=>x.id===CADV.cpick.id);if(e){const p=cPt(e,CADV.cpick.w);o+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="7" fill="none" stroke="#ff6a13" stroke-width="2.5"/>`;}}
  o+=`<path id="cadPrev" d="" fill="none" stroke="#ff6a13" stroke-width="2" stroke-dasharray="6 4"/><circle id="cadCur" r="5" cx="-20" cy="-20" fill="none" stroke="#ff6a13" stroke-width="2"/>`;
  sv.innerHTML=o;CADV.X=X;CADV.Y=Y;}
 function cDimTxt(e){if(e.t==='line')return'L '+fl(Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]),3)+' · '+fl(Math.atan2(e.b[1]-e.a[1],e.b[0]-e.a[0])*180/Math.PI,1)+'°';if(e.t==='rect')return fl(Math.abs(e.w),3)+' × '+fl(Math.abs(e.h),3)+(e.r?' R'+fl(e.r,3):'');if(e.t==='circle')return'Ø'+fl(2*e.r,3);if(e.t==='arc')return'R'+fl(e.r,3)+' · '+fl(e.a0,1)+'°→'+fl(e.a1,1)+'°';if(e.t==='poly')return e.n+(LANG==='vi'?' cạnh · đối cạnh ':' sides · AF ')+fl(2*e.r*Math.cos(Math.PI/e.n),3);if(e.t==='slot')return(LANG==='vi'?'rãnh ':'slot ')+fl(Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1])+e.w,3)+' × '+fl(e.w,3);return'';}
@@ -3337,20 +3342,20 @@ function cWire(){const sv=$('#cadSvg');if(!sv||sv._w)return;sv._w=1;const ptrs=n
  sv.addEventListener('wheel',e=>{e.preventDefault();const p=M(e),k=e.deltaY>0?1.15:1/1.15,V=CADV.view;V.cx=p[0]+(V.cx-p[0])*k;V.cy=p[1]+(V.cy-p[1])*k;V.s*=k;cDraw();},{passive:false});
  sv.addEventListener('pointerdown',e=>{sv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,[e.clientX,e.clientY]);if(ptrs.size===2){const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a[0]-b[0],a[1]-b[1]),s:CADV.view.s,cx:CADV.view.cx,cy:CADV.view.cy,m:[(a[0]+b[0])/2,(a[1]+b[1])/2]};CADV.drag=null;return;}
   const c=CD(),p=M(e);CADV.down={x:e.clientX,y:e.clientY,p,t:Date.now()};
-  if(c.tool==='select'){const h=cHit(p);if(h){if(CADV.sel!==h.id){CADV.sel=h.id;rCad();}cPush();CADV.drag={k:'move',id:h.id,last:cSnap(p).p};return;}}
-  if(['trim','fillet','chamfer','erase','dim'].includes(c.tool)){CADV.drag={k:'pan',pick:1,sx:e.clientX,sy:e.clientY,cx:CADV.view.cx,cy:CADV.view.cy};return;}
+  if(c.tool==='select'&&!cTapMode()){const h=cHit(p);if(h){let was=false;if(CADV.multi){was=CADV.msel.includes(h.id);if(!was)CADV.msel.push(h.id);CADV.sel=h.id;}else{if(!CADV.msel.includes(h.id))CADV.msel=[h.id];CADV.sel=h.id;}cDraw();cPush();CADV.drag={k:'move',id:h.id,ids:CADV.msel.includes(h.id)?CADV.msel.slice():[h.id],was,last:cSnap(p).p};return;}}
+  if(['trim','fillet','chamfer','erase','dim'].includes(c.tool)||cTapMode()){CADV.drag={k:'pan',pick:1,sx:e.clientX,sy:e.clientY,cx:CADV.view.cx,cy:CADV.view.cy};return;}
   if(c.tool==='select'||c.tool==='pan'){CADV.drag={k:'pan',sx:e.clientX,sy:e.clientY,cx:CADV.view.cx,cy:CADV.view.cy};return;}
   CADV.drag={k:'draw'};});
  sv.addEventListener('pointermove',e=>{if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,[e.clientX,e.clientY]);const V=CADV.view;
   if(pinch&&ptrs.size===2){const[a,b]=[...ptrs.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);V.s=pinch.s*pinch.d/Math.max(10,d);const m=[(a[0]+b[0])/2,(a[1]+b[1])/2];V.cx=pinch.cx-(m[0]-pinch.m[0])*V.s;V.cy=pinch.cy+(m[1]-pinch.m[1])*V.s;cDraw();return;}
   const p=M(e),dr=CADV.drag;
   if(dr&&dr.k==='pan'){V.cx=dr.cx-(e.clientX-dr.sx)*V.s;V.cy=dr.cy+(e.clientY-dr.sy)*V.s;cDraw();return;}
-  if(dr&&dr.k==='move'){const q=cSnap(p).p,dx=q[0]-dr.last[0],dy=q[1]-dr.last[1];if(dx||dy){const en=CD().ents.find(x=>x.id===dr.id);if(en&&en.t==='dim'){if(en.k==='lin')en.o=[r4(p[0]),r4(p[1])];else en.ang=r4(Math.atan2(p[1]-en.c[1],p[0]-en.c[0])*180/Math.PI);dr.last=q;dr.moved=1;cDraw();const ii=$('#cadInfo');if(ii)ii.textContent=LANG==='vi'?'Đang dời kích thước':'Moving the dimension';}else if(en){cMove(en,dx,dy);dr.last=q;dr.moved=1;cDraw();const ii=$('#cadInfo');if(ii)ii.textContent=cDimTxt(en);}}return;}
+  if(dr&&dr.k==='move'){const q=cSnap(p).p,dx=q[0]-dr.last[0],dy=q[1]-dr.last[1];if(dx||dy){const en=CD().ents.find(x=>x.id===dr.id);if(en&&en.t==='dim'){if(en.k==='lin')en.o=[r4(p[0]),r4(p[1])];else en.ang=r4(Math.atan2(p[1]-en.c[1],p[0]-en.c[0])*180/Math.PI);dr.last=q;dr.moved=1;cDraw();const ii=$('#cadInfo');if(ii)ii.textContent=LANG==='vi'?'Đang dời kích thước':'Moving the dimension';}else if(en){for(const id of(dr.ids&&dr.ids.length>1?dr.ids:[dr.id])){const x_=CD().ents.find(y_=>y_.id===id);if(x_)cMove(x_,dx,dy);}dr.last=q;dr.moved=1;cDraw();const ii=$('#cadInfo');if(ii)ii.textContent=cDimTxt(en);}}return;}
   if(CD().tool!=='select'&&CD().tool!=='pan')cPrev(cSnap(p));});
  const up=e=>{ptrs.delete(e.pointerId);if(pinch){if(ptrs.size<2)pinch=null;return;}const dr=CADV.drag;CADV.drag=null;const c=CD();
-  if(dr&&dr.k==='move'){if(dr.moved){persist();rCad();}else CADV.hist.pop();return;}
-  if(dr&&dr.k==='pan'&&dr.pick){const dn=CADV.down;if(dn&&Math.hypot(e.clientX-dn.x,e.clientY-dn.y)<6)cadPick(c.tool,dn.p);return;}
-  if(dr&&dr.k==='pan'){const dn=CADV.down;if(c.tool==='select'&&dn&&Math.hypot(e.clientX-dn.x,e.clientY-dn.y)<6&&CADV.sel){CADV.sel=null;rCad();}return;}
+  if(dr&&dr.k==='move'){if(dr.moved){cSolve(dr.ids||[dr.id]);persist();rCad();}else{CADV.hist.pop();if(CADV.multi&&dr.was){CADV.msel=CADV.msel.filter(x_=>x_!==dr.id);CADV.sel=CADV.msel[CADV.msel.length-1]||null;}rCad();}return;}
+  if(dr&&dr.k==='pan'&&dr.pick){const dn=CADV.down;if(dn&&Math.hypot(e.clientX-dn.x,e.clientY-dn.y)<6)cTap(c.tool,dn.p);return;}
+  if(dr&&dr.k==='pan'){const dn=CADV.down;if(c.tool==='select'&&dn&&Math.hypot(e.clientX-dn.x,e.clientY-dn.y)<6&&(CADV.sel||CADV.msel.length)&&!CADV.multi){CADV.sel=null;CADV.msel=[];rCad();}return;}
   if(!dr||dr.k!=='draw')return;const dn=CADV.down;const m=cSnap(M(e));
   if(dn&&Math.hypot(e.clientX-dn.x,e.clientY-dn.y)>8&&CADV.pts.length===0&&CNEED[c.tool]===2){CADV.pts=[cSnap(dn.p).p];}
   CADV.pts.push(m.p);
@@ -3359,29 +3364,9 @@ function cWire(){const sv=$('#cadSvg');if(!sv||sv._w)return;sv._w=1;const ptrs=n
    cDraw();cad3D();const ii=$('#cadInfo');if(ii&&en)ii.textContent='✓ '+cDimTxt(en);}else{cPrev(m);const ii=$('#cadInfo');if(ii)ii.textContent=LANG==='vi'?(c.tool==='arc'&&CADV.pts.length===1?'Chạm điểm đầu cung':c.tool==='arc'?'Chạm điểm cuối cung (ngược kim đồng hồ)':'Chạm điểm thứ hai'):(c.tool==='arc'&&CADV.pts.length===1?'Tap the arc start':c.tool==='arc'?'Tap the arc end (counter-clockwise)':'Tap the second point');}};
  sv.addEventListener('pointerup',up);sv.addEventListener('pointercancel',e=>{ptrs.delete(e.pointerId);pinch=null;CADV.drag=null;});
  sv.addEventListener('dblclick',()=>{CADV.pts=[];CADV.chain0=null;cPrev(null);});
- const cv=$('#cad3d');if(cv){let d=null;cv.addEventListener('pointerdown',e=>{d={x:e.clientX,y:e.clientY,yw:CADV.yaw,pt:CADV.pitch};cv.setPointerCapture(e.pointerId);});cv.addEventListener('pointermove',e=>{if(!d)return;CADV.yaw=d.yw+(e.clientX-d.x)*0.01;CADV.pitch=Math.max(0.15,Math.min(1.5,d.pt+(e.clientY-d.y)*0.008));cad3D();});cv.addEventListener('pointerup',()=>d=null);}
+ const cv=$('#cad3d');if(cv){let d=null;cv.addEventListener('pointerdown',e=>{d={x:e.clientX,y:e.clientY,yw:CADV.yaw,pt:CADV.pitch};cv.setPointerCapture(e.pointerId);});cv.addEventListener('pointermove',e=>{if(!d)return;CADV.yaw=d.yw+(e.clientX-d.x)*0.01;CADV.pitch=Math.max(-1.5,Math.min(1.5707,d.pt-(e.clientY-d.y)*0.008));cad3D();});cv.addEventListener('pointerup',()=>d=null);cv.addEventListener('pointercancel',()=>d=null);cv.addEventListener('wheel',e=>{e.preventDefault();CADV.zoom=Math.min(8,Math.max(0.3,(CADV.zoom||1)*(e.deltaY<0?1.12:1/1.12)));cad3D();},{passive:false});}
  new ResizeObserver(()=>{cDraw();cad3D();}).observe(sv);}
 function cEntOk(e){if(e.t==='line')return Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1])>1e-4;if(e.t==='rect')return Math.abs(e.w)>1e-4&&Math.abs(e.h)>1e-4;if(e.t==='circle'||e.t==='arc'||e.t==='poly')return e.r>1e-4;if(e.t==='slot')return Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1])>1e-4&&e.w>1e-4;return true;}
-/* simple 3D: extrude the outline, sink pockets, cut holes through (painter's order) */
-function cad3D(){const cv=$('#cad3d');if(!cv)return;const r=cv.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);if(!r.width)return;cv.width=r.width*dpr;cv.height=r.height*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);const W=r.width,H=r.height;g.clearRect(0,0,W,H);
- const c=CD(),T=Math.max(0.01,+c.T||0.5),lp=cLoops(),info=$('#cad3i');if(!lp.outer){g.fillStyle='#6b737a';g.font='13px Barlow';g.textAlign='center';g.fillText(LANG==='vi'?'Vẽ một hình kín (chữ nhật, tròn, đa giác hoặc đường nối kín) để thấy 3D':'Draw a closed shape (rectangle, circle, polygon or a closed chain) to see 3D',W/2,H/2);if(info)info.textContent='';return;}
- const cs=Math.cos(CADV.yaw),sn=Math.sin(CADV.yaw),sp=Math.sin(CADV.pitch),cp=Math.cos(CADV.pitch);const O=lp.outer.P;const bx=[Math.min(...O.map(p=>p[0])),Math.min(...O.map(p=>p[1])),Math.max(...O.map(p=>p[0])),Math.max(...O.map(p=>p[1]))],mx=(bx[0]+bx[2])/2,my=(bx[1]+bx[3])/2;
- const pr=(x,y,z)=>{const X_=(x-mx)*cs-(y-my)*sn,Y_=(x-mx)*sn+(y-my)*cs;return[X_,-(Y_*sp+z*cp),Y_];};const ex=[];for(const p of O)for(const z of[0,-T]){const q=pr(p[0],p[1],z);ex.push(q);}
- const k=Math.min((W-30)/(Math.max(...ex.map(q=>q[0]))-Math.min(...ex.map(q=>q[0]))||1),(H-40)/(Math.max(...ex.map(q=>q[1]))-Math.min(...ex.map(q=>q[1]))||1)),ox=W/2-(Math.max(...ex.map(q=>q[0]))+Math.min(...ex.map(q=>q[0])))/2*k,oy=(H-14)/2-(Math.max(...ex.map(q=>q[1]))+Math.min(...ex.map(q=>q[1])))/2*k;
- const P=(x,y,z)=>{const q=pr(x,y,z);return[ox+q[0]*k,oy+q[1]*k,q[2]];};const mc=mat().color||'#b8c0c8';
- const shade=(n,base)=>{const l=Math.max(0.35,Math.min(1,0.55+0.45*n));return`color-mix(in srgb,${base} ${Math.round(l*100)}%,#1d2328)`;};
- const poly=(pts,fill,st)=>{g.beginPath();pts.forEach((q,i)=>i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]));g.closePath();g.fillStyle=fill;g.fill();if(st){g.strokeStyle=st;g.lineWidth=1;g.stroke();}};
- // outer walls facing the viewer, back to front
- const walls=[];for(let i=0;i<O.length;i++){const a=O[i],b=O[(i+1)%O.length],nx=b[1]-a[1],ny=-(b[0]-a[0]),nl=Math.hypot(nx,ny)||1;const nY=(nx*sn+ny*cs)/nl;if(nY>0.02)continue;const dep=((a[0]+b[0])/2-mx)*sn+((a[1]+b[1])/2-my)*cs;walls.push({a,b,dep,lit:(nx*cs-ny*sn)/nl});}
- walls.sort((u,v)=>v.dep-u.dep);for(const w of walls)poly([P(w.a[0],w.a[1],0),P(w.b[0],w.b[1],0),P(w.b[0],w.b[1],-T),P(w.a[0],w.a[1],-T)],shade(0.3-0.5*w.lit,mc),'rgba(0,0,0,.18)');
- poly(O.map(p=>P(p[0],p[1],0)),shade(1,mc),'#3d454c');
- // pockets and holes
- let np=0,nh=0;for(const l of lp.inner){const d=cDepth(l.e,T),thru=d>=T-1e-6;thru?nh++:np++;const I=l.P;g.save();g.beginPath();I.forEach((p,i)=>{const q=P(p[0],p[1],0);i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]);});g.closePath();g.clip();
-  if(thru){poly(I.map(p=>P(p[0],p[1],0)),'#1d2328');}else poly(I.map(p=>P(p[0],p[1],-d)),shade(0.78,mc));
-  const iw=[];for(let i=0;i<I.length;i++){const a=I[i],b=I[(i+1)%I.length],nx=-(b[1]-a[1]),ny=b[0]-a[0],nl=Math.hypot(nx,ny)||1;const nY=(nx*sn+ny*cs)/nl;if(nY>0.02)continue;iw.push({a,b,dep:((a[0]+b[0])/2-mx)*sn+((a[1]+b[1])/2-my)*cs,lit:(nx*cs-ny*sn)/nl});}
-  iw.sort((u,v)=>v.dep-u.dep);for(const w of iw)poly([P(w.a[0],w.a[1],0),P(w.b[0],w.b[1],0),P(w.b[0],w.b[1],-d),P(w.a[0],w.a[1],-d)],thru?'#3a4148':shade(0.45-0.4*w.lit,mc));g.restore();
-  g.beginPath();I.forEach((p,i)=>{const q=P(p[0],p[1],0);i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]);});g.closePath();g.strokeStyle='#3d454c';g.lineWidth=1;g.stroke();}
- if(info)info.textContent=cSizeTxt()+' · '+np+(LANG==='vi'?' hốc · ':' pockets · ')+nh+(LANG==='vi'?' lỗ xuyên':' through');}
 /* ---- edit tools: explode, trim, fillet, chamfer, erase ---- */
 function cExplode(e){const D={depth:e.depth},L_=(a,b)=>({id:cid(),t:'line',a:a.map(r4),b:b.map(r4),...D}),A_=(c,r,a0,a1)=>({id:cid(),t:'arc',c:c.map(r4),r:r4(r),a0,a1,...D});
  if(e.t==='rect'){const x0=Math.min(e.x,e.x+e.w),y0=Math.min(e.y,e.y+e.h),W=Math.abs(e.w),H=Math.abs(e.h),r=Math.min(+e.r||0,W/2,H/2);if(r<=1e-6)return[L_([x0,y0],[x0+W,y0]),L_([x0+W,y0],[x0+W,y0+H]),L_([x0+W,y0+H],[x0,y0+H]),L_([x0,y0+H],[x0,y0])];
@@ -3449,21 +3434,21 @@ function cadSend(kind){const c=CD(),vi=LANG==='vi';if(!c.ents.length){toast(vi?'
  if(kind==='lathe'){L0();S.lathe.src='dxf';pick('lathe');}else if(kind==='wire')pick('wire');else{pick('mill');S.millK='mill';}
  buildProgram();VIEW.fitted=false;S.tab='program';persist();render();toast(vi?'Đã gửi bản vẽ CAD sang chương trình':'CAD drawing sent to the program');}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-ctool],[data-cad],[data-ctpl]');if(!b||S.tab!=='cad')return;const c=CD(),d=b.dataset,vi=LANG==='vi';
- if(d.ctool){c.tool=d.ctool;CADV.pick1=null;CADV.dimPts=[];CADV.sel=null;CADV.pts=[];CADV.chain0=null;persist();rCad();return;}
- if(d.ctpl){cPush();const T_=cadTemplates(d.ctpl);if(T_){c.ents=T_.ents;c.T=T_.T;c.units='in';c.grid=0.125;CADV.sel=null;CADV.view=null;persist();rCad();}return;}
+ if(d.ctool){c.tool=d.ctool;CADV.pick1=null;CADV.dimPts=[];CADV.cpick=null;CADV.ptPick=null;CADV.fp=null;CADV.sel=null;CADV.msel=[];CADV.pts=[];CADV.chain0=null;persist();rCad();return;}
+ if(d.ctpl){cPush();const T_=cadTemplates(d.ctpl);if(T_){c.ents=T_.ents;c.T=T_.T;c.feats=[];c.cons=[];c.base=true;CADV.fedit=null;CADV.fp=null;c.units='in';c.grid=0.125;CADV.sel=null;CADV.view=null;persist();rCad();}return;}
  const a=d.cad,sel=c.ents.find(x=>x.id===CADV.sel),V=CADV.view;
  if(a==='zin'||a==='zout'){V.s*=a==='zin'?1/1.3:1.3;cDraw();return;}if(a==='fit'){cFit();cDraw();return;}
- if(a==='undo'){if(CADV.hist.length){CADV.fut.push(JSON.stringify(c.ents));c.ents=JSON.parse(CADV.hist.pop());CADV.sel=null;persist();rCad();}return;}
- if(a==='redo'){if(CADV.fut.length){CADV.hist.push(JSON.stringify(c.ents));c.ents=JSON.parse(CADV.fut.pop());persist();rCad();}return;}
+ if(a==='undo'){if(CADV.hist.length){CADV.fut.push(cSnapS());cRestore(CADV.hist.pop());CADV.sel=null;CADV.msel=[];persist();rCad();}return;}
+ if(a==='redo'){if(CADV.fut.length){CADV.hist.push(cSnapS());cRestore(CADV.fut.pop());CADV.sel=null;CADV.msel=[];persist();rCad();}return;}
  if(a==='done'){CADV.pts=[];CADV.chain0=null;cPrev(null);const ii=$('#cadInfo');if(ii)ii.textContent=vi?'Đã kết thúc nét':'Chain ended';return;}
  if(a==='snap'){c.snap=!c.snap;persist();rCad();return;}
- if(a==='clear'){if(!c.ents.length)return;cPush();c.ents=[];CADV.sel=null;CADV.pts=[];persist();rCad();toast(vi?'Đã xóa — bấm Hoàn tác nếu cần':'Cleared — Undo brings it back');return;}
+ if(a==='clear'){if(!c.ents.length&&!(c.feats||[]).length)return;cPush();c.ents=[];c.feats=[];c.cons=[];CADV.fp=null;CADV.fedit=null;CADV.sel=null;CADV.pts=[];persist();rCad();toast(vi?'Đã xóa — bấm Hoàn tác nếu cần':'Cleared — Undo brings it back');return;}
  if(a==='addNum'){const en=cEntFromF(c.tool,cF(c.tool));if(en&&cEntOk(en)){cPush();c.ents.push({id:cid(),depth:'',...en});persist();rCad();toast('✓ '+cDimTxt(en));}else toast(vi?'Số chưa hợp lệ':'Check the numbers');return;}
- if(a==='send'){cadSend('mill');return;}if(a==='sendL'){cadSend('lathe');return;}if(a==='sendW'){cadSend('wire');return;}
+ if(a==='send3'){cadSend3D();return;}if(a==='stl'){cadSTL();return;}if(a==='send'){cadSend('mill');return;}if(a==='sendL'){cadSend('lathe');return;}if(a==='sendW'){cadSend('wire');return;}
  if(a==='dxf'){const name=(S.hdr.name||'CAD-PART').replace(/[^A-Za-z0-9_-]/g,'')+'.dxf';saveFile(name,new TextEncoder().encode(cadDXF()));return;}
  if(!sel)return;
- if(a==='unsel'){CADV.sel=null;rCad();return;}
- if(a==='del'){cPush();c.ents=c.ents.filter(x=>x!==sel);CADV.sel=null;persist();rCad();return;}
+ if(a==='unsel'){CADV.sel=null;CADV.msel=[];rCad();return;}
+ if(a==='del'){cPush();const ds=new Set(selIds());c.ents=c.ents.filter(x=>x!==sel&&!ds.has(x.id));CADV.sel=null;CADV.msel=[];persist();rCad();return;}
  if(a==='dup'){cPush();const n=JSON.parse(JSON.stringify(sel));n.id=cid();const off=(+c.grid||0.125)*2;cMove(n,off,-off);c.ents.push(n);CADV.sel=n.id;persist();rCad();return;}
  const P=cEnt2P(sel).P,cx=(Math.min(...P.map(p=>p[0]))+Math.max(...P.map(p=>p[0])))/2,cy=(Math.min(...P.map(p=>p[1]))+Math.max(...P.map(p=>p[1])))/2;cPush();
  if(a==='mx')cXform(sel,p=>[2*cx-p[0],p[1]],'mx');else if(a==='my')cXform(sel,p=>[p[0],2*cy-p[1]],'my');else if(a==='rot')cXform(sel,p=>[cx-(p[1]-cy),cy+(p[0]-cx)],'rot');persist();rCad();});
@@ -3471,10 +3456,300 @@ document.addEventListener('change',e=>{const el=e.target;if(S.tab!=='cad')return
  if(el.dataset.cf){const f=cF(c.tool);f[el.dataset.cf]=+el.value||0;persist();return;}
  if(el.dataset.ce){const sel=c.ents.find(x=>x.id===CADV.sel);if(!sel)return;cPush();const k=el.dataset.ce;
   if(k==='depth'){sel.depth=el.value==='thru'||el.value===''?el.value:+el.value;}else if(k==='depthN'){const v=el.value.trim();sel.depth=v===''?'':(+v>=+c.T?'thru':+v);}
-  else{const f=cF4E(sel);f[k]=+el.value||0;const n=cEntFromF(sel.t,f);if(n&&cEntOk(n)){if(sel.t==='poly')n.rot=sel.rot||0;Object.keys(sel).forEach(x=>{if(!['id','depth'].includes(x))delete sel[x];});Object.assign(sel,n);}}persist();rCad();return;}
+  else{const f=cF4E(sel);f[k]=+el.value||0;const n=cEntFromF(sel.t,f);if(n&&cEntOk(n)){if(sel.t==='poly')n.rot=sel.rot||0;Object.keys(sel).forEach(x=>{if(!['id','depth'].includes(x))delete sel[x];});Object.assign(sel,n);cSolve([sel.id]);}}persist();rCad();return;}
  if(el.id==='cadT'){c.T=Math.max(0.001,+el.value||c.T);persist();cad3D();return;}
  if(el.id==='cadGrid'){c.grid=+el.value;persist();cDraw();return;}
  if(el.id==='cadUnits'){c.units=el.value;c.grid=c.units==='mm'?1:0.125;persist();rCad();return;}});
+/* ================= CAD+: transforms & patterns · constraints · 3D solid features (extrude / revolve / sweep / loft, draft, shell, edge fillet / chamfer, booleans) ================= */
+const SO=window.SOLID;
+const rr=v=>Math.round(v*1e6)/1e6;
+function selIds(){const c=CD(),ids=(CADV.msel||[]).filter(id=>c.ents.some(e=>e.id===id));if(ids.length)return ids;return CADV.sel&&c.ents.some(e=>e.id===CADV.sel)?[CADV.sel]:[];}
+function cSnapS(){const c=CD();return JSON.stringify({e:c.ents,f:c.feats||[],k:c.cons||[],b:c.base!==false});}
+function cRestore(j){const c=CD(),o=JSON.parse(j);if(Array.isArray(o))c.ents=o;else{c.ents=o.e||[];c.feats=o.f||[];c.cons=o.k||[];c.base=o.b!==false;}}
+/* ---------- entity end points / chains ---------- */
+function cEnds(e){if(e.t==='line')return[e.a,e.b];if(e.t==='arc'){const P=cEnt2P(e).P;return[P[0],P[P.length-1]];}return null;}
+const near=(p,q,t)=>Math.hypot(p[0]-q[0],p[1]-q[1])<(t||1e-4);
+/* the connected chain an entity belongs to (closed shapes stand alone) */
+function cComp(e){const c=CD();if(!cEnds(e))return[e];const out=[e],seen=new Set([e.id]);let grow=true;while(grow){grow=false;for(const f of c.ents){if(seen.has(f.id)||!cEnds(f))continue;const F=cEnds(f);if(out.some(g=>{const G=cEnds(g);return G.some(p=>F.some(q=>near(p,q)));})){out.push(f);seen.add(f.id);grow=true;}}}return out;}
+/* ordered chains with direction: [{items:[{e,rev}],closed}] */
+function cChains(ents){const open=ents.filter(e=>cEnds(e)),used=new Set(),out=[];for(const e0 of open){if(used.has(e0.id))continue;used.add(e0.id);const items=[{e:e0,rev:false}];
+  const head=()=>{const it=items[0],E=cEnds(it.e);return it.rev?E[1]:E[0];},tail=()=>{const it=items[items.length-1],E=cEnds(it.e);return it.rev?E[0]:E[1];};let grow=true;
+  while(grow){grow=false;for(const f of open){if(used.has(f.id))continue;const F=cEnds(f);if(near(tail(),F[0])){items.push({e:f,rev:false});}else if(near(tail(),F[1])){items.push({e:f,rev:true});}else if(near(head(),F[1])){items.unshift({e:f,rev:false});}else if(near(head(),F[0])){items.unshift({e:f,rev:true});}else continue;used.add(f.id);grow=true;}}
+  out.push({items,closed:items.length>1&&near(head(),tail())});}return out;}
+/* closed loops from a list of entities, CCW, with nesting depth (even = solid, odd = hole) */
+function cLoopsE(ents){const loops=[];for(const e of ents){if(e.t==='dim')continue;const q=cEnt2P(e);if(q.closed&&q.P.length>2)loops.push({P:q.P.map(p=>p.slice()),ids:[e.id]});}
+ for(const ch of cChains(ents)){if(!ch.closed)continue;let P=[];for(const it of ch.items){let Q=cEnt2P(it.e).P;if(it.rev)Q=Q.slice().reverse();P=P.concat(P.length?Q.slice(1):Q);}P.pop();if(P.length>2)loops.push({P,ids:ch.items.map(i=>i.e.id)});}
+ const ar=P=>{let a=0;for(let i=0;i<P.length;i++){const p=P[i],q=P[(i+1)%P.length];a+=p[0]*q[1]-q[0]*p[1];}return a/2;};const pip=(p,P)=>{let k=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])k=!k;}return k;};
+ loops.forEach(l=>{if(ar(l.P)<0)l.P.reverse();l.A=ar(l.P);});loops.sort((a,b)=>b.A-a.A);
+ loops.forEach((l,i)=>{l.par=null;l.depth=0;for(let j=i-1;j>=0;j--){if(pip(l.P[0],loops[j].P)){l.par=loops[j];break;}}let d=0,p=l.par;while(p){d++;p=p.par;}l.depth=d;});
+ return loops.filter(l=>l.depth%2===0).map(o=>({outer:o.P,holes:loops.filter(h=>h.par===o).map(h=>h.P),A:o.A,ids:o.ids}));}
+function cPathE(ents){const cl=ents.filter(e=>!cEnds(e)&&e.t!=='dim');if(cl.length)return{P:cEnt2P(cl[0]).P,closed:true};const ch=cChains(ents).sort((a,b)=>b.items.length-a.items.length)[0];if(!ch)return null;let P=[];for(const it of ch.items){let Q=cEnt2P(it.e).P;if(it.rev)Q=Q.slice().reverse();P=P.concat(P.length?Q.slice(1):Q);}if(ch.closed)P.pop();return{P,closed:ch.closed};}
+/* entities a 3D feature uses are not part of the 2D base part */
+function fUsed(){const c=CD(),s=new Set();for(const f of c.feats||[]){if(!f.on)continue;[...(f.prof||[]),...(f.prof2||[]),...(f.path||[])].forEach(id=>s.add(id));if(f.axis&&f.axis!=='x'&&f.axis!=='y')s.add(f.axis);}return s;}
+
+/* ---------- 2D transforms ---------- */
+/* apply p → A·p + t (2×2 matrix m=[a,b,c,d]) to one entity; returns the entity list that replaces it */
+function cAff(e,m,t){const[a,b,c_,d]=m,det=a*d-b*c_,s=Math.sqrt(Math.abs(det)),mir=det<0,th=Math.atan2(c_,a)*180/Math.PI;const F=p=>[rr(a*p[0]+b*p[1]+t[0]),rr(c_*p[0]+d*p[1]+t[1])];const ang=x=>mir?th-x:x+th;
+ const n=JSON.parse(JSON.stringify(e));
+ if(n.t==='dim'){if(n.k==='lin'){n.a=F(n.a);n.b=F(n.b);n.o=F(n.o);}else{n.c=F(n.c);n.r=rr(n.r*s);n.ang=rr(ang(n.ang));}return[n];}
+ if(n.t==='line'){n.a=F(n.a);n.b=F(n.b);return[n];}
+ if(n.t==='slot'){n.a=F(n.a);n.b=F(n.b);n.w=rr(n.w*s);return[n];}
+ if(n.t==='circle'){n.c=F(n.c);n.r=rr(n.r*s);return[n];}
+ if(n.t==='arc'){n.c=F(n.c);n.r=rr(n.r*s);if(mir){const a0=th-n.a1,a1=th-n.a0;n.a0=rr(a0);n.a1=rr(a1);}else{n.a0=rr(n.a0+th);n.a1=rr(n.a1+th);}return[n];}
+ if(n.t==='poly'){n.c=F(n.c);n.r=rr(n.r*s);n.rot=rr(ang(n.rot||0));return[n];}
+ if(n.t==='rect'){const q=((th%90)+90)%90;if(q<1e-6||q>90-1e-6){const P=cEnt2P({...n,r:0}).P.map(F),xs=P.map(p=>p[0]),ys=P.map(p=>p[1]);Object.assign(n,{x:Math.min(...xs),y:Math.min(...ys),w:rr(Math.max(...xs)-Math.min(...xs)),h:rr(Math.max(...ys)-Math.min(...ys)),r:rr((+n.r||0)*s)});return[n];}
+  return cExplode(n).flatMap(x=>cAff(x,m,t).map(y=>({...y,id:cid()})));}
+ return[n];}
+function cSelCenter(ids){const P=CD().ents.filter(e=>ids.includes(e.id)).flatMap(e=>e.t==='dim'?[]:cEnt2P(e).P);if(!P.length)return[0,0];return[(Math.min(...P.map(p=>p[0]))+Math.max(...P.map(p=>p[0])))/2,(Math.min(...P.map(p=>p[1]))+Math.max(...P.map(p=>p[1])))/2];}
+/* run a transform on the selection: copy = keep originals; returns new ids */
+function cXfSel(m,t,copy){const c=CD(),ids=selIds(),out=[];for(const id of ids){const e=c.ents.find(x=>x.id===id);if(!e)continue;const L=cAff(e,m,t);if(copy){L.forEach(x=>{x.id=cid();c.ents.push(x);out.push(x.id);});}else{if(L.length===1&&L[0].id===e.id){Object.keys(e).forEach(k=>delete e[k]);Object.assign(e,L[0]);out.push(e.id);}else{cReplace(e,L);out.push(...L.map(x=>x.id));}}}return out;}
+const mRot=(deg,s)=>{const r=deg*Math.PI/180,k=s||1;return[k*Math.cos(r),-k*Math.sin(r),k*Math.sin(r),k*Math.cos(r)];};
+const mAbout=(m,p)=>[p[0]-(m[0]*p[0]+m[1]*p[1]),p[1]-(m[2]*p[0]+m[3]*p[1])];
+function cMirLine(L){const u=[L.b[0]-L.a[0],L.b[1]-L.a[1]],f=Math.atan2(u[1],u[0]),m=[Math.cos(2*f),Math.sin(2*f),Math.sin(2*f),-Math.cos(2*f)];return{m,t:mAbout(m,L.a)};}
+/* offset (always a copy): + = outward for closed shapes / to the right of an open chain's direction */
+function cOffsetSel(d){const c=CD(),ids=selIds(),ents=c.ents.filter(e=>ids.includes(e.id)),out=[];const push=x=>{x.id=cid();c.ents.push(x);out.push(x.id);};
+ for(const e of ents){if(cEnds(e))continue;const n=JSON.parse(JSON.stringify(e));
+  if(e.t==='circle'){n.r=rr(e.r+d);if(n.r<=1e-6)continue;}else if(e.t==='rect'){const x0=Math.min(e.x,e.x+e.w),y0=Math.min(e.y,e.y+e.h);Object.assign(n,{x:rr(x0-d),y:rr(y0-d),w:rr(Math.abs(e.w)+2*d),h:rr(Math.abs(e.h)+2*d),r:(+e.r||0)>0?rr(Math.max(0,e.r+d)):0});if(n.w<=0||n.h<=0)continue;}
+  else if(e.t==='poly'){n.r=rr(e.r+d/Math.cos(Math.PI/e.n));if(n.r<=1e-6)continue;}else if(e.t==='slot'){n.w=rr(e.w+2*d);if(n.w<=1e-6)continue;}else if(e.t==='dim')continue;push(n);}
+ for(const ch of cChains(ents)){let A=0;if(ch.closed){const P=[];for(const it of ch.items){let Q=cEnt2P(it.e).P;if(it.rev)Q=Q.slice().reverse();P.push(...Q);}for(let i=0;i<P.length;i++){const p=P[i],q=P[(i+1)%P.length];A+=p[0]*q[1]-q[0]*p[1];}}const sg=A<0?-1:1;
+  const nl=ch.items.map(({e,rev})=>{const n=JSON.parse(JSON.stringify(e));if(e.t==='line'){const p=rev?e.b:e.a,q=rev?e.a:e.b,l=Math.hypot(q[0]-p[0],q[1]-p[1])||1,rn=[(q[1]-p[1])/l,-(q[0]-p[0])/l];n.a=[rr(e.a[0]+rn[0]*d*sg),rr(e.a[1]+rn[1]*d*sg)];n.b=[rr(e.b[0]+rn[0]*d*sg),rr(e.b[1]+rn[1]*d*sg)];}else{n.r=rr(e.r+d*sg*(rev?-1:1));}return{n,rev};});
+  // close the corners between two straight pieces
+  const m=nl.length;for(let i=0;i<(ch.closed?m:m-1);i++){const A_=nl[i],B_=nl[(i+1)%m];if(A_.n.t!=='line'||B_.n.t!=='line')continue;const a=A_.n,b=B_.n,d1=[a.b[0]-a.a[0],a.b[1]-a.a[1]],d2=[b.b[0]-b.a[0],b.b[1]-b.a[1]],den=d1[0]*d2[1]-d1[1]*d2[0];if(Math.abs(den)<1e-12)continue;const tt=((b.a[0]-a.a[0])*d2[1]-(b.a[1]-a.a[1])*d2[0])/den,X=[rr(a.a[0]+d1[0]*tt),rr(a.a[1]+d1[1]*tt)];
+   if(A_.rev)a.a=X;else a.b=X;if(B_.rev)b.b=X;else b.a=X;}
+  for(const{n}of nl){if(n.t==='arc'&&n.r<=1e-6)continue;push(n);}}
+ return out;}
+
+/* ---------- constraints ---------- */
+const CONK={cH:['Ngang','Horizontal','H'],cV:['Dọc','Vertical','V'],cPar:['Song song','Parallel','∥'],cPerp:['Vuông góc','Perpendicular','⊥'],cEq:['Bằng nhau','Equal','='],cCoin:['Trùng điểm','Coincident','●'],cConc:['Đồng tâm','Concentric','◎'],cTan:['Tiếp tuyến','Tangent','T'],cFix:['Cố định','Fix','⚓'],cLen:['Độ dài','Length','L'],cRad:['Bán kính / Ø','Radius / Ø','R'],cDist:['Khoảng cách 2 điểm','Point distance','↔'],cAng:['Góc','Angle','∠']};
+const CICON={cH:'<path d="M4 12h16"/><circle cx="4" cy="12" r="1.8"/><circle cx="20" cy="12" r="1.8"/>',cV:'<path d="M12 4v16"/><circle cx="12" cy="4" r="1.8"/><circle cx="12" cy="20" r="1.8"/>',cPar:'<path d="M5 18L13 4M11 20L19 6"/>',cPerp:'<path d="M5 19h14M12 19V5"/><path d="M12 15h4v4"/>',cEq:'<path d="M5 9h14M5 15h14"/>',cCoin:'<path d="M4 19l8-7M12 12l8-6"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/>',cConc:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/>',cTan:'<circle cx="12" cy="14" r="6"/><path d="M3 8h18"/>',cFix:'<rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 0 1 6 0v3"/>',cLen:'<path d="M4 15h16M4 11v8M20 11v8"/><path d="M8 7h8"/>',cRad:'<circle cx="12" cy="12" r="8"/><path d="M12 12l6-5"/>',cDist:'<circle cx="5" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/><path d="M7 12h10M9 10l-2 2 2 2M15 10l2 2-2 2"/>',cAng:'<path d="M4 20h16M4 20L16 6"/><path d="M11 20a7 7 0 0 0-2-5"/>'};
+CTOOLS.push(...Object.keys(CONK).map(k=>[k,CONK[k][0],CONK[k][1],CICON[k]]));
+const isLin=e=>e&&(e.t==='line'||e.t==='slot'),isRnd=e=>e&&(e.t==='circle'||e.t==='arc');
+/* parameter names per entity type (angles in radians inside the solver) */
+const PK={line:['ax','ay','bx','by'],slot:['ax','ay','bx','by','w'],circle:['cx','cy','r'],arc:['cx','cy','r','s','e'],poly:['cx','cy','r','rot'],rect:['x','y','W','H']};
+const D2R=Math.PI/180;
+function pGet(e,k){switch(k){case'ax':return e.a[0];case'ay':return e.a[1];case'bx':return e.b[0];case'by':return e.b[1];case'cx':return e.c[0];case'cy':return e.c[1];case'r':return e.r;case's':return e.a0*D2R;case'e':return e.a1*D2R;case'w':return e.w;case'rot':return(e.rot||0)*D2R;case'x':return e.x;case'y':return e.y;case'W':return e.w;case'H':return e.h;}return 0;}
+function pSet(e,k,v){v=Math.round(v*1e8)/1e8;switch(k){case'ax':e.a[0]=v;break;case'ay':e.a[1]=v;break;case'bx':e.b[0]=v;break;case'by':e.b[1]=v;break;case'cx':e.c[0]=v;break;case'cy':e.c[1]=v;break;case'r':e.r=v;break;case's':e.a0=Math.round(v/D2R*1e6)/1e6;break;case'e':e.a1=Math.round(v/D2R*1e6)/1e6;break;case'w':e.w=v;break;case'rot':e.rot=Math.round(v/D2R*1e6)/1e6;break;case'x':e.x=v;break;case'y':e.y=v;break;case'W':e.w=v;break;case'H':e.h=v;break;}}
+/* named points: a / b (ends), c (center), s / e (arc ends), m (line middle) */
+function cPt(e,w,G){G=G||(k=>pGet(e,k));if(w==='a')return[G('ax'),G('ay')];if(w==='b')return[G('bx'),G('by')];if(w==='m')return[(G('ax')+G('bx'))/2,(G('ay')+G('by'))/2];
+ if(w==='c'){if(e.t==='rect')return[G('x')+G('W')/2,G('y')+G('H')/2];return[G('cx'),G('cy')];}if(w==='s'||w==='e'){const a=G(w);return[G('cx')+G('r')*Math.cos(a),G('cy')+G('r')*Math.sin(a)];}
+ if(/^p\d$/.test(w)){const i=+w[1],x=G('x'),y=G('y'),W=G('W'),H=G('H');return[[x,y],[x+W,y],[x+W,y+H],[x,y+H]][i];}return[0,0];}
+function cPtRefs(e){if(isLin(e))return['a','b','m'];if(e.t==='circle'||e.t==='poly')return['c'];if(e.t==='arc')return['c','s','e'];if(e.t==='rect')return['c','p0','p1','p2','p3'];return[];}
+function cPickPt(p){const c=CD(),s=CADV.view.s;let best=null,bd=16*s;for(const e of c.ents){if(!PK[e.t])continue;for(const w of cPtRefs(e)){const q=cPt(e,w),d=Math.hypot(q[0]-p[0],q[1]-p[1]);if(d<bd){bd=d;best={id:e.id,w};}}}return best;}
+function cConsClean(){const c=CD();if(!c.cons)c.cons=[];const ids=new Set(c.ents.map(e=>e.id));c.cons=c.cons.filter(k=>(!k.e1||ids.has(k.e1))&&(!k.e2||ids.has(k.e2)));}
+/* current measured value of a value constraint */
+function cConVal(k,G){const c=CD(),E=id=>c.ents.find(e=>e.id===id);const e1=E(k.e1),e2=E(k.e2);G=G||((e,n)=>pGet(e,n));const g1=n=>G(e1,n),g2=n=>e2?G(e2,n):0;
+ if(k.k==='cLen'){const a=cPt(e1,'a',g1),b=cPt(e1,'b',g1);return Math.hypot(b[0]-a[0],b[1]-a[1]);}if(k.k==='cRad')return g1('r');
+ if(k.k==='cDist'){const a=cPt(e1,k.w1,g1),b=cPt(e2,k.w2,g2);return Math.hypot(b[0]-a[0],b[1]-a[1]);}
+ if(k.k==='cAng'){const d1=[g1('bx')-g1('ax'),g1('by')-g1('ay')],d2=[g2('bx')-g2('ax'),g2('by')-g2('ay')];return Math.atan2(d1[0]*d2[1]-d1[1]*d2[0],d1[0]*d2[0]+d1[1]*d2[1])/D2R;}return 0;}
+/* residuals for one constraint */
+function cRes(k,G,ents){const e1=ents.get(k.e1),e2=k.e2?ents.get(k.e2):null;if(!e1||(k.e2&&!e2))return[];const g1=n=>G(e1,n),g2=n=>G(e2,n);
+ const dir=(g)=>[g('bx')-g('ax'),g('by')-g('ay')];
+ switch(k.k){case'cH':return[g1('by')-g1('ay')];case'cV':return[g1('bx')-g1('ax')];
+  case'cPar':case'cPerp':{const a=dir(g1),b=dir(g2),la=Math.hypot(...a)||1e-9,lb=Math.hypot(...b)||1e-9;return[k.k==='cPar'?(a[0]*b[1]-a[1]*b[0])/la/lb:(a[0]*b[0]+a[1]*b[1])/la/lb];}
+  case'cEq':{if(isLin(e1)&&isLin(e2))return[Math.hypot(...dir(g1))-Math.hypot(...dir(g2))];return[g1('r')-g2('r')];}
+  case'cCoin':{const a=cPt(e1,k.w1,g1),b=cPt(e2,k.w2,g2);return[a[0]-b[0],a[1]-b[1]];}
+  case'cConc':{const a=cPt(e1,'c',g1),b=cPt(e2,'c',g2);return[a[0]-b[0],a[1]-b[1]];}
+  case'cTan':{if(isLin(e1)||isLin(e2)){const L=isLin(e1)?g1:g2,R=isLin(e1)?g2:g1,a=[L('ax'),L('ay')],d=dir(L),l=Math.hypot(...d)||1e-9,cc=[R('cx'),R('cy')];const sd=(d[0]*(cc[1]-a[1])-d[1]*(cc[0]-a[0]))/l;return[(k.sd||1)*sd-R('r')];}
+   const dd=Math.hypot(g1('cx')-g2('cx'),g1('cy')-g2('cy'));return[k.inner?dd-Math.abs(g1('r')-g2('r')):dd-(g1('r')+g2('r'))];}
+  case'cLen':{const a=cPt(e1,'a',g1),b=cPt(e1,'b',g1);return[Math.hypot(b[0]-a[0],b[1]-a[1])-k.v];}
+  case'cRad':return[g1('r')-k.v];
+  case'cDist':{const a=cPt(e1,k.w1,g1),b=cPt(e2,k.w2,g2);return[Math.hypot(b[0]-a[0],b[1]-a[1])-k.v];}
+  case'cAng':{const a=dir(g1),b=dir(g2);let t=Math.atan2(a[0]*b[1]-a[1]*b[0],a[0]*b[0]+a[1]*b[1])-k.v*D2R;while(t>Math.PI)t-=2*Math.PI;while(t<-Math.PI)t+=2*Math.PI;return[t];}}
+ return[];}
+/* solve the sketch: least change that meets every constraint (Gauss-Newton, minimum norm step). pin = ids that must not move */
+function cSolve(pin,quiet){const c=CD();cConsClean();if(!c.cons.length)return true;const ents=new Map(c.ents.map(e=>[e.id,e]));
+ const act=new Set();for(const k of c.cons){if(k.e1)act.add(k.e1);if(k.e2)act.add(k.e2);}
+ // pull in everything joined end-to-end so chains stay closed
+ let grow=true;while(grow){grow=false;for(const e of c.ents){if(act.has(e.id)||!cEnds(e))continue;const E=cEnds(e);for(const id of act){const f=ents.get(id),F=f&&cEnds(f);if(F&&E.some(p=>F.some(q=>near(p,q,1e-6)))){act.add(e.id);grow=true;break;}}}}
+ const A=[...act].map(id=>ents.get(id)).filter(e=>e&&PK[e.t]);
+ const auto=[];for(let i=0;i<A.length;i++){const Ei=cEnds(A[i]);if(!Ei)continue;const wi=A[i].t==='arc'?['s','e']:['a','b'];for(let j=i+1;j<A.length;j++){const Ej=cEnds(A[j]);if(!Ej)continue;const wj=A[j].t==='arc'?['s','e']:['a','b'];for(let p=0;p<2;p++)for(let q=0;q<2;q++)if(near(Ei[p],Ej[q],1e-6))auto.push({k:'cCoin',e1:A[i].id,w1:wi[p],e2:A[j].id,w2:wj[q]});}}
+ const run=pins=>{const fixed=new Set(pins||[]);for(const k of c.cons)if(k.k==='cFix')fixed.add(k.e1);
+  const idx=new Map(),x=[];for(const e of A){if(fixed.has(e.id))continue;for(const n of PK[e.t]){idx.set(e.id+'|'+n,x.length);x.push(pGet(e,n));}}
+  if(!x.length)return null;const cons=c.cons.filter(k=>k.k!=='cFix').concat(auto);
+  const R=X=>{const G=(e,n)=>{const i=idx.get(e.id+'|'+n);return i==null?pGet(e,n):X[i];};const o=[];for(const k of cons)o.push(...cRes(k,G,ents));return o;};
+  let X=x.slice(),r=R(X),nr=Math.hypot(...r);const n=X.length;
+  for(let it=0;it<60&&nr>1e-10;it++){const m=r.length,J=[];for(let j=0;j<n;j++){const h=1e-7*(1+Math.abs(X[j]));const X2=X.slice();X2[j]+=h;const r2=R(X2);for(let i=0;i<m;i++){(J[i]||(J[i]=new Array(n)))[j]=(r2[i]-r[i])/h;}}
+   // (J Jᵀ + λI) y = r ; step = −Jᵀ y
+   let lam=1e-10,ok=false;for(let tr=0;tr<8&&!ok;tr++){const M=[];for(let i=0;i<m;i++){M.push(new Array(m+1));for(let k=0;k<m;k++){let s=0;for(let j=0;j<n;j++)s+=J[i][j]*J[k][j];M[i][k]=s+(i===k?lam:0);}M[i][m]=r[i];}
+    for(let col=0;col<m;col++){let pv=col;for(let i=col+1;i<m;i++)if(Math.abs(M[i][col])>Math.abs(M[pv][col]))pv=i;[M[col],M[pv]]=[M[pv],M[col]];const d=M[col][col]||1e-18;for(let i=0;i<m;i++){if(i===col)continue;const f=M[i][col]/d;if(!f)continue;for(let k=col;k<=m;k++)M[i][k]-=f*M[col][k];}}
+    const y=M.map((row,i)=>row[m]/(row[i]||1e-18));const st=new Array(n).fill(0);for(let j=0;j<n;j++){let s=0;for(let i=0;i<m;i++)s+=J[i][j]*y[i];st[j]=-s;}
+    let a=1;for(let ls=0;ls<10;ls++){const X2=X.map((v,j)=>v+a*st[j]),r2=R(X2),n2=Math.hypot(...r2);if(n2<nr){X=X2;r=r2;nr=n2;ok=true;break;}a/=2;}if(!ok)lam=lam*1000+1e-8;}
+   if(!ok)break;}
+  return{X,nr,idx};};
+ let S_=run(pin);if(pin&&pin.length&&(!S_||S_.nr>1e-6)){const S2=run([]);if(S2&&(!S_||S2.nr<S_.nr))S_=S2;}
+ if(!S_)return true;// nothing free to move
+ for(const e of A)for(const n of PK[e.t]){const i=S_.idx.get(e.id+'|'+n);if(i!=null)pSet(e,n,S_.X[i]);}
+ const good=S_.nr<1e-6;if(!good&&!quiet)toast(LANG==='vi'?'Ràng buộc mâu thuẫn hoặc thừa — xem lại danh sách':'Constraints conflict or over-define the sketch — check the list');return good;}
+function cConAdd(k){const c=CD();cConsClean();cPush();c.cons.push({id:cid(),...k});const ok=cSolve([],true);if(!ok){toast(LANG==='vi'?'Ràng buộc này mâu thuẫn — đã bỏ':'That constraint conflicts — not added');CADV.fut=[];cRestore(CADV.hist.pop());}persist();rCad();}
+function cConPick(tool,p){const c=CD(),vi=LANG==='vi',ii=$('#cadInfo'),say=t_=>{if(ii)ii.textContent=t_;};
+ if(tool==='cCoin'||tool==='cDist'){const q=cPickPt(p);if(!q){say(vi?'Chạm gần một điểm (đầu, tâm, giữa)':'Tap near a point (end, center, middle)');return;}
+  if(!CADV.cpick){CADV.cpick=q;cDraw();say(vi?'Giờ chạm điểm thứ hai':'Now tap the second point');return;}const a=CADV.cpick;CADV.cpick=null;if(a.id===q.id&&a.w===q.w){cDraw();return;}
+  if(tool==='cCoin')cConAdd({k:'cCoin',e1:a.id,w1:a.w,e2:q.id,w2:q.w});else{const E=id=>c.ents.find(e=>e.id===id);const P1=cPt(E(a.id),a.w),P2=cPt(E(q.id),q.w);cConAdd({k:'cDist',e1:a.id,w1:a.w,e2:q.id,w2:q.w,v:rr(Math.hypot(P2[0]-P1[0],P2[1]-P1[1]))});}return;}
+ const h=cHit(p);if(!h||!PK[h.t]){say(vi?'Chạm trúng một hình':'Tap on a shape');return;}
+ const one={cH:isLin,cV:isLin,cFix:e=>!!PK[e.t],cLen:isLin,cRad:isRnd};
+ if(one[tool]){if(!one[tool](h)){say(vi?(tool==='cRad'?'Chọn vòng tròn hoặc cung':'Chọn đường thẳng'):(tool==='cRad'?'Pick a circle or an arc':'Pick a line'));return;}
+  const k={k:tool,e1:h.id};if(tool==='cLen')k.v=rr(Math.hypot(h.b[0]-h.a[0],h.b[1]-h.a[1]));if(tool==='cRad')k.v=rr(h.r);cConAdd(k);return;}
+ const okA={cPar:isLin,cPerp:isLin,cAng:isLin,cEq:e=>isLin(e)||isRnd(e),cConc:e=>isRnd(e)||e.t==='poly',cTan:e=>isLin(e)||isRnd(e)};
+ if(!okA[tool](h)){say(vi?'Hình này không dùng được cho ràng buộc này':'That shape does not fit this constraint');return;}
+ if(!CADV.cpick||CADV.cpick.id===h.id){CADV.cpick={id:h.id};cDraw();say(vi?'Giờ chạm hình thứ hai':'Now tap the second shape');return;}
+ const e1=c.ents.find(e=>e.id===CADV.cpick.id);CADV.cpick=null;if(!e1){cDraw();return;}
+ if(tool==='cEq'&&isLin(e1)!==isLin(h)){toast(vi?'Hai đường thẳng hoặc hai cung / tròn':'Two lines, or two arcs / circles');cDraw();return;}
+ if(tool==='cTan'){if(isLin(e1)&&isLin(h)){toast(vi?'Cần ít nhất một cung / tròn':'Needs at least one arc / circle');cDraw();return;}const k={k:'cTan',e1:e1.id,e2:h.id};
+  if(isLin(e1)||isLin(h)){const L=isLin(e1)?e1:h,R=isLin(e1)?h:e1,d=[L.b[0]-L.a[0],L.b[1]-L.a[1]];k.sd=Math.sign(d[0]*(R.c[1]-L.a[1])-d[1]*(R.c[0]-L.a[0]))||1;}else{const dd=Math.hypot(e1.c[0]-h.c[0],e1.c[1]-h.c[1]);k.inner=Math.abs(dd-Math.abs(e1.r-h.r))<Math.abs(dd-(e1.r+h.r));}cConAdd(k);return;}
+ const k={k:tool,e1:e1.id,e2:h.id};if(tool==='cAng')k.v=rr(cConVal(k));cConAdd(k);}
+function cConHelp(tool){const vi=LANG==='vi',H={cH:['Chạm đường thẳng để làm nằm ngang.','Tap a line to make it horizontal.'],cV:['Chạm đường thẳng để làm thẳng đứng.','Tap a line to make it vertical.'],cPar:['Chạm 2 đường thẳng — đường thứ hai xoay cho song song.','Tap 2 lines to make them parallel.'],cPerp:['Chạm 2 đường thẳng để vuông góc.','Tap 2 lines to make them square.'],cEq:['Chạm 2 đường thẳng (dài bằng nhau) hoặc 2 cung / tròn (R bằng nhau).','Tap 2 lines (same length) or 2 arcs / circles (same R).'],cCoin:['Chạm 2 điểm (đầu mút, tâm, điểm giữa) để chập vào nhau.','Tap 2 points (ends, centers, middles) to join them.'],cConc:['Chạm 2 cung / vòng tròn để chung tâm.','Tap 2 arcs / circles to share a center.'],cTan:['Chạm đường thẳng + cung, hoặc 2 cung / tròn, để tiếp xúc.','Tap a line + an arc, or 2 arcs / circles, to make them tangent.'],cFix:['Chạm hình để khóa vị trí và kích thước.','Tap a shape to lock its place and size.'],cLen:['Chạm đường thẳng — độ dài hiện tại thành kích thước điều khiển; sửa số trong danh sách bên dưới.','Tap a line — its length becomes a driving size; change the number in the list below.'],cRad:['Chạm cung / tròn — sửa R trong danh sách bên dưới.','Tap an arc / circle — change R in the list below.'],cDist:['Chạm 2 điểm — sửa khoảng cách trong danh sách.','Tap 2 points — change the distance in the list.'],cAng:['Chạm 2 đường thẳng — sửa góc trong danh sách.','Tap 2 lines — change the angle in the list.']}[tool];return(H?H[vi?0:1]:'')+' '+(vi?'Hình nối đầu với nhau sẽ đi theo.':'Shapes joined end to end follow along.');}
+/* small badges on the sketch */
+function cConSVG(X,Y){const c=CD();if(!c.cons||!c.cons.length)return'';const E=new Map(c.ents.map(e=>[e.id,e])),cnt=new Map();let o='';
+ const anchor=e=>{const P=cEnt2P(e).P;if(isLin(e))return[(e.a[0]+e.b[0])/2,(e.a[1]+e.b[1])/2];if(e.t==='circle'||e.t==='arc'||e.t==='poly'){const p=e.t==='arc'?P[Math.floor(P.length/2)]:[e.c[0]+e.r*0.707,e.c[1]+e.r*0.707];return p;}return P[0]||[0,0];};
+ const badge=(e,txt,col)=>{const w=Math.max(16,txt.length*7+8),n=cnt.get(e.id)||0;cnt.set(e.id,n+w+4);const a=anchor(e),x=X(a[0])+4+n+w/2,y=Y(a[1])-12;return`<g><rect x="${x-w/2}" y="${y-8}" width="${w}" height="16" rx="8" fill="#e6f4f5" stroke="${col}" stroke-width="1"/><text x="${x}" y="${y+0.5}" text-anchor="middle" dominant-baseline="central" font-size="10.5" font-weight="700" fill="${col}">${esc(txt)}</text></g>`;};
+ for(const k of c.cons){const e1=E.get(k.e1),e2=E.get(k.e2),col='#0e7c86',g=CONK[k.k][2];if(!e1)continue;
+  if(k.k==='cCoin'){const p=cPt(e1,k.w1);o+=`<rect x="${X(p[0])-4}" y="${Y(p[1])-4}" width="8" height="8" fill="${col}"/>`;continue;}
+  if(k.k==='cDist'&&e2){const a=cPt(e1,k.w1),b=cPt(e2,k.w2);o+=`<line x1="${X(a[0])}" y1="${Y(a[1])}" x2="${X(b[0])}" y2="${Y(b[1])}" stroke="${col}" stroke-dasharray="3 3"/><text x="${(X(a[0])+X(b[0]))/2}" y="${(Y(a[1])+Y(b[1]))/2-6}" text-anchor="middle" font-size="11" font-weight="700" fill="${col}" stroke="#fbfcfd" stroke-width="3" paint-order="stroke">↔${cFmt(k.v)}</text>`;continue;}
+  const val=k.k==='cLen'?g+' '+cFmt(k.v):k.k==='cRad'?(e1.t==='circle'?'Ø'+cFmt(2*k.v):'R'+cFmt(k.v)):k.k==='cAng'?Math.abs(+k.v).toFixed(1)+'°':g;
+  o+=badge(e1,val,col);if(e2&&!['cDist'].includes(k.k))o+=badge(e2,g,col);}
+ return o;}
+
+/* ---------- 3D features ---------- */
+const FTY={extrude:['Đùn khối','Extrude','<path d="M5 17l7 4 7-4V8l-7-4-7 4z"/><path d="M12 12v9M5 8l7 4 7-4"/>'],revolve:['Xoay tròn','Revolve','<path d="M12 3v18"/><ellipse cx="12" cy="12" rx="8" ry="3.2"/><path d="M17 6.5l2-1.5M17 6.5l-.5 2.4"/>'],sweep:['Quét theo đường','Sweep','<path d="M3 18c4 0 5-12 9-12s5 12 9 12"/><circle cx="3" cy="18" r="2"/>'],loft:['Loft (nối 2 biên dạng)','Loft','<rect x="4" y="15" width="16" height="5" rx="1"/><circle cx="12" cy="6" r="3"/><path d="M4 15l5-7M20 15l-5-7"/>']};
+const FOPS=[['join','Cộng (Join)','Join'],['cut','Trừ (Cut)','Cut'],['int','Giao (Intersect)','Intersect']];
+let SOLC={key:'',ps:[],err:{}};
+function cBaseSolid(){const c=CD(),T=Math.max(0.001,+c.T||0.5),lp=cLoops();if(!lp.outer)return[];const ex=1e-3;
+ const thru=[],pk=[];for(const l of lp.inner){const d=cDepth(l.e,T);if(d>=T-1e-6)thru.push(l.P);else pk.push({P:l.P,d});}
+ let body=SO.extrude({outer:lp.outer.P,holes:thru,h:T,z0:0});let cut=[];for(const p of pk)cut=SO.union(cut,SO.extrude({outer:p.P,h:p.d+ex,z0:T-p.d}));return cut.length?SO.subtract(body,cut):body;}
+const cEntsOf=ids=>{const c=CD(),s=new Set(ids||[]);return c.ents.filter(e=>s.has(e.id));};
+function cFeatSolid(f){const c=CD(),q={coarse:36,normal:72,fine:120}[c.q||'normal'];const L=cLoopsE(cEntsOf(f.prof));if(!L.length)throw new Error('prof');
+ const big=L.slice().sort((a,b)=>b.A-a.A)[0];const com={h:+f.h,dir:f.dir,z0:+f.z0||0,draft:+f.draft||0,topK:f.topK,topR:+f.topR||0,botK:f.botK,botR:+f.botR||0,shell:+f.shell||0,shellOpen:f.shellOpen,seg:8};let s=[];
+ if(f.type==='extrude'){for(const l of L)s=SO.union(s,SO.extrude({...com,outer:l.outer,holes:l.holes}));}
+ else if(f.type==='revolve'){let A=[0,0],u=[1,0];if(f.axis==='y')u=[0,1];else if(f.axis!=='x'){const e=c.ents.find(x=>x.id===f.axis);if(!e||!isLin(e))throw new Error('axis');A=e.a;u=[e.b[0]-e.a[0],e.b[1]-e.a[1]];}
+  for(const l of L){let b=SO.revolve({loop:l.outer,A,u,angle:+f.angle||360,start:+f.start||0,shell:+f.shell||0,seg:q});for(const H of l.holes)b=SO.subtract(b,SO.revolve({loop:H,A,u,angle:+f.angle||360,start:+f.start||0,seg:q}));s=SO.union(s,b);}}
+ else if(f.type==='sweep'){const pth=cPathE(cEntsOf(f.path));if(!pth||pth.P.length<2)throw new Error('path');const ob=big.outer,cx=(Math.min(...ob.map(p=>p[0]))+Math.max(...ob.map(p=>p[0])))/2,cy=(Math.min(...ob.map(p=>p[1]))+Math.max(...ob.map(p=>p[1])))/2;
+  let b=SO.sweep({prof:big.outer,center:[cx,cy],path:pth.P,closed:pth.closed,z0:+f.z0||0,shell:+f.shell||0,shellOpen:f.shellOpen==='none'?'none':'ends'});for(const H of big.holes)b=SO.subtract(b,SO.sweep({prof:H,center:[cx,cy],path:pth.P,closed:pth.closed,z0:+f.z0||0}));s=b;}
+ else if(f.type==='loft'){const L2=cLoopsE(cEntsOf(f.prof2));if(!L2.length)throw new Error('prof2');const b2=L2.slice().sort((a,b)=>b.A-a.A)[0];s=SO.loft({...com,A:big.outer,B:b2.outer});}
+ return SO.place(s,f.plane||'XY',+f.off||0,(f.mv||[0,0,0]).map(v=>+v||0));}
+const FERR={prof:['Chưa chọn biên dạng kín','Pick a closed profile'],prof2:['Chưa chọn biên dạng 2','Pick profile 2'],path:['Chưa chọn đường quét','Pick a sweep path'],axis:['Biên dạng cắt qua trục quay — vẽ ở một phía trục','The profile crosses the axis — keep it on one side'],offset:['Cỡ bo / vát / vỏ quá lớn cho hình này','Round / chamfer / shell size too big for this shape'],edge:['Bo trên + bo dưới lớn hơn chiều cao','Top + bottom round are more than the height'],shell:['Vỏ dày quá so với chi tiết','Shell is too thick for the part'],height:['Chiều cao phải > 0','Height must be more than 0'],empty:['Không ra khối nào','Makes no solid']};
+const ferr=m=>{const v=FERR[m];return v?v[LANG==='vi'?0:1]:m;};
+function cSolid(){const c=CD();const key=JSON.stringify([c.ents,c.feats,c.base,c.T,c.q]);if(SOLC.key===key)return SOLC;const err={};let body=[];const t0=performance.now();
+ if(c.base!==false){try{body=cBaseSolid();}catch(e){err.base=e.message;}}
+ for(const f of c.feats||[]){if(!f.on)continue;let s;try{s=cFeatSolid(f);}catch(e){err[f.id]=e.message;continue;}if(!s.length){err[f.id]='empty';continue;}
+  try{body=f.op==='cut'?SO.subtract(body,s):f.op==='int'?SO.intersect(body,s):SO.union(body,s);}catch(e){err[f.id]=e.message;}}
+ SOLC={key,ps:body,err,ms:performance.now()-t0};return SOLC;}
+function fNew(type){const c=CD(),R=cSolid(),b=R.ps.length?SO.box(R.ps):null,top=b?rr(b[5]):0;
+ const f={id:cid(),type,op:'join',on:true,prof:[],prof2:[],path:[],axis:'x',angle:360,start:0,plane:'XY',off:0,mv:[0,0,0],h:type==='loft'?1:0.5,dir:'up',z0:type==='extrude'||type==='loft'?top:0,draft:0,topK:'',topR:0.06,botK:'',botR:0.06,shell:0,shellOpen:type==='sweep'?'ends':'top'};
+ const ids=selIds();if(ids.length){const s=new Set();for(const id of ids){const e=c.ents.find(x=>x.id===id);if(e&&e.t!=='dim')cComp(e).forEach(x=>s.add(x.id));}f.prof=[...s];}
+ cPush();c.feats.push(f);CADV.fedit=f.id;CADV.fp=f.prof.length?null:{fid:f.id,slot:'prof'};CADV.sel=null;CADV.msel=[];persist();rCad();}
+function cFPick(p){const c=CD(),fp=CADV.fp,f=(c.feats||[]).find(x=>x.id===fp.fid);if(!f){CADV.fp=null;rCad();return;}const h=cHit(p),ii=$('#cadInfo');if(!h||h.t==='dim'){if(ii)ii.textContent=LANG==='vi'?'Chạm trúng một hình':'Tap on a shape';return;}
+ if(fp.slot==='axis'){if(!isLin(h)){toast(LANG==='vi'?'Trục quay phải là đường thẳng':'The axis must be a line');return;}f.axis=h.id;CADV.fp=null;persist();rCad();return;}
+ const comp=cComp(h).map(e=>e.id),cur=new Set(f[fp.slot]||[]);const had=comp.every(id=>cur.has(id));comp.forEach(id=>had?cur.delete(id):cur.add(id));f[fp.slot]=[...cur];persist();rCad();}
+function cPtPick(p){const c=CD(),m=cSnap(p).p,k=CADV.ptPick;CADV.ptPick=null;if(k==='mirror'){const h=cHit(p);if(!h||!isLin(h)){toast(LANG==='vi'?'Chạm một đường thẳng làm trục đối xứng':'Tap a line to mirror about');rCad();return;}const{m:M,t}=cMirLine(h);cPush();const n=cXfSel(M,t,!!c.xf.copy);cSolve(n,true);persist();rCad();return;}
+ c.xf.cx=rr(m[0]);c.xf.cy=rr(m[1]);persist();rCad();}
+function cTapMode(){const c=CD();return!!(CADV.fp||CADV.ptPick||CONK[c.tool]);}
+function cTap(tool,p){if(CADV.fp){cFPick(p);return;}if(CADV.ptPick){cPtPick(p);return;}if(CONK[tool]){cConPick(tool,p);return;}cadPick(tool,p);}
+/* ---------- 3D view of the solid ---------- */
+function cad3D(){const cv=$('#cad3d');if(!cv)return;const r=cv.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);if(!r.width)return;cv.width=r.width*dpr;cv.height=r.height*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);const W=r.width,H=r.height;g.clearRect(0,0,W,H);
+ const c=CD(),vi=LANG==='vi',info=$('#cad3i');let R;try{R=cSolid();}catch(e){R={ps:[],err:{x:e.message}};}const ps=R.ps||[];
+ const ne=Object.keys(R.err||{}).length;
+ if(!ps.length){g.fillStyle='#6b737a';g.font='13px Barlow';g.textAlign='center';g.fillText(vi?'Vẽ một hình kín, hoặc thêm tính năng 3D (Đùn / Xoay / Quét / Loft)':'Draw a closed shape, or add a 3D feature (Extrude / Revolve / Sweep / Loft)',W/2,H/2);if(info)info.textContent=ne?'⚠ '+ne:'';return;}
+ const b=SO.box(ps),yaw=CADV.yaw,pitch=CADV.pitch,zm=CADV.zoom||1;const span=Math.max(Math.hypot(b[3]-b[0],b[4]-b[1],b[5]-b[2]),0.1)*1.08/zm;
+ const cam={cx:(b[0]+b[3])/2+(CADV.pan3?CADV.pan3[0]:0),cy:(b[1]+b[4])/2+(CADV.pan3?CADV.pan3[1]:0),zc:(b[2]+b[5])/2,yaw,pitch,span};cam.sc=Math.min(W,H)/span*0.95;
+ const mc=hexRGB(mat().color||'#b8c0c8').map(v=>v/255);
+ const ok=glScene(g,W,H,dpr,cam,G=>{for(const p of ps){const V=p.v;for(let i=1;i<V.length-1;i++)G.tri(V[0],V[i],V[i+1],mc,p.n);}});
+ const cyw=Math.cos(yaw),syw=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+ const PJ=(x,y,z)=>{const dx=x-cam.cx,dy=y-cam.cy,xr=dx*cyw-dy*syw,yr=dx*syw+dy*cyw,zz=z-cam.zc;return[W/2+xr*cam.sc,H/2+0.02*H-(yr*cp+zz*sp)*cam.sc,yr*sp-zz*cp];};
+ if(!ok){const L=[-syw*sp,-cyw*sp,cp],T_=[];for(const p of ps){const V=p.v.map(v=>PJ(v[0],v[1],v[2]));const d=V.reduce((s,q)=>s+q[2],0)/V.length;T_.push({V,d,l:Math.abs(p.n[0]*L[0]+p.n[1]*L[1]+p.n[2]*L[2])});}T_.sort((u,v)=>v.d-u.d);
+  for(const t_ of T_){g.beginPath();t_.V.forEach((q,i)=>i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]));g.closePath();const k=0.35+0.65*t_.l;g.fillStyle=`rgb(${Math.round(mc[0]*255*k)},${Math.round(mc[1]*255*k)},${Math.round(mc[2]*255*k)})`;g.fill();g.strokeStyle=g.fillStyle;g.lineWidth=0.5;g.stroke();}}
+ // axis triad
+ const o=[30,28];[[1,0,0,'#d93a3a','X'],[0,1,0,'#1c9b5f','Y'],[0,0,1,'#2457d6','Z']].forEach(([x,y,z,col,l])=>{const xr=x*cyw-y*syw,yr=x*syw+y*cyw,v=yr*cp+z*sp;const e=[o[0]+xr*20,o[1]-v*20];g.strokeStyle=col;g.lineWidth=2;g.beginPath();g.moveTo(o[0],o[1]);g.lineTo(e[0],e[1]);g.stroke();g.fillStyle=col;g.font='bold 10px Barlow';g.textAlign='center';g.fillText(l,o[0]+(e[0]-o[0])*1.35,o[1]+(e[1]-o[1])*1.35+3);});
+ if(info){const v=SO.volume(ps),u=c.units==='mm'?'mm³':'in³';info.textContent=fl3(b[3]-b[0])+' × '+fl3(b[4]-b[1])+' × '+fl3(b[5]-b[2])+' · V '+(+v.toFixed(c.units==='mm'?0:3))+' '+u+(ne?' · ⚠ '+ne:'');}}
+const fl3=v=>(+(+v).toFixed(CD().units==='mm'?2:3)).toString();
+function cadSend3D(){const c=CD(),vi=LANG==='vi',R=cSolid();if(!R.ps.length){toast(vi?'Chưa có khối 3D':'No 3D solid yet');return;}const T=SO.tris(R.ps),name=(S.hdr.name||'CAD-PART').replace(/[^A-Za-z0-9_-]/g,'')+'.stl';
+ undoNow();WARN=[];S.ref=null;S.pdfInfo=null;PDFDOC=null;S.meshT=T;
+ try{let M=C.meshLevels(T,1e-3);
+  // the 2.5D outline comes from the top face; when a boss sits on a plate, use the biggest flat outline instead so stock and the outside contour cover the whole part
+  const lv=M.levels.slice().sort((a,b)=>b.z-a.z),top=lv[0];let big=null;for(const L of lv)for(const l of L.loops){const a=C.area(l);if(a>0&&(!big||a>big.a))big={l,a,L};}
+  const topA=top?top.loops.reduce((s_,l)=>s_+Math.max(0,C.area(l)),0):0;
+  if(big&&top&&big.L!==top&&big.a>topA*1.02)M={...M,levels:M.levels.map(L=>L===top?{...L,loops:[big.l,...top.loops.filter(l=>C.area(l)<0)]}:L)};
+  importMesh(M,name,c.units==='mm'?'mm':'in',null);S.ops.forEach(o=>{if(o.type==='surfRough'||o.type==='surfFinish')o.on=true;});}catch(e){WARN.push(name+': '+e.message);}
+ const cur=mach();if(!['mill','m3d','m4','m5'].includes(mtypeOf(cur))){const id=(C.MACHINES.find(m=>m.id==='vf3ss')||C.MACHINES.find(m=>mtypeOf(m)==='mill')).id;const el=$('#selMachine');el.value=id;el.dispatchEvent(new Event('change',{bubbles:true}));}
+ S.millK='m3d';buildProgram();VIEW.fitted=false;S.tab='program';persist();render();toast(vi?'Đã gửi khối 3D sang chương trình (đường dao 3D)':'3D solid sent to the program (3D toolpaths)');}
+function cadSTL(){const R=cSolid(),vi=LANG==='vi';if(!R.ps.length){toast(vi?'Chưa có khối 3D':'No 3D solid yet');return;}saveFile((S.hdr.name||'CAD-PART').replace(/[^A-Za-z0-9_-]/g,'')+'.stl',SO.stlBin(SO.tris(R.ps),'MINI CAM CAD'));}
+/* ---------- panels ---------- */
+function cXfCard(){const c=CD(),vi=LANG==='vi',ids=selIds();if(!ids.length)return'';const x=c.xf,N=(k,l)=>`<label class="f">${l}<input inputmode="decimal" data-xk="${k}" value="${x[k]}"></label>`;
+ return`<div class="card" style="--cc:#e0701b"><h2>${vi?'Biến đổi & mảng':'Transform & pattern'} · ${ids.length} ${vi?'hình':'shape'+(ids.length>1?'s':'')}</h2>
+ <label class="chip" style="margin-bottom:8px"><input type="checkbox" data-xk="copy" ${x.copy?'checked':''}> ${vi?'Giữ bản gốc (sao chép)':'Keep the original (copy)'}</label>
+ <div class="fields">${N('dx','ΔX')}${N('dy','ΔY')}</div><div class="row" style="gap:6px;margin:6px 0 10px"><button class="btn sm" data-cx="move">✥ ${vi?'Dời':'Move'}</button></div>
+ <div class="fields">${N('ang',vi?'Góc xoay °':'Rotate °')}${N('sc',vi?'Tỉ lệ':'Scale')}<label class="f">${vi?'Quanh tâm':'About'}<select data-xk="about"><option value="sel" ${x.about!=='pt'?'selected':''}>${vi?'Tâm hình chọn':'Selection center'}</option><option value="pt" ${x.about==='pt'?'selected':''}>${vi?'Điểm X,Y dưới':'Point X,Y below'}</option></select></label>${N('cx',vi?'Tâm X':'Center X')}${N('cy',vi?'Tâm Y':'Center Y')}</div>
+ <div class="row" style="gap:6px;margin:6px 0 10px;flex-wrap:wrap"><button class="btn sm" data-cx="rot">⟲ ${vi?'Xoay':'Rotate'}</button><button class="btn sm" data-cx="scale">⤢ ${vi?'Phóng':'Scale'}</button><button class="btn sm" data-cx="mline">⟋ ${vi?'Đối xứng qua đường':'Mirror about a line'}</button><button class="btn sm ${CADV.ptPick==='center'?'pri':''}" data-cx="pickc">📍 ${vi?'Chọn tâm':'Pick center'}</button></div>
+ <div class="fields">${N('off',vi?'Offset (+ ra ngoài)':'Offset (+ out)')}</div><div class="row" style="gap:6px;margin:6px 0 10px"><button class="btn sm" data-cx="offset">⧈ Offset</button></div>
+ <div class="fields">${N('nx',vi?'Số cột':'Columns')}${N('px',vi?'Bước X':'Step X')}${N('ny',vi?'Số hàng':'Rows')}${N('py',vi?'Bước Y':'Step Y')}</div><div class="row" style="gap:6px;margin:6px 0 10px"><button class="btn sm" data-cx="lpat">▦ ${vi?'Mảng thẳng':'Linear pattern'}</button></div>
+ <div class="fields">${N('cn',vi?'Số bản':'Count')}${N('cang',vi?'Tổng góc °':'Total angle °')}</div><div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-cx="cpat">✺ ${vi?'Mảng tròn (quanh Tâm X,Y)':'Circular pattern (about Center X,Y)'}</button></div></div>`;}
+function cConCard(){const c=CD(),vi=LANG==='vi';cConsClean();if(!c.cons.length)return'';const E=id=>c.ents.find(e=>e.id===id),nm=e=>e?(CTOOLS.find(x=>x[0]===e.t)?.[vi?1:2]||e.t):'?';
+ return`<div class="card" style="--cc:#0e7c86"><h2>${vi?'Ràng buộc':'Constraints'} · ${c.cons.length}</h2><div style="display:grid;gap:6px">${c.cons.map(k=>{const e1=E(k.e1),e2=E(k.e2),hasV=['cLen','cRad','cDist','cAng'].includes(k.k);const v=k.k==='cRad'&&e1&&e1.t==='circle'?2*k.v:k.k==='cAng'?Math.abs(k.v):k.v;
+  return`<div class="row" style="gap:6px;align-items:center;flex-wrap:wrap"><span class="pill" style="background:#e6f4f5;color:#0e7c86;font-weight:700">${CONK[k.k][2]}</span><span style="font-size:13px">${CONK[k.k][vi?0:1]} · ${esc(nm(e1))}${e2?' + '+esc(nm(e2)):''}</span>${hasV?`<input inputmode="decimal" data-ckv="${k.id}" value="${r4(v)}" style="width:86px">${k.k==='cRad'&&e1&&e1.t==='circle'?'<small>Ø</small>':k.k==='cAng'?'<small>°</small>':''}`:''}<button class="mini" data-ckx="${k.id}" title="${vi?'Xóa':'Delete'}" style="margin-left:auto">✕</button></div>`;}).join('')}</div>
+  <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-cx="solve">⟳ ${vi?'Giải lại':'Re-solve'}</button><button class="btn sm" data-cx="conclr" style="color:var(--bad)">${IC.del}${vi?'Xóa hết ràng buộc':'Remove all'}</button></div></div>`;}
+function cFeatCard(){const c=CD(),vi=LANG==='vi',R=cSolid();const fs=c.feats||[];const opt=(k,v,list)=>list.map(([a,l1,l2])=>`<option value="${a}" ${v===a?'selected':''}>${vi?l1:l2}</option>`).join('');
+ const NF=(f,k,l,v)=>`<label class="f">${l}<input inputmode="decimal" data-fid="${f.id}" data-fk="${k}" value="${v??f[k]}"></label>`;
+ const SF=(f,k,l,list)=>`<label class="f">${l}<select data-fid="${f.id}" data-fk="${k}">${opt(k,f[k],list)}</select></label>`;
+ const PB=(f,slot,l,col)=>{const on=CADV.fp&&CADV.fp.fid===f.id&&CADV.fp.slot===slot,n=slot==='axis'?null:(f[slot]||[]).length;return`<button class="btn sm ${on?'pri':''}" data-fpk="${slot}" data-fid="${f.id}" style="border-color:${col}">${on?'✓ '+(vi?'Xong':'Done'):'☝ '+l}${n!=null?' ('+n+')':''}</button>`;};
+ const EDGE=[['','Không','None'],['fillet','Bo R','Fillet'],['chamfer','Vát','Chamfer']],DIR=[['up','Lên (+Z)','Up (+Z)'],['down','Xuống (−Z)','Down (−Z)'],['sym','Đối xứng','Symmetric']],PL=[['XY','XY (mặt bàn)','XY (top)'],['XZ','XZ (mặt trước)','XZ (front)'],['YZ','YZ (mặt bên)','YZ (side)']];
+ const body=f=>{const T_=f.type;let o='<div class="row" style="gap:6px;flex-wrap:wrap;margin:8px 0">'+PB(f,'prof',T_==='loft'?(vi?'Biên dạng 1':'Profile 1'):(vi?'Chọn biên dạng':'Pick profile'),'#0f8a5f');
+  if(T_==='loft')o+=PB(f,'prof2',vi?'Biên dạng 2':'Profile 2','#2457d6');if(T_==='sweep')o+=PB(f,'path',vi?'Chọn đường quét':'Pick path','#e0701b');
+  if(T_==='revolve')o+=PB(f,'axis',vi?'Trục = đường thẳng':'Axis = a line','#8b4fd6')+`<label class="chip">${vi?'Trục':'Axis'} <select data-fid="${f.id}" data-fk="axis"><option value="x" ${f.axis==='x'?'selected':''}>${vi?'Trục X phác thảo':'Sketch X axis'}</option><option value="y" ${f.axis==='y'?'selected':''}>${vi?'Trục Y phác thảo':'Sketch Y axis'}</option>${f.axis!=='x'&&f.axis!=='y'?`<option value="${f.axis}" selected>${vi?'Đường đã chọn':'Picked line'}</option>`:''}</select></label>`;
+  o+='</div><div class="fields">';
+  if(T_==='extrude'||T_==='loft')o+=NF(f,'h',T_==='loft'?(vi?'Chiều cao (tới biên dạng 2)':'Height (to profile 2)'):(vi?'Chiều dài đùn':'Distance'))+SF(f,'dir',vi?'Hướng':'Direction',DIR)+NF(f,'z0',vi?'Bắt đầu tại Z':'Start at Z')+NF(f,'draft',vi?'Góc thoát khuôn °':'Draft angle °');
+  if(T_==='revolve')o+=NF(f,'angle',vi?'Góc xoay °':'Angle °')+NF(f,'start',vi?'Góc bắt đầu °':'Start angle °');
+  if(T_==='sweep')o+=NF(f,'z0',vi?'Nâng đường quét Z':'Path height Z');
+  if(T_==='extrude'||T_==='loft')o+=SF(f,'topK',vi?'Cạnh trên':'Top edges',EDGE)+NF(f,'topR',vi?'Cỡ R / vát trên':'Top size')+SF(f,'botK',vi?'Cạnh dưới':'Bottom edges',EDGE)+NF(f,'botR',vi?'Cỡ R / vát dưới':'Bottom size');
+  o+=NF(f,'shell',vi?'Vỏ mỏng (dày, 0 = đặc)':'Shell wall (0 = solid)');
+  if(T_==='extrude'||T_==='loft')o+=SF(f,'shellOpen',vi?'Mặt hở':'Open face',[['top','Trên','Top'],['bottom','Dưới','Bottom'],['none','Kín (rỗng trong)','None (hollow)']]);
+  if(T_==='sweep')o+=SF(f,'shellOpen',vi?'Hai đầu':'Ends',[['ends','Hở (ống)','Open (pipe)'],['none','Kín','Closed']]);
+  o+=SF(f,'plane',vi?'Mặt phác thảo':'Sketch plane',PL)+NF(f,'off',vi?'Dời theo pháp tuyến':'Plane offset')+NF(f,'mv0','ΔX',(f.mv||[0,0,0])[0])+NF(f,'mv1','ΔY',(f.mv||[0,0,0])[1])+NF(f,'mv2','ΔZ',(f.mv||[0,0,0])[2]);
+  return o+'</div>';};
+ return`<div class="card" style="--cc:#8b4fd6"><h2>${vi?'Tính năng 3D':'3D features'}</h2>
+  <label class="chip" style="white-space:normal;height:auto;min-height:40px;padding:8px 12px"><input type="checkbox" id="cadBase" ${c.base!==false?'checked':''}> ${vi?'Khối nền: biên ngoài × chiều dày (hốc / lỗ theo độ sâu)':'Base: outline × thickness (pockets / holes by depth)'}</label>
+  <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">${Object.entries(FTY).map(([k,[v,e,ic]])=>`<button class="btn sm" data-fx="add" data-ft="${k}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic}</svg> ${vi?v:e}</button>`).join('')}</div>
+  <p class="sub" style="margin:6px 0 0;font-size:12.5px">${vi?'Chọn hình trên bản vẽ trước (hoặc bấm ☝ sau) rồi thêm tính năng. Mỗi tính năng cộng / trừ / giao với khối trước nó. Bo / vát cạnh đứng: dùng Bo góc R / Vát mép 2D.':'Select shapes first (or tap ☝ later), then add a feature. Each feature joins / cuts / intersects the solid before it. Vertical edges: use the 2D Fillet / Chamfer.'}</p>
+  ${fs.length?`<div style="display:grid;gap:8px;margin-top:10px">${fs.map((f,i)=>{const open=CADV.fedit===f.id,er=R.err[f.id];return`<div style="border:1px solid var(--line,#d5dbe1);border-radius:12px;padding:8px;${f.on?'':'opacity:.55'}">
+   <div class="row" style="gap:6px;align-items:center;flex-wrap:wrap"><button class="btn sm ${open?'pri':''}" data-fx="open" data-fid="${f.id}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${FTY[f.type][2]}</svg> ${i+1}. ${FTY[f.type][vi?0:1]}</button>
+    <select data-fid="${f.id}" data-fk="op" style="height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:0 8px;font:inherit">${opt('op',f.op,FOPS)}</select><label class="chip"><input type="checkbox" data-fid="${f.id}" data-fk="on" ${f.on?'checked':''}> ${vi?'Bật':'On'}</label>
+    <span style="margin-left:auto;display:flex;gap:4px"><button class="mini" data-fx="up" data-fid="${f.id}">↑</button><button class="mini" data-fx="dn" data-fid="${f.id}">↓</button><button class="mini" data-fx="dup" data-fid="${f.id}">⧉</button><button class="mini" data-fx="del" data-fid="${f.id}" style="color:var(--bad)">✕</button></span></div>
+   ${er?`<p class="sub" style="color:var(--bad);margin:6px 0 0;font-size:12.5px">⚠ ${esc(ferr(er))}</p>`:''}${open?body(f):''}</div>`;}).join('')}</div>`:''}
+  ${R.err.base?`<p class="sub" style="color:var(--bad);margin:6px 0 0">⚠ ${vi?'Khối nền':'Base'}: ${esc(ferr(R.err.base))}</p>`:''}
+  <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px"><label class="chip">${vi?'Độ mịn':'Quality'} <select id="cadQ">${[['coarse','Thô','Coarse'],['normal','Vừa','Normal'],['fine','Mịn','Fine']].map(([k,a,b])=>`<option value="${k}" ${(c.q||'normal')===k?'selected':''}>${vi?a:b}</option>`).join('')}</select></label><button class="btn sm" data-cx="v3" data-v="top">${vi?'Nhìn trên':'Top'}</button><button class="btn sm" data-cx="v3" data-v="front">${vi?'Trước':'Front'}</button><button class="btn sm" data-cx="v3" data-v="iso">ISO</button></div></div>`;}
+
+/* ---------- events for the new panels ---------- */
+document.addEventListener('click',e=>{if(S.tab!=='cad')return;const b=e.target.closest('[data-cx],[data-fx],[data-fpk],[data-ckx]');if(!b)return;const c=CD(),d=b.dataset,vi=LANG==='vi';
+ if(d.ckx){cPush();c.cons=c.cons.filter(k=>k.id!==d.ckx);persist();rCad();return;}
+ if(d.fpk){const f=c.feats.find(x=>x.id===d.fid);if(!f)return;if(CADV.fp&&CADV.fp.fid===f.id&&CADV.fp.slot===d.fpk)CADV.fp=null;else{CADV.fp={fid:f.id,slot:d.fpk};if(d.fpk!=='axis')cPush();toast(d.fpk==='axis'?(vi?'Chạm đường thẳng làm trục quay':'Tap the line to turn about'):(vi?'Chạm hình để thêm / bớt — bấm Xong khi chọn đủ':'Tap shapes to add / remove — tap Done when finished'));}CADV.sel=null;CADV.msel=[];rCad();return;}
+ if(d.fx){const f=c.feats.find(x=>x.id===d.fid),i=c.feats.indexOf(f);
+  if(d.fx==='add'){fNew(d.ft);return;}if(!f)return;
+  if(d.fx==='open'){CADV.fedit=CADV.fedit===f.id?null:f.id;if(CADV.fp&&CADV.fp.fid!==CADV.fedit)CADV.fp=null;rCad();return;}
+  cPush();if(d.fx==='del'){c.feats.splice(i,1);if(CADV.fp&&CADV.fp.fid===f.id)CADV.fp=null;}else if(d.fx==='up'&&i>0){c.feats.splice(i,1);c.feats.splice(i-1,0,f);}else if(d.fx==='dn'&&i<c.feats.length-1){c.feats.splice(i,1);c.feats.splice(i+1,0,f);}else if(d.fx==='dup'){const n=JSON.parse(JSON.stringify(f));n.id=cid();c.feats.splice(i+1,0,n);CADV.fedit=n.id;}
+  persist();rCad();return;}
+ const a=d.cx,x=c.xf;
+ if(a==='multi'){CADV.multi=!CADV.multi;if(!CADV.multi)CADV.msel=CADV.sel?[CADV.sel]:[];rCad();return;}
+ if(a==='all'){CADV.multi=true;CADV.msel=c.ents.map(e=>e.id);CADV.sel=CADV.msel[0]||null;rCad();return;}
+ if(a==='solve'){cPush();const ok=cSolve([]);persist();rCad();if(ok)toast(vi?'Đã giải xong':'Solved');return;}
+ if(a==='conclr'){cPush();c.cons=[];persist();rCad();return;}
+ if(a==='v3'){const v=d.v;if(v==='top'){CADV.yaw=0;CADV.pitch=0.001;}else if(v==='front'){CADV.yaw=0;CADV.pitch=1.5707;}else{CADV.yaw=-0.6;CADV.pitch=0.95;}CADV.zoom=1;CADV.pan3=null;cad3D();return;}
+ if(a==='pickc'){CADV.ptPick=CADV.ptPick==='center'?null:'center';rCad();if(CADV.ptPick)toast(vi?'Chạm điểm làm tâm (bắt điểm)':'Tap the center point (snaps)');return;}
+ if(a==='mline'){CADV.ptPick='mirror';rCad();toast(vi?'Chạm đường thẳng làm trục đối xứng':'Tap the line to mirror about');return;}
+ const ids=selIds();if(!ids.length)return;const ctr=x.about==='pt'?[+x.cx||0,+x.cy||0]:cSelCenter(ids);let nid=null;cPush();
+ if(a==='move'){nid=cXfSel([1,0,0,1],[+x.dx||0,+x.dy||0],!!x.copy);}
+ else if(a==='rot'){const m=mRot(+x.ang||0);nid=cXfSel(m,mAbout(m,ctr),!!x.copy);}
+ else if(a==='scale'){const s=+x.sc||1;if(s<=0){toast(vi?'Tỉ lệ phải > 0':'Scale must be more than 0');CADV.hist.pop();return;}const m=[s,0,0,s];nid=cXfSel(m,mAbout(m,ctr),!!x.copy);}
+ else if(a==='offset'){const dd=+x.off||0;if(!dd){CADV.hist.pop();return;}nid=cOffsetSel(dd);if(!nid.length){toast(vi?'Offset làm hình biến mất':'That offset makes the shape vanish');CADV.hist.pop();return;}}
+ else if(a==='lpat'){const nx=Math.max(1,Math.round(+x.nx||1)),ny=Math.max(1,Math.round(+x.ny||1));if(nx*ny>400){toast(vi?'Tối đa 400 bản':'Up to 400 copies');CADV.hist.pop();return;}const src=ids.slice();nid=[];for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){if(!i&&!j)continue;CADV.msel=src;nid.push(...cXfSel([1,0,0,1],[i*(+x.px||0),j*(+x.py||0)],true));}CADV.msel=src.concat(nid);}
+ else if(a==='cpat'){const n=Math.max(2,Math.round(+x.cn||2)),tot=+x.cang||360,st=Math.abs(tot)>=360-1e-6?tot/n:tot/(n-1),cc=[+x.cx||0,+x.cy||0];if(n>400){toast(vi?'Tối đa 400 bản':'Up to 400 copies');CADV.hist.pop();return;}const src=ids.slice();nid=[];for(let k=1;k<n;k++){CADV.msel=src;const m=mRot(st*k);nid.push(...cXfSel(m,mAbout(m,cc),true));}CADV.msel=src.concat(nid);}
+ if(nid&&!['lpat','cpat'].includes(a)){if(x.copy||a==='offset'){CADV.msel=nid;CADV.sel=nid[0]||null;}else{CADV.msel=nid;CADV.sel=nid[0]||null;}}
+ if(a!=='offset'&&!x.copy&&!['lpat','cpat'].includes(a))cSolve(nid,true);persist();rCad();});
+document.addEventListener('change',e=>{const el=e.target;if(S.tab!=='cad')return;const c=CD();
+ if(el.dataset.xk){const k=el.dataset.xk;c.xf[k]=k==='copy'?el.checked:k==='about'?el.value:(+el.value||0);persist();return;}
+ if(el.dataset.ckv){const k=c.cons.find(x=>x.id===el.dataset.ckv);if(!k)return;let v=+el.value;if(!isFinite(v))return;const e1=c.ents.find(x=>x.id===k.e1);if(k.k==='cRad'&&e1&&e1.t==='circle')v/=2;if(k.k==='cAng')v=Math.sign(k.v||1)*Math.abs(v);if(['cLen','cRad','cDist'].includes(k.k)&&v<=0){rCad();return;}cPush();const old=k.v;k.v=v;if(!cSolve([],true)){k.v=old;cRestore(CADV.hist.pop());toast(LANG==='vi'?'Không đạt được số này — giữ số cũ':'Cannot reach that value — kept the old one');}persist();rCad();return;}
+ if(el.dataset.fk){const f=c.feats.find(x=>x.id===el.dataset.fid);if(!f)return;const k=el.dataset.fk;cPush();
+  if(k==='on')f.on=el.checked;else if(['op','dir','topK','botK','shellOpen','plane','axis'].includes(k))f[k]=el.value;else if(/^mv\d$/.test(k)){f.mv=f.mv||[0,0,0];f.mv[+k[2]]=+el.value||0;}else{const v=+el.value;f[k]=isFinite(v)?v:0;}
+  persist();rCad();return;}
+ if(el.id==='cadBase'){cPush();c.base=el.checked;persist();rCad();return;}
+ if(el.id==='cadQ'){c.q=el.value;persist();cad3D();return;}});
 TABS.splice(TABS.indexOf('draw')+1,0,'cad');
 /* ================= NEST (many parts on one sheet) ================= */
 const NEST0={proc:'router',kerf:0.06,cutF:100,pierce:0.5,smallD:1.25,smallPct:65,leadL:0.2,overburn:0.04,onCode:'M03',offCode:'M05',mode:'flat',w:24,h:12,sheetT:0.5,partT:0.5,margin:0.5,tabW:0.25,tabT:0.03,tabEvery:5,tabFixed:0,hold:'screw',removal:'break',tool:'',items:[]};
