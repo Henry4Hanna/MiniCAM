@@ -70,7 +70,7 @@ function buildGeom(parsed,tol){
   for(let p0 of closed){const d=p0.d;let p=dedupe(p0,tol);if(p.length<3)continue;const c=asCircle(p,tol);if(c){if(d!==undefined)c.depth=d;circles.push(c);}else{loops.push(p);ld.push(d);}}
   const g={loops,circles,opens};if(anyD)g.ld=ld;return g;
 }
-function scaleGeom(g,s,dx,dy){const f=q=>[q[0]*s+dx,q[1]*s+dy];const o={loops:g.loops.map(p=>p.map(f)),circles:g.circles.map(c=>{const n={x:c.x*s+dx,y:c.y*s+dy,r:c.r*s};if('depth' in c)n.depth=c.depth==null?null:c.depth*s;return n;}),opens:g.opens.map(p=>p.map(f))};if(g.ld)o.ld=g.ld.map(d=>d===undefined?undefined:d==null?null:d*s);if(g.thick)o.thick=g.thick*s;return o;}
+function scaleGeom(g,s,dx,dy){const f=q=>[q[0]*s+dx,q[1]*s+dy];const o={loops:g.loops.map(p=>p.map(f)),circles:g.circles.map(c=>{const n={x:c.x*s+dx,y:c.y*s+dy,r:c.r*s};if('depth' in c)n.depth=c.depth==null?null:c.depth*s;if(c.cb)n.cb=1;return n;}),opens:g.opens.map(p=>p.map(f))};if(g.ld)o.ld=g.ld.map(d=>d===undefined?undefined:d==null?null:d*s);if(g.thick)o.thick=g.thick*s;return o;}
 function geomBox(g){const b=[1e18,1e18,-1e18,-1e18];g.loops.forEach(p=>bbox(p,b));g.opens.forEach(p=>bbox(p,b));g.circles.forEach(c=>bbox([[c.x-c.r,c.y-c.r],[c.x+c.r,c.y+c.r]],b));return b[0]>b[2]?[0,0,0,0]:b;}
 
 
@@ -164,7 +164,7 @@ function classify(g,tol){
   g={...g,ld:g.ld?g.ld.slice():undefined};let circles=g.circles.slice();const loops=g.loops.map(p=>p.slice());
   // circle that encloses other geometry is an outline, not a hole
   circles=circles.filter(c=>{const inside=q=>hyp(q[0]-c.x,q[1]-c.y)<c.r-tol;
-    const enc=loops.some(p=>inside(p[0]))||g.opens.some(p=>inside(p[0]))||circles.some(o=>o!==c&&o.r<c.r&&inside([o.x,o.y]));
+    const enc=loops.some(p=>inside(p[0]))||g.opens.some(p=>inside(p[0]))||circles.some(o=>o!==c&&o.r<c.r&&inside([o.x,o.y])&&!(c.cb&&hyp(o.x-c.x,o.y-c.y)<1e-3));
     if(enc){loops.push(circlePts(c,tol));if(g.ld)g.ld=g.ld.concat([c.depth===undefined?null:c.depth]);return false;}return true;});
   const L=loops.map((p,i)=>{const d=g.ld?g.ld[i]:undefined;if(area(p)<0)p=p.slice().reverse();return{pts:p,a:area(p),d};}).sort((a,b)=>b.a-a.a);
   L.forEach((l,i)=>{l.depth=0;l.parent=-1;for(let j=0;j<i;j++)if(pip(l.pts[0],L[j].pts)){l.depth++;l.parent=j;}});
