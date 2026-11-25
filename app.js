@@ -476,7 +476,7 @@ function opOK(o){const f=featById(o.feat);if(['face','rotRough','engrave'].inclu
  if(o.type==='flute'||o.type==='moulding')return f.kind==='slot';if(o.type==='deburr5')return f.kind!=='slot';if(o.type==='flow5')return!!S.meshT;if(['rest','vcarve'].includes(o.type))return f.kind==='profile'||f.kind==='pocket';
  if(o.type==='wrap')return true;
  if(['adaptive','pocket','contour','radius','swarf'].includes(o.type))return f.kind==='profile'||f.kind==='pocket';
- if(o.type==='chamfer')return f.kind!=='slot';if(o.type==='slot')return f.kind==='slot';return f.kind==='holes';}
+ if(o.type==='chamfer')return f.kind!=='slot';if(o.type==='slot')return f.kind==='slot';if(o.type==='tslot')return f.kind!=='slot';return f.kind==='holes';}
 function getHM(){if(!S.meshT||!S.meshInfo)return null;const key=S.zero+'|'+S.stock.part;if(S._hm&&S._hmKey===key)return S._hm;const mi=S.meshInfo,z=S._zoff||[0,0];const b=C.geomBox(S.raw),ext=Math.max(b[2]-b[0],b[3]-b[1]);
  S._hm=C.meshHeightmap(S.meshT,mi.sc,z[0],z[1],mi.zTop*mi.sc,-thick()-0.05,Math.max(ext/320,0.004));S._hmKey=key;return S._hm;}
 function getCyl(){if(!S.meshT||!S.meshInfo)return null;if(S.cylMap)return S.cylMap;const sc=S.meshInfo.sc;let y0=1e18,y1=-1e18,z0=1e18,z1=-1e18,x0=1e18,x1=-1e18;for(const t_ of S.meshT)for(let k=0;k<9;k+=3){x0=Math.min(x0,t_[k]);x1=Math.max(x1,t_[k]);y0=Math.min(y0,t_[k+1]);y1=Math.max(y1,t_[k+1]);z0=Math.min(z0,t_[k+2]);z1=Math.max(z1,t_[k+2]);}
@@ -509,7 +509,7 @@ function buildProgram(){fxAutoApply();
  SIMSTATE.dirty=true;MODEL=null;persist();
 }
 function featLabelEN(f){if(f.kind==='holes')return'HOLES D'+f.dia.toFixed(4)+' X'+f.pts.length;return f.kind.toUpperCase()+' '+f.id;}
-let regenT=0;function regen(){clearTimeout(regenT);regenT=setTimeout(()=>{buildProgram();if(S.tab==='program'){renderOps();renderCode();drawView();}},120);}
+let regenT=0;function regen(){clearTimeout(regenT);regenT=setTimeout(()=>{buildProgram();if(S.tab==='cam'){renderOps();camView();camCode();}if(S.tab==='program'){renderOps();renderCode();drawView();}},120);}
 
 /* ================= render shell ================= */
 const TABS=['program','draw','nest','tools','mat','fixtures','sim','calc','setup','learn','help','settings','about'];
@@ -525,7 +525,7 @@ function renderShell(){
  const mc=mach(),m=mat();$('#lblMach').textContent=t('machine')+' · '+mc.rpmMax+' rpm';$('#valMach').textContent=mc.name.replace(/^TRAK /,'').replace(/ \(.*\)$/,'');
  $('#lblMat').textContent=t('material');$('#valMat').textContent=LANG==='vi'?m.vi:m.en;const mi=$('#matIc');mi.style.background=`linear-gradient(135deg,${m.color},color-mix(in srgb,${m.color} 55%,#000))`;mi.querySelector('svg').setAttribute('stroke',lumi(m.color)>0.72?'#1d2328':'#fff');$('#tagline').textContent=t('tagline');$$('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.l===LANG));document.documentElement.lang=LANG;
 }
-function render(){applySettings();document.body.classList.remove('noscroll');document.body.style.setProperty('--tc',TABCOL[S.tab]||'#2457d6');renderShell();const fn={draw:rDraw,mat:rMat,learn:rLearn,about:rAbout,settings:rSettings,help:rHelp,nest:rNest,program:rProgram,tools:rTools,fixtures:rFixtures,sim:rSim,calc:rCalc,setup:rSetup,cad:rCad}[S.tab];SIMSTATE.playing=false;$('#main').innerHTML='';fn();window.scrollTo(0,0);}
+function render(){applySettings();document.body.classList.remove('noscroll');document.body.style.setProperty('--tc',TABCOL[S.tab]||'#2457d6');renderShell();const fn={draw:rDraw,mat:rMat,learn:rLearn,about:rAbout,settings:rSettings,help:rHelp,nest:rNest,program:rProgram,tools:rTools,fixtures:rFixtures,sim:rSim,calc:rCalc,setup:rSetup,cad:rCad,cam:rCam}[S.tab];SIMSTATE.playing=false;$('#main').innerHTML='';fn();window.scrollTo(0,0);}
 const inp=(k,v,attrs)=>`<label class="f">${esc(t(k))}<input inputmode="decimal" ${attrs||''} value="${esc(v)}"></label>`;
 
 /* ----- program tab ----- */
@@ -1372,14 +1372,14 @@ $('#fileNest').addEventListener('change',e=>{const f=e.target.files[0];e.target.
 $('#fileDxf').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';const ext=(f.name.split('.').pop()||'').toLowerCase();const uSel=$('#dxfU')?.value||'auto';WARN=[];
  try{
   if(ext==='dwg'){toast('DWG → DXF');WARN=[t('dwgNote')];}
-  else if(/^image\//.test(f.type)||['jpg','jpeg','png','heic','webp'].includes(ext)){setRef(f,()=>{if(AIS)aiRead();else toast(LANG==='vi'?'Ảnh đã gắn làm hình tham khảo — đọc tự động bằng AI chỉ có khi mở app trong Claude':'Image kept as reference — AI reading needs the app opened inside Claude');});return;}
+  else if(!['dxf','dwg','stl','step','stp','pdf'].includes(ext)&&(/^image\//.test(f.type)||['jpg','jpeg','png','heic','webp'].includes(ext))){setRef(f,()=>{if(AIS)aiRead();else toast(LANG==='vi'?'Ảnh đã gắn làm hình tham khảo — đọc tự động bằng AI chỉ có khi mở app trong Claude':'Image kept as reference — AI reading needs the app opened inside Claude');});return;}
   else if(ext==='stl'){toast('STL…');const T=C.parseSTL(await f.arrayBuffer());const M=C.meshLevels(T,1e-3);S.meshT=T;importMesh(M,f.name,uSel,null);}
   else if(ext==='step'||ext==='stp'){toast('STEP…');S.meshT=null;const txt=await f.text();const M=C.parseSTEP(txt,1e-3);if(!M.levels.length)throw new Error('no flat faces found');importMesh(M,f.name,uSel,M.unit);}
   else if(ext==='pdf'){toast('PDF…');S.meshT=null;await importPDF(await f.arrayBuffer(),f.name);if(PDFDOC){S.tab='program';render();persist();return;}}
   else{S.meshT=null;importDXF(await f.text(),f.name,uSel);S.src='dxf';}
   buildProgram();
  }catch(err){WARN.push(f.name+': '+err.message);}
- VIEW.fitted=false;S.tab='program';render();});
+ VIEW.fitted=false;if(CAMIMP){CAMIMP=false;S.ops=[];OPEN.clear();CAMV.feat=null;CAMV.op=null;buildProgram();S.tab='cam';}else S.tab='program';render();});
 /* ---------- read a raster drawing (jpg / png / webp / scanned PDF) with Claude ---------- */
 let AIS=null,AIBUSY=false;
 try{if(window.claude&&window.claude.use)window.claude.use('sample').then(x=>{AIS=x;if(x&&S.tab==='program')rProgram();}).catch(()=>{});}catch(e){}
@@ -3010,7 +3010,7 @@ const APPVER='1.0 · 2026-11';
 function rAbout(){const vi=LANG==='vi';const B=(en,v)=>vi?v:en;
  const sec=(title,body,col)=>`<div class="card" style="--cc:${col}"><h2>${title}</h2>${body}</div>`;
  $('#main').innerHTML=`<div class="card" style="--cc:#2457d6;display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px"><span style="width:84px;height:84px;flex:none">${document.querySelector('.lg').innerHTML.replace('width="40" height="40"','width="84" height="84"')}</span>
-  <div style="flex:1;min-width:200px"><h1 style="margin:0">MINI <span class="grad">CAM</span></h1><p style="margin:4px 0 0;font-weight:600">${t('tagline')}</p><p class="sub" style="margin:4px 0 0">${B('Version','Phiên bản')} ${APPVER} · ${t('createdBy')}</p></div></div>
+  <div style="flex:1;min-width:200px"><h1 style="margin:0">MINI <span class="grad">CAM</span> <small style="font-size:15px;opacity:.6">v${APP_VER}</small></h1><p style="margin:4px 0 0;font-weight:600">${t('tagline')}</p><p class="sub" style="margin:4px 0 0">${B('Version','Phiên bản')} ${APPVER} · ${t('createdBy')}</p></div></div>
  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))">
  ${sec(B('What it is','Ứng dụng làm gì'),`<p style="margin:0;line-height:1.6">${B('MINI CAM turns drawings and models (DXF, PDF, STL, STEP) into CNC programs for many machines: ProtoTRAK knee and bed mills, Haas VF and UMC, DMG MORI DMU / DMV and lathes (Haas ST-10, DMG MORI NLX). It covers 2.5D, 3D, 4th-axis and 5-axis toolpaths, sheet nesting with tabs, a material-removal simulator, shop calculators and a bilingual setup sheet.','MINI CAM biến bản vẽ và mô hình (DXF, PDF, STL, STEP) thành chương trình CNC cho nhiều loại máy: máy phay ProtoTRAK (đứng và giường), Haas VF và UMC, DMG MORI DMU / DMV và máy tiện (Haas ST-10, DMG MORI NLX). Có đường dao 2.5D, 3D, trục 4 và trục 5, xếp chi tiết trên tấm có tab, mô phỏng cắt gọt, máy tính xưởng và phiếu setup song ngữ.')}</p>`,'#2457d6')}
  ${sec(B('Safety first','An toàn trên hết'),`<ul style="margin:0;padding-left:20px;line-height:1.65">
@@ -3218,7 +3218,7 @@ function rLatheSim(){const L=latheBuild(),vi=LANG==='vi',sh=S.lsSh||{},md=S.lsMo
  step(0);new ResizeObserver(()=>latheDraw(cv,LSIM.k)).observe(cv);}
 
 /* ================= CAD: draw 2D, see it in 3D, send it to the program ================= */
-TX.cad=['CAD','CAD'];
+TX.cad=['Cad','Cad'];
 IC.cad='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l3.5-1L19 7.5 16.5 5 5 16.5z"/><path d="M14.5 7l2.5 2.5"/><path d="M3 3h5M3 3v5"/></svg>';
 TABCOL.cad='#0f8a5f';
 function CD(){const d={ents:[],T:0.5,grid:0.125,snap:true,tool:'line',units:'in',f:{},feats:[],base:true,cons:[],q:'normal',xf:{dx:1,dy:0,ang:45,sc:2,about:'sel',cx:0,cy:0,off:0.125,nx:3,px:1,ny:1,py:1,cn:6,cang:360,copy:false}};if(!S.cad)S.cad={};for(const k in d)if(S.cad[k]==null)S.cad[k]=d[k];return S.cad;}
@@ -3294,7 +3294,7 @@ function cadTemplates(k){const ents=[];const E=o=>ents.push({id:cid(),depth:'',.
 /* ---------- page ---------- */
 function rCad(){const c=CD(),vi=LANG==='vi',tool=c.tool,sel=c.ents.find(e=>e.id===CADV.sel);const f=sel?cF4E(sel):cF(tool);
  const fields=sel?Object.keys(f):(CFIELDS[tool]||[]).map(x=>x[0]);
- $('#main').innerHTML=`<h1>CAD · ${vi?'Vẽ 2D → 3D → Chương trình':'Draw 2D → 3D → Program'}</h1><p class="sub">${vi?'Vẽ bằng ngón tay / chuột (bắt điểm vào lưới và điểm đầu, tâm, giữa) hoặc gõ số chính xác. Hình kín ngoài cùng = biên chi tiết; hình bên trong = hốc / lỗ (chọn độ sâu). Gửi sang Phay hoặc Tiện để ra G-code.':'Draw with a finger / mouse (snaps to the grid and to ends, centers, midpoints) or type exact numbers. Biggest closed shape = part outline; shapes inside = pockets / holes (pick a depth). Send to Mill or Lathe for G-code.'}</p>
+ $('#main').innerHTML=`<h1>Cad · ${vi?'Vẽ 2D → 3D → Chương trình':'Draw 2D → 3D → Program'}</h1><p class="sub">${vi?'Vẽ bằng ngón tay / chuột (bắt điểm vào lưới và điểm đầu, tâm, giữa) hoặc gõ số chính xác. Hình kín ngoài cùng = biên chi tiết; hình bên trong = hốc / lỗ (chọn độ sâu). Gửi sang Phay hoặc Tiện để ra G-code.':'Draw with a finger / mouse (snaps to the grid and to ends, centers, midpoints) or type exact numbers. Biggest closed shape = part outline; shapes inside = pockets / holes (pick a depth). Send to Mill or Lathe for G-code.'}</p>
  <div class="grid g2"><div class="grid" style="align-content:start">
   <div class="card" style="padding:10px"><div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-start">${CGRP.map(([gn,ge,col,ks])=>`<div style="display:grid;gap:3px"><span style="font:600 11px Barlow,system-ui;color:${col};text-transform:uppercase;letter-spacing:.04em">${vi?gn:ge}</span><div class="row" style="gap:4px;flex-wrap:wrap;padding:3px;border-radius:14px;background:color-mix(in srgb,${col} 8%,transparent)">${CTOOLS.filter(x=>ks.includes(x[0])).map(([k,v,e,ic])=>`<button class="ib sm ${tool===k&&!sel?'on':''}" data-ctool="${k}" title="${vi?v:e}" style="--ic:${col}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic}</svg><small>${vi?v:e}</small></button>`).join('')}</div></div>`).join('')}</div>
    <div class="view" style="height:min(56vh,520px);margin-top:8px;position:relative;background:#fbfcfd;touch-action:none"><svg id="cadSvg" style="width:100%;height:100%;display:block;touch-action:none;user-select:none"></svg>
@@ -3432,7 +3432,8 @@ function cadSend(kind){const c=CD(),vi=LANG==='vi';if(!c.ents.length){toast(vi?'
  const pick=t_=>{const cur=mach();if(mtypeOf(cur)===t_||(t_==='mill'&&['mill','m3d','m4','m5'].includes(mtypeOf(cur))))return;const id=(C.MACHINES.find(m=>m.id===(t_==='mill'?'vf3ss':t_==='lathe'?'st10':''))||C.MACHINES.find(m=>mtypeOf(m)===t_)).id;const el=$('#selMachine');el.value=id;el.dispatchEvent(new Event('change',{bubbles:true}));};
  undoNow();WARN=[];S.meshT=null;S.ref=null;S.pdfInfo=null;PDFDOC=null;importDXF(dxf,name,c.units==='mm'?'mm':'in');S.src='dxf';S.excl=[];S.stock.part=+(c.units==='mm'?c.T/25.4:c.T).toFixed(4);
  if(kind==='lathe'){L0();S.lathe.src='dxf';pick('lathe');}else if(kind==='wire')pick('wire');else{pick('mill');S.millK='mill';}
- buildProgram();VIEW.fitted=false;S.tab='program';persist();render();toast(vi?'Đã gửi bản vẽ CAD sang chương trình':'CAD drawing sent to the program');}
+ if(kind==='cam'){S.ops=[];OPEN.clear();CAMV.feat=null;CAMV.op=null;}
+ buildProgram();VIEW.fitted=false;S.tab=kind==='cam'?'cam':'program';persist();render();toast(kind==='cam'?(vi?'Đã lấy bản vẽ từ Cad — chọn hình rồi chạm biểu tượng nguyên công':'Cad drawing loaded — pick a shape, then tap an operation icon'):(vi?'Đã gửi bản vẽ Cad sang chương trình':'Cad drawing sent to the program'));}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-ctool],[data-cad],[data-ctpl]');if(!b||S.tab!=='cad')return;const c=CD(),d=b.dataset,vi=LANG==='vi';
  if(d.ctool){c.tool=d.ctool;CADV.pick1=null;CADV.dimPts=[];CADV.cpick=null;CADV.ptPick=null;CADV.fp=null;CADV.sel=null;CADV.msel=[];CADV.pts=[];CADV.chain0=null;persist();rCad();return;}
  if(d.ctpl){cPush();const T_=cadTemplates(d.ctpl);if(T_){c.ents=T_.ents;c.T=T_.T;c.feats=[];c.cons=[];c.base=true;CADV.fedit=null;CADV.fp=null;c.units='in';c.grid=0.125;CADV.sel=null;CADV.view=null;persist();rCad();}return;}
@@ -3751,6 +3752,151 @@ document.addEventListener('change',e=>{const el=e.target;if(S.tab!=='cad')return
  if(el.id==='cadBase'){cPush();c.base=el.checked;persist();rCad();return;}
  if(el.id==='cadQ'){c.q=el.value;persist();cad3D();return;}});
 TABS.splice(TABS.indexOf('draw')+1,0,'cad');
+/* ================= CAM: manual 2D programming (drawing from Cad or a file → stock & origin → operations → G-code) + project versions ================= */
+const APP_VER='1.4.0';
+const APP_LOG=[['1.4.0','Tab Cam: lập trình tay 2D, bảng biểu tượng nguyên công, phôi & gốc, phiên bản / khôi phục','Cam tab: manual 2D programming, operation icon palette, stock & origin, versions / rollback'],['1.3.0','Cad: ràng buộc, biến đổi & mảng, khối 3D (đùn, xoay, quét, loft, vỏ, thoát khuôn, bo / vát, cộng / trừ / giao)','Cad: constraints, transforms & patterns, 3D solids (extrude, revolve, sweep, loft, shell, draft, fillet / chamfer, booleans)']];
+TX.cam=['Cam','Cam'];TABCOL.cam='#c2410c';
+IC.cam='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5l-1.5 3h-3L9 8z"/><path d="M12 11v4"/><path d="M4 21c3-4 5-6 8-6s5 2 8 6"/></svg>';
+OPI.thread=OPI.thread||'<path d="M12 4v16"/><path d="M7 7l10 2M7 11l10 2M7 15l10 2"/>';
+OPI.tslot=OPI.tslot||'<path d="M12 3v9"/><path d="M5 12h14v4H5z"/><path d="M3 20h18"/>';
+OPI.engrave=OPI.engrave||'<path d="M4 18l4-12 4 12M5.5 14h5"/><path d="M15 6v12M15 6h3a3 3 0 0 1 0 6h-3"/>';
+const CAMV={feat:null,op:null};let CAMIMP=false;
+/* palette: [type, vi, en, group, needs] — needs: '' (no feature), 'area' (outline / pocket), 'hole', 'slot', 'edge' (outline / pocket / hole) */
+const CAMOPS=[['face','Phay mặt','Face','a',''],['contour','Contour 2D','2D Contour','a','area'],['pocket','Pocket 2D','2D Pocket','a','area'],['adaptive','Adaptive 2D','2D Adaptive','a','area'],['rest','Phay phần còn lại','Rest machining','a','area'],['slot','Rãnh','Slot','a','slot'],['tslot','Rãnh chữ T (undercut)','Slot undercut (T-slot)','a','edge'],['chamfer','Vát mép 2D','2D Chamfer','a','edge'],['radius','Bo góc cạnh','Corner radius','a','area'],
+ ['spot','Khoan mồi','Spot drill','h','hole'],['drill','Khoan','Drill','h','hole'],['tap','Taro','Tap','h','hole'],['ream','Doa','Ream','h','hole'],['bore','Móc lỗ (boring bar)','Bore (boring bar)','h','hole'],['circ','Phay lỗ tròn / xoắn','Circular / helical bore','h','hole'],['thread','Phay ren','Thread mill','h','hole'],
+ ['engrave','Khắc chữ','Engrave','e',''],['vcarve','Khắc V','V-Carve','e','area']];
+const CAMGRP=[['a','Mặt & biên dạng','Faces & profiles'],['h','Lỗ','Holes'],['e','Khắc','Engraving']];
+/* pictures for the palette: grey part, blue toolpath, orange entry */
+const CAMIC={
+ face:'<rect x="5" y="9" width="30" height="22" rx="2" fill="#c9cfd6"/><path d="M3 12h34M37 12v4M37 16H3M3 16v4M3 20h34M37 20v4M37 24H3M3 24v4M3 28h34" fill="none" stroke="#2457d6" stroke-width="1.8"/>',
+ contour:'<rect x="9" y="9" width="22" height="22" rx="3" fill="#c9cfd6"/><rect x="5.5" y="5.5" width="29" height="29" rx="6" fill="none" stroke="#2457d6" stroke-width="2"/><path d="M5.5 20a6 6 0 0 0-5-5" fill="none" stroke="#ff6a13" stroke-width="2"/>',
+ pocket:'<rect x="4" y="4" width="32" height="32" rx="3" fill="#c9cfd6"/><rect x="9" y="9" width="22" height="22" rx="3" fill="#8f98a2"/><path d="M12 12h16v16H12zM16 16h8v8h-8z" fill="none" stroke="#2457d6" stroke-width="1.8"/><circle cx="20" cy="20" r="1.8" fill="#ff6a13"/>',
+ adaptive:'<rect x="4" y="4" width="32" height="32" rx="3" fill="#c9cfd6"/><rect x="9" y="9" width="22" height="22" rx="3" fill="#8f98a2"/><path d="M13 27c0-4 2-4 2-8s-2-4-2-6M17 27c0-4 2-4 2-8s-2-4-2-6M21 27c0-4 2-4 2-8s-2-4-2-6M25 27c0-4 2-4 2-8s-2-4-2-6" fill="none" stroke="#2457d6" stroke-width="1.6"/>',
+ rest:'<rect x="4" y="4" width="32" height="32" rx="3" fill="#c9cfd6"/><path d="M9 9h22v22H9z" fill="#8f98a2"/><path d="M9 13a4 4 0 0 0 4-4M31 13a4 4 0 0 1-4-4M9 27a4 4 0 0 1 4 4M31 27a4 4 0 0 0-4 4" fill="none" stroke="#2457d6" stroke-width="2.2"/>',
+ slot:'<rect x="4" y="8" width="32" height="24" rx="3" fill="#c9cfd6"/><rect x="7" y="16" width="26" height="8" rx="4" fill="#8f98a2"/><path d="M11 20h18" stroke="#2457d6" stroke-width="2"/><path d="M8 26l3-6" stroke="#ff6a13" stroke-width="2"/>',
+ tslot:'<path d="M4 6h32v28H4z" fill="#c9cfd6"/><path d="M16 6h8v12h8v8H8v-8h8z" fill="#8f98a2"/><path d="M20 4v20" stroke="#2457d6" stroke-width="2"/><path d="M11 22h18" stroke="#2457d6" stroke-width="3"/>',
+ chamfer:'<path d="M5 34V12l7-7h23v29z" fill="#c9cfd6"/><path d="M3 13l9-9" stroke="#2457d6" stroke-width="2.2"/><path d="M14 20l6-6 6 6" fill="none" stroke="#ff6a13" stroke-width="1.6"/>',
+ radius:'<path d="M5 34V14a9 9 0 0 1 9-9h21v29z" fill="#c9cfd6"/><path d="M3 15A12 12 0 0 1 15 3" fill="none" stroke="#2457d6" stroke-width="2.2"/>',
+ spot:'<rect x="4" y="22" width="32" height="14" fill="#c9cfd6"/><path d="M14 22l6 6 6-6z" fill="#8f98a2"/><path d="M15 4h10v10l-5 8-5-8z" fill="#2457d6"/>',
+ drill:'<rect x="4" y="18" width="32" height="18" fill="#c9cfd6"/><rect x="16" y="18" width="8" height="18" fill="#5b636b"/><path d="M16 2h8v18l-4 5-4-5z" fill="#2457d6"/><path d="M16 7l8 3M16 12l8 3" stroke="#fff" stroke-width="1.2"/>',
+ tap:'<rect x="4" y="18" width="32" height="18" fill="#c9cfd6"/><rect x="16" y="18" width="8" height="18" fill="#5b636b"/><path d="M16 21l8 2M16 25l8 2M16 29l8 2" stroke="#ff6a13" stroke-width="1.4"/><rect x="16" y="2" width="8" height="15" fill="#2457d6"/>',
+ ream:'<rect x="4" y="18" width="32" height="18" fill="#c9cfd6"/><rect x="15" y="18" width="10" height="18" fill="#5b636b"/><path d="M15 2h10v20H15z" fill="#2457d6"/><path d="M18 4v16M22 4v16" stroke="#fff" stroke-width="1.2"/>',
+ bore:'<rect x="4" y="18" width="32" height="18" fill="#c9cfd6"/><rect x="13" y="18" width="14" height="18" fill="#5b636b"/><path d="M18 2h4v24h4v3h-8z" fill="#2457d6"/>',
+ circ:'<rect x="4" y="4" width="32" height="32" rx="3" fill="#c9cfd6"/><circle cx="20" cy="20" r="11" fill="#5b636b"/><circle cx="20" cy="20" r="7" fill="none" stroke="#2457d6" stroke-width="2"/><path d="M20 20l7 0" stroke="#ff6a13" stroke-width="2"/>',
+ thread:'<rect x="4" y="4" width="32" height="32" rx="3" fill="#c9cfd6"/><circle cx="20" cy="20" r="11" fill="#5b636b"/><path d="M13 26q7-3 14-2M12 20q8-3 16-2M13 14q7-3 14-2" fill="none" stroke="#ff6a13" stroke-width="1.6"/><circle cx="20" cy="20" r="3" fill="#2457d6"/>',
+ engrave:'<rect x="3" y="8" width="34" height="24" rx="3" fill="#c9cfd6"/><path d="M8 27l4-14 4 14M9.5 22h5M20 13v14M20 13h4a3.5 3.5 0 0 1 0 7h-4M20 20h5a3.5 3.5 0 0 1 0 7h-5" fill="none" stroke="#2457d6" stroke-width="1.8"/>',
+ vcarve:'<rect x="3" y="6" width="34" height="28" rx="3" fill="#c9cfd6"/><path d="M8 12l6 16 6-16 6 16 6-16" fill="none" stroke="#2457d6" stroke-width="2"/><path d="M14 4l3 6h-6z" fill="#ff6a13"/>'};
+const camIc=(ty,s)=>`<svg viewBox="0 0 40 40" width="${s||40}" height="${s||40}" aria-hidden="true">${CAMIC[ty]||''}</svg>`;
+function camFits(need,f){if(!need)return true;if(!f)return false;if(need==='area')return f.kind==='profile'||f.kind==='pocket';if(need==='hole')return f.kind==='holes';if(need==='slot')return f.kind==='slot';if(need==='edge')return f.kind!=='slot';return true;}
+/* default tool + depths for a new operation */
+function camAdd(type){const vi=LANG==='vi',row=CAMOPS.find(x=>x[0]===type),need=row[4];if(!S.geom&&need){toast(vi?'Chưa có bản vẽ — lấy từ Cad hoặc nhập file':'No drawing yet — take it from Cad or import a file');return;}
+ const ex=new Set(S.excl||[]),cand=(S.feats||[]).filter(f=>!ex.has(f.id)&&camFits(need,f));let f=need?(cand.find(x=>x.id===CAMV.feat)||cand[0]):null;
+ if(need&&!f){toast(vi?{area:'Không có biên dạng / hốc nào',hole:'Không có lỗ tròn nào trong bản vẽ',slot:'Không có đường rãnh (nét hở) nào',edge:'Không có cạnh nào'}[need]:{area:'No outline or pocket',hole:'No holes in the drawing',slot:'No open path to slot along',edge:'No edge'}[need]);return;}
+ const th=thick(),D=S.def||{},m=mat(),flat=(maxD)=>findTool(x=>x.type==='flat'&&x.dia<=maxD)||findTool(x=>x.type==='flat',(a,b)=>a.dia-b.dia);
+ const fw=f&&f.loop?(()=>{const b=C.bbox(f.loop);return Math.min(b[2]-b[0],b[3]-b[1]);})():1;
+ const depA=f?(f.kind==='pocket'?(f.depth!=null&&f.depth!==undefined?f.depth:Math.min(D.pocketDepth||0.25,th)):f.kind==='holes'?(f.depth!=null?f.depth:th+0.02):th+0.02):0.25;
+ let tl=null,ex_={};
+ switch(type){
+  case'face':tl=findTool(x=>x.type==='face')||findTool(x=>x.type==='flat');ex_={zTop:S.stock.face||0.03,zBot:0};break;
+  case'contour':tl=flat(f.kind==='pocket'?fw*0.45:0.5);ex_={zBot:-depA,lead:'arc',leadEntry:'plunge'};break;
+  case'pocket':tl=flat(fw*0.45);ex_={zBot:-depA,entry:'helix',leave:D.finLeave||0.01};break;
+  case'adaptive':tl=flat(f.kind==='pocket'?fw*0.45:0.5);ex_={zBot:-depA,entry:'helix',leave:D.finLeave||0.01};break;
+  case'rest':tl=flat(0.25);ex_={zBot:-depA,refDia:0.5};break;
+  case'slot':tl=flat(0.25);ex_={zBot:-0.125,width:0};break;
+  case'tslot':tl=ensureTool({type:'keyseat',desc:'Keyseat cutter 3/4 x 1/16',dia:0.75,flutes:6,mat:'carbide',coat:'tin',loc:0.0625,oal:2.5,shank:0.25});ex_={zBot:-0.25,width:0.0625};break;
+  case'chamfer':tl=findTool(x=>x.type==='chamfer')||ensureTool({type:'chamfer',desc:'1/2 90° chamfer mill',dia:0.5,flutes:4,mat:'carbide',coat:'AlTiN',tipAngle:90,tipDia:0.03,loc:0.25,oal:2.5});ex_={chamfer:0.015,zBot:-0.015,lead:'arc'};break;
+  case'radius':tl=findTool(x=>x.type==='cornerround')||ensureTool({type:'cornerround',desc:'1/16 R corner rounder',dia:0.5,flutes:4,mat:'hss',coat:'TiN',cornerR:0.0625,tipDia:0.155,loc:0.3,oal:2.5});ex_={zBot:-0.0625,lead:'arc'};break;
+  case'spot':{tl=findTool(x=>x.type==='spot');if(tl){const dch=Math.min(f.dia+0.02,tl.dia*0.9);ex_={zBot:-(dch/2)/Math.tan((tl.tipAngle||90)/2*Math.PI/180),cycle:'G82',dwell:0.2};}break;}
+  case'drill':{const met=S.rawUnits==='mm'||(S.rawUnits!=='in'&&S.units==='mm');const tap=C.TAPS.find(x=>(met?/^M/.test(x[0]):!/^M/.test(x[0]))&&Math.abs(x[3]-f.dia)<0.003);tl=ensureTool({type:'drill',desc:(tap?tap[4]+' ':'')+'Ø'+f.dia.toFixed(4)+' drill',dia:f.dia,flutes:2,mat:'hss',coat:'black',tipAngle:118,loc:Math.max(th+0.5,f.dia*8),oal:Math.max(th+1.5,f.dia*12)});
+   const zb=f.depth!=null&&f.depth!==undefined?-(f.depth+0.3*f.dia):-(th+0.3*f.dia+0.03),dc=C.drillCycle(Math.abs(zb),f.dia,m);ex_={zBot:zb,cycle:dc.cycle,cycAuto:true,peck:(dc.cycle==='G83'||dc.cycle==='G73')?(dc.peck||+(f.dia*0.75).toFixed(4)):0};break;}
+  case'tap':{const met=S.rawUnits==='mm'||(S.rawUnits!=='in'&&S.units==='mm'),sys=x=>met?/^M/.test(x[0]):!/^M/.test(x[0]);const tap=C.TAPS.find(x=>sys(x)&&Math.abs(x[3]-f.dia)<0.003)||C.TAPS.find(x=>sys(x)&&Math.abs(x[1]-f.dia)<0.003)||(S.rawUnits?null:C.TAPS.find(x=>Math.abs(x[3]-f.dia)<0.003));if(tap){tl=ensureTool({type:'tap',desc:tap[0]+' spiral point tap',dia:tap[1],flutes:3,mat:'hss',coat:'none',pitch:tap[2],loc:Math.max(0.75,tap[1]*3),oal:Math.max(2.2,tap[1]*9)});ex_={zBot:f.depth!=null?-Math.max(tap[2]*3,f.depth-3*tap[2]):-(th+0.05)};}
+   else{toast(vi?'Lỗ Ø'+fl(f.dia,4)+' không phải lỗ mồi taro chuẩn — chọn nhóm lỗ khác':'Ø'+fl(f.dia,4)+' is not a standard tap drill — pick another hole group');return;}break;}
+  case'ream':tl=ensureTool({type:'reamer',desc:'Ø'+f.dia.toFixed(4)+' reamer',dia:f.dia,flutes:6,mat:'carbide',coat:'none',loc:Math.max(1,th+0.25),oal:3});ex_={zBot:-(depA+0.02)};break;
+  case'bore':tl=findTool(x=>x.type==='boring'&&x.dia<=f.dia)||findTool(x=>x.type==='boring');ex_={zBot:-depA,cycle:'G85'};break;
+  case'circ':tl=flat(f.dia*0.7);ex_={zBot:-depA,leave:0};break;
+  case'thread':tl=ensureTool({type:'threadmill',desc:'Single-profile thread mill',dia:Math.min(0.18,f.dia*0.6),flutes:3,mat:'carbide',coat:'altin',pitch:0.05,loc:0.5,oal:2.5});ex_={zBot:-Math.min(0.5,depA),passes:2};break;
+  case'engrave':{tl=findTool(x=>x.type==='chamfer')||ensureTool({type:'chamfer',desc:'60° engraver .010 tip',dia:0.125,flutes:2,mat:'carbide',coat:'none',tipAngle:60,tipDia:0.01,loc:0.2,oal:2});const b=S.geom?C.geomBox(S.geom):[0,0,2,1];ex_={zBot:-0.01,text:'MINI CAM',th:0.2,x0:+((b[0]+b[2])/2).toFixed(3),y0:+((b[1]+b[3])/2).toFixed(3),align:'center'};break;}
+  case'vcarve':tl=findTool(x=>x.type==='chamfer');ex_={zBot:-0.1,woc:0.01};break;}
+ if(!tl){toast(vi?'Thiếu dao phù hợp — thêm dao ở tab Dao cụ':'No suitable tool — add one in Tools');return;}
+ undoNow();const o=newOp(type,f?f.id:null,tl.id,ex_);if(SU()==='op2')o.setup='op2';S.ops.push(o);OPEN.clear();OPEN.add(o.id);CAMV.op=S.ops.length-1;buildProgram();rCam();
+ setTimeout(()=>{const el=document.querySelector(`.op[data-id="${o.id}"]`);if(el)el.scrollIntoView({block:'nearest',behavior:'smooth'});},60);}
+/* drawing in: from the Cad tab, or a file */
+function camFromCad(){const c=CD(),vi=LANG==='vi';if(!c.ents.length){toast(vi?'Tab Cad chưa có hình nào':'Nothing drawn in Cad yet');return;}verSave(vi?'Trước khi lấy bản vẽ từ Cad':'Before taking the Cad drawing',true);cadSend('cam');}
+/* ---------- 2D view: stock, part, origin, toolpaths ---------- */
+function camView(){const sv=$('#camSvg');if(!sv)return;const vi=LANG==='vi',g=S.geom;const sr=stockRect();let b=[sr[0],sr[1],sr[2],sr[3]];if(g){const gb=C.geomBox(g);b=[Math.min(b[0],gb[0]),Math.min(b[1],gb[1]),Math.max(b[2],gb[2]),Math.max(b[3],gb[3])];}b=[Math.min(b[0],0),Math.min(b[1],0),Math.max(b[2],0),Math.max(b[3],0)];
+ const pad=Math.max(b[2]-b[0],b[3]-b[1])*0.08+0.2,vb=[b[0]-pad,b[1]-pad,b[2]-b[0]+2*pad,b[3]-b[1]+2*pad];const P=L=>L.map((p,i)=>(i?'L':'M')+(+p[0]).toFixed(4)+' '+(+p[1]).toFixed(4)).join('');
+ let o=`<g transform="scale(1,-1)"><rect x="${sr[0]}" y="${sr[1]}" width="${sr[2]-sr[0]}" height="${sr[3]-sr[1]}" fill="#eef1f4" stroke="#9aa2aa" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>`;
+ const ex=new Set(S.excl||[]);
+ if(g)for(const f of S.feats||[]){const sel=f.id===CAMV.feat,off=ex.has(f.id),st=sel?'#ff6a13':off?'#c3c9cf':f.kind==='profile'?'#3d454c':f.kind==='pocket'?'#7a4fd6':f.kind==='holes'?'#2457d6':'#0f8a5f',sw=sel?3.5:2;
+  if(f.loop)o+=`<path data-cf="${f.id}" d="${P(f.loop)}Z" fill="${f.kind==='profile'?'rgba(61,69,76,.10)':'rgba(122,79,214,.16)'}" stroke="${st}" stroke-width="${sw}" vector-effect="non-scaling-stroke" style="cursor:pointer"/>`;
+  else if(f.kind==='holes')for(const p of f.pts)o+=`<circle data-cf="${f.id}" cx="${p[0]}" cy="${p[1]}" r="${f.dia/2}" fill="rgba(36,87,214,.14)" stroke="${st}" stroke-width="${sw}" vector-effect="non-scaling-stroke" style="cursor:pointer"/>`;
+  else if(f.path)o+=`<path data-cf="${f.id}" d="${P(f.path)}" fill="none" stroke="${st}" stroke-width="${sw+2}" stroke-linecap="round" vector-effect="non-scaling-stroke" style="cursor:pointer"/>`;}
+ // toolpaths from the simulator segments, feed moves coloured per operation
+ const paths=new Map();let rp='';if(SEGS&&SEGS.length){for(const s of SEGS){const oi=s[9];if(s[6]===0){rp+=`M${s[0].toFixed(4)} ${s[1].toFixed(4)}L${s[3].toFixed(4)} ${s[4].toFixed(4)}`;continue;}let d=paths.get(oi)||'';d+=`M${s[0].toFixed(4)} ${s[1].toFixed(4)}L${s[3].toFixed(4)} ${s[4].toFixed(4)}`;paths.set(oi,d);}}
+ o+=`<path d="${rp}" fill="none" stroke="#d93a3a" stroke-width="0.8" stroke-dasharray="3 3" opacity=".45" vector-effect="non-scaling-stroke" style="pointer-events:none"/>`;
+ for(const[oi,d]of paths){const hi=CAMV.op==null||CAMV.op===oi;o+=`<path d="${d}" fill="none" stroke="${OPCOL[oi%OPCOL.length]}" stroke-width="${hi?1.6:0.8}" opacity="${hi?0.95:0.18}" vector-effect="non-scaling-stroke" style="pointer-events:none"/>`;}
+ const L=Math.max(vb[2],vb[3])*0.07;o+=`<path d="M0 0H${L}" stroke="#d93a3a" stroke-width="2" vector-effect="non-scaling-stroke"/><path d="M0 0V${L}" stroke="#1c9b5f" stroke-width="2" vector-effect="non-scaling-stroke"/><circle cx="0" cy="0" r="${L*0.22}" fill="#fff" stroke="#1d2328" stroke-width="1.5" vector-effect="non-scaling-stroke"/><path d="M0 0L${L*0.22} 0A${L*0.22} ${L*0.22} 0 0 1 0 ${L*0.22}Z M0 0L${-L*0.22} 0A${L*0.22} ${L*0.22} 0 0 1 0 ${-L*0.22}Z" fill="#1d2328"/></g>`;
+ sv.setAttribute('viewBox',`${vb[0]} ${-(vb[1]+vb[3])} ${vb[2]} ${vb[3]}`);sv.innerHTML=o;
+ const inf=$('#camInfo');if(inf){const f=(S.feats||[]).find(x=>x.id===CAMV.feat);inf.textContent=f?(vi?'Đã chọn: ':'Picked: ')+featLabel(f)+(f.size?' · '+f.size:''):(g?(vi?'Chạm một hình để chọn — nguyên công mới dùng hình này':'Tap a shape to pick it — new operations use it'):(vi?'Chưa có bản vẽ':'No drawing yet'));}}
+function camCode(){const el=$('#camCode');if(!el)return;const vi=LANG==='vi';const n=GCODE?GCODE.split('\n').length:0,mm=Math.floor((CT||0)/60),ss=Math.round((CT||0)%60);const on=S.ops.filter(o=>o.on).length;
+ el.innerHTML=`<div class="kpi" style="margin-bottom:10px"><div><span>${vi?'Thời gian':'Cycle'}</span><b>${mm}:${String(ss).padStart(2,'0')}</b></div><div><span>${vi?'Nguyên công':'Operations'}</span><b>${on}/${S.ops.length}</b></div><div><span>${vi?'Dòng':'Lines'}</span><b>${PROG&&PROG.length?n:0}</b></div></div>
+  ${WARN.length?`<div class="warn" style="margin-bottom:10px">${WARN.map(esc).join('<br>')}</div>`:''}
+  <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px"><label class="chip">${vi?'Hậu xử lý':'Post'} <select id="camPost">${[['haas','Haas NGC'],['fanuc','Fanuc'],['siemens','Siemens 840D'],['prototrak','ProtoTRAK']].map(([k,l])=>`<option value="${k}" ${S.post===k?'selected':''}>${l}</option>`).join('')}</select></label><button class="btn sm go" data-act="saveG">${IC.save}${vi?'Lưu G-code':'Save G-code'}</button><button class="btn sm" data-act="copyG">${IC.copy}${vi?'Chép':'Copy'}</button><button class="btn sm" data-tab="sim">▶ ${vi?'Mô phỏng':'Simulate'}</button></div>
+  ${PROG&&PROG.length?`<pre class="code" style="max-height:300px;overflow:auto;margin:0;font-size:12px;background:#1b2026;color:#e6e9ec;padding:10px;border-radius:10px">${hlG(GCODE.split('\n').slice(0,400).join('\n'))}${n>400?'\n…':''}</pre>`:`<p class="sub" style="margin:0">${vi?'Thêm nguyên công để ra G-code.':'Add operations to get G-code.'}</p>`}`;}
+/* ---------- versions: snapshots of the whole job, kept in this browser ---------- */
+const VER_KEY='miniVers';
+function verList(){try{return JSON.parse(localStorage.getItem(VER_KEY)||'[]');}catch(_){return[];}}
+function verSave(note,auto){const L=verList(),o={};for(const k in S)if(!UNSKIP.includes(k)&&!['ref','meshT','_hm','cylMap'].includes(k))o[k]=S[k];const n=(L.length?Math.max(...L.map(v=>v.n||0)):0)+1;
+ L.push({n,t:Date.now(),note:note||'',auto:!!auto,ops:(S.ops||[]).length,name:(S.dxfName||S.hdr&&S.hdr.name||''),j:JSON.stringify(o)});while(L.length>30)L.shift();
+ for(let k=0;k<6;k++){try{localStorage.setItem(VER_KEY,JSON.stringify(L));return n;}catch(e){if(L.length<=1)break;L.shift();}}toast(LANG==='vi'?'Bộ nhớ trình duyệt đầy — không lưu được phiên bản':'Browser storage is full — version not saved');return 0;}
+function verRestore(n){const vi=LANG==='vi',v=verList().find(x=>x.n===n);if(!v)return;verSave((vi?'Trước khi khôi phục v':'Before restoring v')+n,true);undoNow();const tab=S.tab;undoApply(v.j);S.tab=tab;persist();render();toast((vi?'Đã khôi phục phiên bản v':'Restored version v')+n);}
+function verCard(){const vi=LANG==='vi',L=verList().slice().reverse(),dt=t_=>{const d=new Date(t_);return d.toLocaleDateString(vi?'vi-VN':'en-US',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString(vi?'vi-VN':'en-US',{hour:'2-digit',minute:'2-digit'});};
+ return`<div class="card" style="--cc:#5c6b7a"><h2>${vi?'Phiên bản':'Versions'}</h2><p class="sub" style="margin:0 0 8px">MINI CAM <b>v${APP_VER}</b> · ${vi?'Lưu lại cả chương trình (bản vẽ, phôi, gốc, dao, nguyên công) để quay về sau. Lưu trong trình duyệt này.':'Keeps the whole job (drawing, stock, origin, tools, operations) so you can go back. Stored in this browser.'}</p>
+  <div class="row" style="gap:6px;flex-wrap:wrap"><input id="verNote" class="inp" style="flex:1;min-width:160px" placeholder="${vi?'Ghi chú (tuỳ chọn)':'Note (optional)'}"><button class="btn sm pri" data-cama="vsave">💾 ${vi?'Lưu phiên bản':'Save version'}</button></div>
+  ${L.length?`<div style="display:grid;gap:6px;margin-top:10px">${L.map(v=>`<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:6px 8px"><b>v${v.n}</b><span class="sub" style="margin:0;font-size:13px">${dt(v.t)} · ${v.ops} ${vi?'ng.công':'ops'}${v.name?' · '+esc(v.name):''}${v.note?' · '+esc(v.note):''}${v.auto?' · <i>'+(vi?'tự lưu':'auto')+'</i>':''}</span><span style="margin-left:auto;display:flex;gap:4px"><button class="btn sm" data-cama="vload" data-n="${v.n}">↺ ${vi?'Khôi phục':'Restore'}</button><button class="mini" data-cama="vdel" data-n="${v.n}" style="color:var(--bad)">✕</button></span></div>`).join('')}</div>`:`<p class="sub" style="margin:8px 0 0">${vi?'Chưa có phiên bản nào.':'No versions yet.'}</p>`}
+  <details style="margin-top:10px"><summary class="sub" style="cursor:pointer;font-weight:700">${vi?'Có gì mới':'What is new'}</summary>${APP_LOG.map(([v,a,b])=>`<p class="sub" style="margin:6px 0 0;font-size:13px"><b>v${v}</b> — ${vi?a:b}</p>`).join('')}</details></div>`;}
+/* ---------- page ---------- */
+function rCam(){const vi=LANG==='vi',sr=stockRect(),D=S.def||{};const N=(k,l)=>`<label class="f">${l} (${ulab()})<input inputmode="decimal" data-cst="${k}" data-u="L" value="${fl(S.stock[k])}"></label>`;
+ const mt=mtypeOf(mach());const notMill=!['mill','m3d','m4','m5'].includes(mt);
+ $('#main').innerHTML=`<h1>Cam · ${vi?'Lập trình tay 2D':'Manual 2D programming'}</h1><p class="sub">${vi?'Lấy bản vẽ từ tab Cad hoặc nhập file, đặt phôi và gốc, rồi chọn từng nguyên công: chạm hình trên bản vẽ, chạm biểu tượng. Mỗi nguyên công chỉnh được dao, độ sâu, bước, kiểu vào dao (xoắn / dốc / thẳng) và vào-ra dao (cung / đường thẳng).':'Take the drawing from Cad or import a file, set stock and origin, then add operations one by one: tap a shape, tap an icon. Each operation has its tool, depths, steps, entry (helix / ramp / plunge) and lead in / out (arc / line).'}</p>
+ ${notMill?`<div class="warn" style="margin-bottom:12px">${vi?'Máy đang chọn không phải máy phay — tab Cam chỉ dành cho phay 2D. Chọn máy phay ở thanh trên.':'The selected machine is not a mill — Cam is for 2D milling. Pick a mill at the top.'}</div>`:''}
+ <div class="grid g2"><div class="grid" style="align-content:start">
+  <div class="card" style="--cc:#c2410c"><h2>${vi?'Bản vẽ':'Drawing'}</h2><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm pri" data-cama="fromCad">${IC.cad||''}${vi?'Lấy từ Cad':'Take from Cad'}</button><button class="btn sm" data-cama="import">📂 ${vi?'Nhập file (DXF, PDF, STL, STEP)':'Import file (DXF, PDF, STL, STEP)'}</button></div>
+   <p class="sub" style="margin:8px 0 0;font-size:13px">${S.geom?`${esc(S.dxfName||'—')} · ${(S.feats||[]).length} ${vi?'hình':'shapes'} · ${fl(sr[2]-sr[0],3)} × ${fl(sr[3]-sr[1],3)} ${ulab()}`:(vi?'Chưa có bản vẽ.':'No drawing yet.')}</p>
+   <div class="view" style="height:min(52vh,460px);margin-top:8px;position:relative;background:#fbfcfd"><svg id="camSvg" style="width:100%;height:100%;display:block" preserveAspectRatio="xMidYMid meet"></svg><div class="ovl bl" style="pointer-events:none"><span class="pill" id="camInfo"></span></div></div></div>
+  <div class="card" style="--cc:#2457d6"><h2>${vi?'Phôi & gốc toạ độ':'Stock & setup origin'}</h2>
+   <label class="row" style="gap:10px;font-weight:600;margin-bottom:8px;flex-wrap:nowrap"><span class="sw"><input type="checkbox" id="camAuto" ${D.stockAuto?'checked':''}><i></i></span>${vi?'Phôi tự động (theo chi tiết + lượng dư)':'Auto stock (part + allowance)'}</label>
+   <div class="fields">${N('x',vi?'Phôi X':'Stock X')}${N('y',vi?'Phôi Y':'Stock Y')}${N('z',vi?'Phôi Z':'Stock Z')}${N('face',vi?'Lượng phay mặt':'Face off')}${N('part',vi?'Dày chi tiết':'Part thickness')}<label class="f">${vi?'Z an toàn':'Safe Z'} (${ulab()})<input inputmode="decimal" data-cset="safeZ" data-u="L" value="${fl(SETS().safeZ)}"></label></div>
+   <div class="row" style="gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap"><div style="display:grid;grid-template-columns:repeat(3,40px);gap:6px">${['tl','tc','tr','ml','c','mr','ll','bc','lr'].map(z=>`<button class="mini" data-camz="${z}" title="${esc(ZN[z][vi?1:0])}" style="${S.zero===z?'background:#1d2328;color:#fff':''}">${S.zero===z?'⊕':'·'}</button>`).join('')}</div>
+    <p class="sub" style="margin:0;flex:1;min-width:160px">${vi?'Gốc X0 Y0':'X0 Y0 at'} <b>${esc((ZN[S.zero]||ZN.ll)[vi?1:0])}</b> ${vi?'của chi tiết':'of the part'}<br>Z0 = ${vi?'mặt trên chi tiết hoàn thiện':'top of the finished part'} · G54</p></div></div>
+  ${verCard()}
+ </div><div class="grid" style="align-content:start">
+  <div class="card" style="--cc:#ff6a13"><h2>${vi?'Thêm nguyên công':'Add operation'}</h2>${CAMGRP.map(([g,a,b_])=>`<p class="sub" style="margin:8px 0 6px;font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:.04em">${vi?a:b_}</p><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:6px">${CAMOPS.filter(x=>x[3]===g).map(([k,v,e,,need])=>{const f=(S.feats||[]).find(x=>x.id===CAMV.feat);const fit=!need||!f||camFits(need,f);return`<button data-camadd="${k}" style="display:grid;justify-items:center;gap:4px;padding:8px 4px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font:600 12px/1.2 inherit;color:var(--ink);opacity:${fit?1:0.45};min-height:86px">${camIc(k,40)}<span style="text-align:center">${vi?v:e}</span></button>`;}).join('')}</div>`).join('')}</div>
+  <div class="card" style="--cc:#1c9b5f"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px"><h2 style="margin:0">${vi?'Nguyên công':'Operations'} · ${S.ops.length}</h2><div class="row" style="gap:6px"><button class="btn sm" data-cama="auto">⚡ ${vi?'Gợi ý tự động':'Suggest (auto)'}</button><button class="btn sm" data-cama="clearOps" style="color:var(--bad)">${IC.del}${vi?'Xóa hết':'Clear'}</button></div></div><div id="ops"></div></div>
+  <div class="card" style="--cc:#5c6bc0"><h2>G-code</h2><div id="camCode"></div></div>
+ </div></div>`;
+ renderOps();camView();camCode();}
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{if(S.tab!=='cam')return;const vi=LANG==='vi';
+ const cf=e.target.closest('[data-cf]');if(cf){CAMV.feat=CAMV.feat===cf.dataset.cf?null:cf.dataset.cf;rCam();return;}
+ const tg=e.target.closest('[data-tog]');if(tg){const i=S.ops.findIndex(o=>o.id===tg.dataset.tog);CAMV.op=i<0?null:i;setTimeout(camView,0);return;}
+ const b=e.target.closest('[data-camadd],[data-cama],[data-camz]');if(!b)return;const d=b.dataset;
+ if(d.camadd){camAdd(d.camadd);return;}
+ if(d.camz){S.zero=d.camz;applyZero();buildProgram();rCam();return;}
+ const a=d.cama;
+ if(a==='fromCad'){camFromCad();return;}
+ if(a==='import'){CAMIMP=true;verSave(vi?'Trước khi nhập file':'Before importing a file',true);$('#fileDxf').click();return;}
+ if(a==='auto'){if(!S.geom){toast(vi?'Chưa có bản vẽ':'No drawing yet');return;}undoNow();verSave(vi?'Trước khi gợi ý tự động':'Before auto suggest',true);autoProgram();buildProgram();rCam();toast(vi?'Đã thêm nguyên công gợi ý — sửa / xóa tuỳ ý':'Suggested operations added — edit or delete as you like');return;}
+ if(a==='clearOps'){if(!S.ops.length)return;undoNow();verSave(vi?'Trước khi xóa hết nguyên công':'Before clearing operations',true);S.ops=[];OPEN.clear();CAMV.op=null;buildProgram();rCam();toast(vi?'Đã xóa — bấm ↶ hoặc khôi phục phiên bản':'Cleared — tap ↶ or restore a version');return;}
+ if(a==='vsave'){const n=verSave(($('#verNote')||{}).value||'');if(n){rCam();toast((vi?'Đã lưu phiên bản v':'Saved version v')+n);}return;}
+ if(a==='vload'){verRestore(+d.n);return;}
+ if(a==='vdel'){const L=verList().filter(v=>v.n!==+d.n);try{localStorage.setItem(VER_KEY,JSON.stringify(L));}catch(_){}rCam();return;}});
+document.addEventListener('change',e=>{if(S.tab!=='cam')return;const el=e.target;
+ if(el.dataset.cst){const v=parseVal(el);if(v===null||v<0)return;const k=el.dataset.cst;S.stock[k]=v;S.def={...DEF0,...(S.def||{})};if(['x','y','z'].includes(k))S.def.stockAuto=false;syncStock();buildProgram();rCam();return;}
+ if(el.dataset.cset){const v=parseVal(el);if(v===null)return;SETS()[el.dataset.cset]=v;buildProgram();rCam();return;}
+ if(el.id==='camAuto'){S.def={...DEF0,...(S.def||{})};S.def.stockAuto=el.checked;syncStock();buildProgram();rCam();return;}
+ if(el.id==='camPost'){S.post=el.value;buildProgram();camCode();persist();return;}});
+TABS.splice(TABS.indexOf('cad')+1,0,'cam');
 /* ================= NEST (many parts on one sheet) ================= */
 const NEST0={proc:'router',kerf:0.06,cutF:100,pierce:0.5,smallD:1.25,smallPct:65,leadL:0.2,overburn:0.04,onCode:'M03',offCode:'M05',mode:'flat',w:24,h:12,sheetT:0.5,partT:0.5,margin:0.5,tabW:0.25,tabT:0.03,tabEvery:5,tabFixed:0,hold:'screw',removal:'break',tool:'',items:[]};
 let NESTR=null,NESTG='';
