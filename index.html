@@ -11,7 +11,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>MINI CAM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"></noscript>
 <style>
 /* VOICE: a shop-floor instrument — calm, exact, big touch targets, no decoration that is not information
    IDEA: a machinist's layout table: Dykem-blue parts scribed on brushed aluminum, tool crib drawings
@@ -225,6 +227,10 @@ input[type=range]{accent-color:var(--acc)}
 .pill{border-radius:8px}.warn{border-radius:10px}.mini{border-radius:8px}.wb{border-radius:8px}
 .ico{display:inline-block;vertical-align:-3px;flex:none}
 [hidden]{display:none!important}
+.mergebar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;margin:0 0 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}.mergebar>span{color:var(--acc);display:grid}.mergebar p{flex:1;min-width:200px;margin:0;font-size:14px}
+.linkb{border:0;background:none;padding:0;color:var(--acc);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
+html.dk .lpic,html.dk .oref figure{filter:invert(.9) hue-rotate(180deg) saturate(1.15)}
+
 /* tools & fixtures (v1.5.1) */
 .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
 .tcard2{display:grid;grid-template-rows:150px auto;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:0;overflow:hidden;cursor:pointer;text-align:start;color:var(--ink);font:inherit}
@@ -348,7 +354,6 @@ html.port nav.tabs button.sec{display:none!important}html.port nav.tabs button.m
 <script src="lessons.js"></script>
 <script src="engine.js"></script>
 <script src="solid.js"></script>
-<script src="opsref.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

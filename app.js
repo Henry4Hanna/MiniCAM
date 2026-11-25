@@ -119,7 +119,7 @@ const TOOLS0=[
  {num:14,type:'ball',desc:'1/4 ball end mill',dia:0.25,flutes:2,mat:'carbide',coat:'AlTiN',loc:0.75,oal:2.5}
 ];
 let uid=1;const nid=p=>p+(uid++)+Math.random().toString(36).slice(2,5);
-const S={tab:'program',units:'in',mat:'al6061',machine:'vf3ss',post:'haas',
+const S={tab:'cam',units:'in',mat:'al6061',machine:'vf3ss',post:'haas',
  stock:{x:4.25,y:3.25,z:1.25,face:0.03,part:0.75},zero:'ll',
  fixture:{type:'vise',jawH:1.75,parH:1.5,parAuto:true,vise:6,notes:''},
  hdr:{name:'BRACKET',no:'P-1001',rev:'A',qty:1,prog:'',oper:'',cust:'',date:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),notes:''},
@@ -516,13 +516,13 @@ function featLabelEN(f){if(f.kind==='holes')return'HOLES D'+f.dia.toFixed(4)+' X
 let regenT=0;function regen(){clearTimeout(regenT);regenT=setTimeout(()=>{buildProgram();if(S.tab==='cam')camRefresh();if(S.tab==='program'){renderOps();renderCode();drawView();}},120);}
 
 /* ================= render shell ================= */
-const TABS=['program','draw','nest','tools','mat','fixtures','sim','calc','setup','learn','help','settings','about'];
+const TABS=['program','draw','nest','tools','mat','fixtures','sim','calc','setup','learn','help','settings','about'];const navL=k=>k==='program'?(LANG==='vi'?'Tự động':'Auto program'):t(k);
 const TABCOL={draw:'#0f766e',mat:'#6b737a',learn:'#c2410c',about:'#2457d6',help:'#3d8b37',settings:'#5c6b7a',nest:'#e39b00',program:'#2457d6',tools:'#ff6a13',fixtures:'#1c9b5f',sim:'#8b4fd6',calc:'#0a9bb0',setup:'#e0457b'};
 function lumi(h){const c=hexRGB(h);return(0.299*c[0]+0.587*c[1]+0.114*c[2])/255;}
 const MTYPES=[['mill','Phay','Mill','#2457d6','<path d="M9 2h6v5H9zM12 7v6M8 13h8l-1 3H9zM4 21h16"/>'],['lathe','Tiện','Lathe','#0a9bb0','<circle cx="7" cy="12" r="4"/><path d="M11 12h9M16 9v6"/>'],['grind','Mài','Grinding','#c2410c','<circle cx="12" cy="8" r="5"/><path d="M3 18h18M5 21h14"/>'],['wire','Cắt dây EDM','Wire EDM','#e0457b','<path d="M12 2v20M7 7h10M7 17h10"/><path d="M9 11l3 2 3-2"/>'],['m3d','3D','3D','#1c9b5f','<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/>'],['m4','Trục 4','4th axis','#0a7bb0','<ellipse cx="12" cy="12" rx="9" ry="4"/><path d="M12 8v8"/><path d="M17 5l3 3-3 3"/>'],['m5','5 trục','5-axis','#8b4fd6','<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3"/>']];
 function mtypeOf(m){if(m.type==='cylgrind')return'grind';if(['lathe','grind','wire'].includes(m.type))return m.type;if(m.axes===5)return'm5';if(S.rotary&&S.rotary!=='none'&&m.rot){const r=C.ROTARIES.find(x=>x.id===S.rotary);return r&&r.five?'m5':'m4';}return S.millK==='m3d'?'m3d':'mill';}
 function renderShell(){
- const PRI=['cad','cam','sim','tools'];$('#tabs').innerHTML=TABS.map(k=>`<button data-tab="${k}" class="${S.tab===k?'on':''} ${PRI.includes(k)?'':'sec'}" style="--c:${TABCOL[k]}" aria-label="${esc(t(k))}"><span class="ti">${IC[k]}</span><span>${esc(t(k))}</span></button>`).join('')+`<button class="more ${PRI.includes(S.tab)?'':'on'}" data-more="1" aria-label="${LANG==='vi'?'Thêm':'More'}"><span class="ti">${ico('more',21)}</span><span>${PRI.includes(S.tab)?(LANG==='vi'?'Thêm':'More'):esc(t(S.tab))}</span></button>`;
+ const PRI=['cad','cam','sim','tools'];$('#tabs').innerHTML=TABS.map(k=>`<button data-tab="${k}" class="${S.tab===k?'on':''} ${PRI.includes(k)?'':'sec'}" style="--c:${TABCOL[k]}" aria-label="${esc(navL(k))}"><span class="ti">${IC[k]}</span><span>${esc(navL(k))}</span></button>`).join('')+`<button class="more ${PRI.includes(S.tab)?'':'on'}" data-more="1" aria-label="${LANG==='vi'?'Thêm':'More'}"><span class="ti">${ico('more',21)}</span><span>${PRI.includes(S.tab)?(LANG==='vi'?'Thêm':'More'):esc(navL(S.tab))}</span></button>`;
  $('#selMat').innerHTML=C.MATERIALS.map(m=>`<option value="${m.id}" ${m.id===S.mat?'selected':''}>${esc(LANG==='vi'?m.vi:m.en)}</option>`).join('');
  $('#selMachine').innerHTML=MTYPES.map(([k,vi,en])=>{const L=C.MACHINES.filter(m=>mtypeOf(m)===k);return L.length?`<optgroup label="${esc(LANG==='vi'?vi:en)}">${L.map(m=>`<option value="${m.id}" ${m.id===S.machine?'selected':''}>${esc(m.name)}</option>`).join('')}</optgroup>`:'';}).join('');
  {const cur=mtypeOf(mach());$('#mtypes').innerHTML=MTYPES.map(([k,vi,en,col,ic])=>`<button data-mtype="${k}" class="${cur===k?'on':''}" style="--mc:${col}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${esc(LANG==='vi'?vi:en)}</button>`).join('');}
@@ -553,6 +553,7 @@ function jobBar(){const vi=LANG==='vi',on=S.ops.filter(o=>o.on),st=[
 function rProgram(){if(mach().type==='lathe'){rLathe();return;}if(['grind','cylgrind'].includes(mach().type)){rGrind();return;}if(mach().type==='wire'){rWire();return;}
  const z=S.zero;
  $('#main').innerHTML=`<h1>${t('progTitle')}</h1><p class="sub">${t('progSub')}</p>
+ <div class="mergebar"><span>${ico('ops',18)}</span><p>${LANG==='vi'?'Trang này tự lập trình từ bản vẽ. Đây cũng là chương trình trong tab <b>Cam</b> — mở Cam để thêm, sửa, xóa từng nguyên công bằng tay.':'This page programs the drawing for you. It is the same program as the <b>Cam</b> tab — open Cam to add, edit or delete operations by hand.'}</p><button class="btn sm pri" data-tab="cam">${LANG==='vi'?'Mở trong Cam':'Open in Cam'}</button></div>
  ${jobBar()}
  <div class="grid g2">
   <div class="grid" style="align-content:start">
@@ -2844,7 +2845,7 @@ function rGuide(){const vi=LANG==='vi',L=vi?1:0,cur=S._gsec||'start',sec=GUIDE.f
  <div class="row" style="margin-top:14px;justify-content:space-between">${GUIDE.indexOf(sec)>0?`<button class="btn sm" data-gsec="${GUIDE[GUIDE.indexOf(sec)-1].id}">‹ ${esc(GUIDE[GUIDE.indexOf(sec)-1].t[L])}</button>`:'<span></span>'}${GUIDE.indexOf(sec)<GUIDE.length-1?`<button class="btn sm pri" data-gsec="${GUIDE[GUIDE.indexOf(sec)+1].id}">${esc(GUIDE[GUIDE.indexOf(sec)+1].t[L])} ›</button>`:''}</div>`;}
 
 /* ================= LEARNING ================= */
-const SV=(w,h,b)=>`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;max-height:230px;background:#fff;border-radius:12px" font-family="Barlow,system-ui,sans-serif" font-size="11" font-weight="600">${b}</svg>`;
+const SV=(w,h,b)=>`<svg class="lpic" viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;max-height:230px;background:#fff;border-radius:12px" font-family="Barlow,system-ui,sans-serif" font-size="11" font-weight="600">${b}</svg>`;
 const LBL=(x,y,t,c)=>`<text x="${x}" y="${y}" fill="${c||'#14181c'}">${t}</text>`;
 const LEARN=[
  {id:'tools',col:'#ff6a13',en:['Cutting tools','How end mills, drills and inserts cut, and how to choose them.'],vi:['Dao cắt','Dao phay, mũi khoan, mảnh dao cắt thế nào và cách chọn.'],
@@ -2993,7 +2994,7 @@ function rLearn(){const vi=LANG==='vi',L=vi?'vi':'en',O=vi?'en':'vi';S.learnP=S.
 /* ================= SETTINGS ================= */
 const SET0={arcfit:true,useShop:true,theme:'auto',layout:'auto',pageZoom:false,viewZoom:true,uiScale:100,safeZ:1,retract:0.1,tcSec:45,coolant:true};
 function SETS(){const o=S.set||{};if(!o._pz2){o.pageZoom=false;o._pz2=1;}if(!o._thA){o.theme='dark';o._thA=1;}return S.set={...SET0,...o};}
-function applySettings(){const st=SETS(),de=document.documentElement;if(st.theme==='auto')delete de.dataset.theme;else de.dataset.theme=st.theme;
+function applySettings(){const st=SETS(),de=document.documentElement;if(st.theme==='auto')delete de.dataset.theme;else de.dataset.theme=st.theme;de.classList.toggle('dk',isDark());
  de.classList.toggle('land',st.layout==='land');de.classList.toggle('port',st.layout==='port');
  const vm=document.querySelector('meta[name=viewport]');if(vm)vm.setAttribute('content','width=device-width,initial-scale=1,viewport-fit=cover'+(st.pageZoom?'':',maximum-scale=1,user-scalable=no'));
  de.classList.toggle('nozoom',!st.viewZoom);de.style.setProperty('--ui',st.uiScale/100);const m=$('#main');if(m)m.style.zoom=st.uiScale/100;}
@@ -3777,8 +3778,8 @@ document.addEventListener('change',e=>{const el=e.target;if(S.tab!=='cad')return
  if(el.id==='cadQ'){c.q=el.value;persist();cad3D();return;}});
 TABS.splice(TABS.indexOf('draw')+1,0,'cad');
 /* ================= CAM: manual 2D programming (drawing from Cad or a file → stock & origin → operations → G-code) + project versions ================= */
-const APP_VER='1.5.1';
-const APP_LOG=[['1.5.1','Dao cụ & đồ gá theo giao diện mới: thẻ dao gọn, bầu kẹp màu thép, chọn đồ gá gọn, hình đồ gá tông thép','Tools & fixtures in the new look: compact tool cards, steel holders, compact fixture advisor, steel-tone fixtures'],['1.5.0','Giao diện mới (hướng A · Xưởng tối): Cad/Cam dạng không gian làm việc, thanh công cụ gom nhóm, tab thông số nguyên công, thanh tab điện thoại 5 mục, chế độ tối mặc định','New look (direction A · dark shop): Cad / Cam workspaces, grouped toolbar, tabbed operation settings, 5-item phone tab bar, dark by default'],['1.4.0','Tab Cam: lập trình tay 2D, bảng biểu tượng nguyên công, phôi & gốc, phiên bản / khôi phục','Cam tab: manual 2D programming, operation icon palette, stock & origin, versions / rollback'],['1.3.0','Cad: ràng buộc, biến đổi & mảng, khối 3D (đùn, xoay, quét, loft, vỏ, thoát khuôn, bo / vát, cộng / trừ / giao)','Cad: constraints, transforms & patterns, 3D solids (extrude, revolve, sweep, loft, shell, draft, fillet / chamfer, booleans)']];
+const APP_VER='1.6.0';
+const APP_LOG=[['1.6.0','Lưu file chạy cả ngoài Claude (GitHub Pages, điện thoại); Cad · Cam lên đầu, Chương trình thành Tự động; hình minh hoạ theo nền tối; mở app nhanh hơn','Saving works outside Claude (GitHub Pages, phones); Cad · Cam first, Program becomes Auto; illustrations follow the dark theme; faster start'],['1.5.1','Dao cụ & đồ gá theo giao diện mới: thẻ dao gọn, bầu kẹp màu thép, chọn đồ gá gọn, hình đồ gá tông thép','Tools & fixtures in the new look: compact tool cards, steel holders, compact fixture advisor, steel-tone fixtures'],['1.5.0','Giao diện mới (hướng A · Xưởng tối): Cad/Cam dạng không gian làm việc, thanh công cụ gom nhóm, tab thông số nguyên công, thanh tab điện thoại 5 mục, chế độ tối mặc định','New look (direction A · dark shop): Cad / Cam workspaces, grouped toolbar, tabbed operation settings, 5-item phone tab bar, dark by default'],['1.4.0','Tab Cam: lập trình tay 2D, bảng biểu tượng nguyên công, phôi & gốc, phiên bản / khôi phục','Cam tab: manual 2D programming, operation icon palette, stock & origin, versions / rollback'],['1.3.0','Cad: ràng buộc, biến đổi & mảng, khối 3D (đùn, xoay, quét, loft, vỏ, thoát khuôn, bo / vát, cộng / trừ / giao)','Cad: constraints, transforms & patterns, 3D solids (extrude, revolve, sweep, loft, shell, draft, fillet / chamfer, booleans)']];
 TX.cam=['Cam','Cam'];TABCOL.cam='#c2410c';
 IC.cam='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5l-1.5 3h-3L9 8z"/><path d="M12 11v4"/><path d="M4 21c3-4 5-6 8-6s5 2 8 6"/></svg>';
 OPI.thread=OPI.thread||'<path d="M12 4v16"/><path d="M7 7l10 2M7 11l10 2M7 15l10 2"/>';
@@ -3897,7 +3898,7 @@ function rCam(){const vi=LANG==='vi',sr=stockRect(),D=S.def||{};const N=(k,l)=>`
    <div class="row" style="gap:14px;align-items:center;margin-top:12px;flex-wrap:wrap"><div class="zgrid">${['tl','tc','tr','ml','c','mr','ll','bc','lr'].map(z=>`<button class="mini ${S.zero===z?'on':''}" data-camz="${z}" title="${esc(ZN[z][vi?1:0])}" aria-label="${esc(ZN[z][vi?1:0])}">${S.zero===z?'⊕':'·'}</button>`).join('')}</div>
     <p class="sub" style="margin:0;flex:1;min-width:150px">${vi?'Gốc X0 Y0':'X0 Y0 at'} <b>${esc((ZN[S.zero]||ZN.ll)[vi?1:0])}</b> ${vi?'của chi tiết':'of the part'}<br>Z0 = ${vi?'mặt trên chi tiết hoàn thiện':'top of the finished part'} · G54</p></div></div>`
   :pt==='draw'?`<div class="card"><h2>${vi?'Bản vẽ':'Drawing'}</h2><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm pri" data-cama="fromCad">${IC.cad||''}${vi?'Lấy từ Cad':'Take from Cad'}</button><button class="btn sm" data-cama="import">${ico('folder')} ${vi?'Nhập file':'Import file'}</button></div>
-   <p class="sub" style="margin:8px 0 0;font-size:13px">${S.geom?`${esc(S.dxfName||'—')} · ${(S.feats||[]).length} ${vi?'hình':'shapes'} · ${fl(sr[2]-sr[0],3)} × ${fl(sr[3]-sr[1],3)} ${ulab()}`:(vi?'Chưa có bản vẽ. Nhận DXF, PDF, STL, STEP.':'No drawing yet. Takes DXF, PDF, STL, STEP.')}</p></div>`
+   <p class="sub" style="margin:8px 0 0;font-size:13px">${S.geom?`${esc(S.dxfName||'—')} · ${(S.feats||[]).length} ${vi?'hình':'shapes'} · ${fl(sr[2]-sr[0],3)} × ${fl(sr[3]-sr[1],3)} ${ulab()}`:(vi?'Chưa có bản vẽ. Nhận DXF, PDF, STL, STEP.':'No drawing yet. Takes DXF, PDF, STL, STEP.')}</p><p class="sub" style="margin:8px 0 0;font-size:12.5px">${vi?'PDF nhiều trang, ảnh chụp bản vẽ, chọn đặc trưng / độ sâu và mặt thứ 2: dùng tab <button class="linkb" data-tab="program">Tự động</button> — cùng một chương trình.':'Multi-page PDFs, photos of drawings, picking features / depths and the second side: use the <button class="linkb" data-tab="program">Auto program</button> tab — same program.'}</p></div>`
   :pt==='code'?`<div class="card"><h2>G-code</h2><div id="camCode"></div></div>`
   :pt==='ver'?verCard()
   :`<div id="camEd"></div>`;
@@ -3930,9 +3931,9 @@ document.addEventListener('change',e=>{if(S.tab!=='cam')return;const el=e.target
  if(el.dataset.cset){const v=parseVal(el);if(v===null)return;SETS()[el.dataset.cset]=v;buildProgram();rCam();return;}
  if(el.id==='camAuto'){S.def={...DEF0,...(S.def||{})};S.def.stockAuto=el.checked;syncStock();buildProgram();rCam();return;}
  if(el.id==='camPost'){S.post=el.value;buildProgram();camCode();persist();return;}});
-TABS.splice(TABS.indexOf('cad')+1,0,'cam');
+TABS.splice(TABS.indexOf('cad')+1,0,'cam');{const lead=['cad','cam','program'],rest=TABS.filter(k=>!lead.includes(k));TABS.length=0;TABS.push(...lead,...rest);}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-cfly],[data-cpt],[data-campt],[data-camsel],[data-more]');if(!b){const tb=e.target.closest('#sheet [data-tab]');if(tb)setTimeout(closeSheet,0);return;}const d=b.dataset;
- if(d.more){const vi=LANG==='vi',PRI=['cad','cam','sim','tools'];openSheet(`<div class="grab"></div><h2>${vi?'Tất cả các mục':'Everything else'}</h2><div class="moregrid">${TABS.filter(k=>!PRI.includes(k)).map(k=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${IC[k]}<span>${esc(t(k))}</span></button>`).join('')}</div>`);return;}
+ if(d.more){const vi=LANG==='vi',PRI=['cad','cam','sim','tools'];openSheet(`<div class="grab"></div><h2>${vi?'Tất cả các mục':'Everything else'}</h2><div class="moregrid">${TABS.filter(k=>!PRI.includes(k)).map(k=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${IC[k]}<span>${esc(navL(k))}</span></button>`).join('')}</div>`);return;}
  if(S.tab==='cad'){if(d.cfly!=null){const g=+d.cfly;CADV.fly=CADV.fly===g?null:g;rCad();return;}if(d.cpt){CADV.ptab=d.cpt;rCad();return;}}
  if(S.tab==='cam'){if(d.campt){CAMV.ptab=d.campt;rCam();return;}if(d.camsel!=null){if(e.target.closest('.sw'))return;CAMV.op=+d.camsel;CAMV.ptab='op';rCam();return;}}});
 document.addEventListener('keydown',e=>{if(S.tab==='cam'&&(e.key==='Enter'||e.key===' ')){const r=e.target.closest&&e.target.closest('[data-camsel]');if(r){e.preventDefault();r.click();}}});
@@ -4245,7 +4246,7 @@ async function setupPDF(){const el=$('.ss');if(!el)return;toast(t('pdfMaking'));
  saveFile(((S.hdr.name||'PART')+'-setup').replace(/[^\w-]/g,'_')+'.pdf',makePDF(pages,pw,ph,m));}
 
 /* ================= save files ================= */
-let DL=null;
+let DL=null;setTimeout(()=>{const go=()=>{if(!window.OPSREF)loadScript('opsref.js').then(()=>{if(S.tab==='help')rHelp();}).catch(()=>{});};'requestIdleCallback' in window?requestIdleCallback(go,{timeout:3000}):setTimeout(go,1200);},300);try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{document.documentElement.classList.toggle('dk',isDark());});}catch(_){}
 (async()=>{try{if(window.claude&&window.claude.use)DL=await window.claude.use('downloads');}catch(_){DL=null;}})();
 const CRC=(()=>{const t_=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t_[n]=c>>>0;}return t_;})();
 function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0;}
@@ -4255,9 +4256,14 @@ function makeZip(files){const parts=[],cd=[];let off=0;const d=new Date(),dt=((d
  const cdl=cd.reduce((a,b)=>a+b.length,0),e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdl,true);e.setUint32(16,off,true);
  const all=[...parts,...cd,new Uint8Array(e.buffer)],out=new Uint8Array(all.reduce((a,b)=>a+b.length,0));let p=0;for(const a of all){out.set(a,p);p+=a.length;}return out;}
 async function saveFile(name,data,isZip){
- if(!DL){try{if(window.claude&&window.claude.use)DL=await window.claude.use('downloads');}catch(_){}}
- if(!DL){toast(t('noSave'));return;}
- try{await DL.save({filename:name,data});toast(t('savedOk')+' '+name);if(isZip)setTimeout(()=>toast(t('zipHint')),1900);}catch(err){if(!err||err.code!=='declined')toast((err&&err.message)||t('noSave'));}}
+ if(!DL&&window.claude&&window.claude.use){try{DL=await window.claude.use('downloads');}catch(_){}}
+ if(DL){try{await DL.save({filename:name,data});toast(t('savedOk')+' '+name);if(isZip)setTimeout(()=>toast(t('zipHint')),1900);return;}catch(err){if(err&&err.code==='declined')return;}}
+ webSave(name,data,isZip);}
+/* outside Claude (GitHub Pages, phone home screen): a normal browser download */
+const MIME={zip:'application/zip',pdf:'application/pdf',html:'text/html',json:'application/json',csv:'text/csv',stl:'application/octet-stream',step:'application/octet-stream',dxf:'application/dxf'};
+function webSave(name,data,isZip){try{const ext=(name.split('.').pop()||'').toLowerCase(),type=MIME[ext]||'text/plain';const blob=data instanceof Blob?data:new Blob([data],{type});
+ const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),8000);
+ toast(t('savedOk')+' '+name);if(isZip)setTimeout(()=>toast(t('zipHint')),1900);}catch(e){toast(t('noSave'));}}
 function setupHTML(){const css=[...document.querySelectorAll('style')].map(x=>x.textContent).join('\n');const ss=document.querySelector('.ss');
  return'<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(S.hdr.name)+' setup sheet</title><style>'+css+'body{background:#fff;padding:16px}</style></head><body>'+(ss?ss.outerHTML:'')+'</body></html>';}
 

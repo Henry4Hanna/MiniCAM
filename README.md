@@ -7,7 +7,7 @@ Import drawings or models (DXF, PDF, STL, STEP), auto-program 2.5D, 3D, 4th and 
 Nhập bản vẽ hoặc mô hình (DXF, PDF, STL, STEP), tự động lập trình 2.5D, 3D, trục 4 và trục 5, mô phỏng rồi xuất G-code cho máy phay và máy tiện ProtoTRAK, Haas, Fanuc, Siemens 840D.
 
 ## Run
-Open `index.html` in a browser, or turn on GitHub Pages (Settings → Pages → Deploy from branch → `main` / root).
+Open `index.html` in a browser, or turn on GitHub Pages (Settings → Pages → Deploy from branch → `main` / root). Saving G-code, DXF, STL, PDF and projects works in any browser (a normal download); inside Claude it uses Claude's file saving.
 
 ## Files
 - `index.html` — layout and styles
