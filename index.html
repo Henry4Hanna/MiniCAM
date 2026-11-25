@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="MINI CAM">
-<meta name="theme-color" content="#2457d6">
+<meta name="theme-color" content="#14171b">
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>MINI CAM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 /* VOICE: a shop-floor instrument — calm, exact, big touch targets, no decoration that is not information
    IDEA: a machinist's layout table: Dykem-blue parts scribed on brushed aluminum, tool crib drawings
@@ -196,12 +196,117 @@ label.f input,label.f select,label.f textarea,.inp,.chip select,.chip input,.cv 
 #tlPic>svg{height:100%;max-width:100%}
 .selbar{position:absolute;left:8px;right:8px;bottom:52px;z-index:5;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border-radius:14px;background:color-mix(in srgb,var(--panel) 92%,transparent);backdrop-filter:blur(10px);border:1px solid var(--line);box-shadow:0 6px 20px rgba(0,0,0,.18);font-size:14px}.selbar .chip{padding:4px 8px}
 .oref{scroll-margin-top:130px}.oref table{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}.oref th,.oref td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}.oref th{background:color-mix(in srgb,var(--ink) 6%,transparent)}.oref figure{margin:6px 0 10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff}.otoc{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}.otoc button{border:1px solid var(--line);background:var(--panel);color:#2457d6;border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
+/* ===== v1.5 · Hướng A "Xưởng tối" — one accent (orange), flat graphite panels, Inter + JetBrains Mono, 8–10 px radii ===== */
+:root{--bg:light-dark(#f3f5f7,#14171b);--panel:light-dark(#ffffff,#1d2228);--panel2:light-dark(#f0f3f6,#262c33);--ink:light-dark(#14181c,#e8ecf0);--mut:light-dark(#5b6670,#9aa6b2);--line:light-dark(#d8dee4,#323a43);
+ --acc:#ff7a1a;--onacc:#14171b;--acc2:light-dark(#0a84c6,#34c3ff);--blue:light-dark(#2457d6,#5b8cff);--blue2:light-dark(#e3eafc,#1b2a4d);--org:#ff7a1a;--org2:light-dark(#fff0e6,#3a2312);--canvas:light-dark(#fbfcfd,#101317);
+ --r:10px;--sh:none;--tc:var(--acc)}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg)!important;font-size:15px}
+h1,h2,h3,details.acc>summary,.bt b,.opn,.kpi b,.tnum,.ss .sec{font-family:Inter,system-ui,sans-serif!important;letter-spacing:-.01em}
+h1{font-size:24px;font-weight:700}h2{font-size:16px;font-weight:700}
+.kpi b{font-family:"JetBrains Mono",ui-monospace,monospace!important;font-size:clamp(18px,4vw,24px)}
+header.top{background:var(--panel);border-bottom:1px solid var(--line)!important;backdrop-filter:none}
+.lg{box-shadow:none}.grad{color:var(--acc)}
+.card,.card.min{border:1px solid var(--line)!important;border-radius:var(--r);box-shadow:none}
+.winbar h2::before,.card>.row:first-child h2::before{display:none!important}
+.btn{border-radius:8px;min-height:42px;font-weight:600}.btn.sm{border-radius:8px;min-height:36px}
+.btn.pri,.btn.go,.ib.play{background:var(--acc)!important;border-color:var(--acc)!important;color:var(--onacc)!important;box-shadow:none}
+.btn svg,.btn .ico{width:17px;height:17px}
+.btn:focus-visible,.chip:focus-visible,input:focus-visible,select:focus-visible,nav button:focus-visible,.rb:focus-visible,.orow:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.chip{border-radius:8px;height:38px}.seg{border-radius:9px}.seg button{border-radius:7px}.seg button.on{background:var(--acc);color:var(--onacc);box-shadow:none}
+label.f input,label.f select,label.f textarea,.inp{height:40px;border-radius:8px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:15px}
+label.f select,.chip select,select.inp{appearance:none;-webkit-appearance:none;padding-right:30px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa6b2' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+label.f select{font-family:Inter,system-ui,sans-serif}
+.sw input:checked+i{background:var(--acc)}
+input[type=range]{accent-color:var(--acc)}
+.view{border-radius:var(--r);background:var(--canvas)}
+.op{border-radius:10px}.oph{min-height:52px}.opi{border-radius:8px}
+.tnum{background:var(--acc);color:var(--onacc)}.fx.on{border-color:var(--acc);background:var(--org2)}
+.ib.sm.on{background:var(--acc);border-color:var(--acc)}.ib.sm.on svg,.ib.sm.on small{color:var(--onacc)}
+.pill{border-radius:8px}.warn{border-radius:10px}.mini{border-radius:8px}.wb{border-radius:8px}
+.ico{display:inline-block;vertical-align:-3px;flex:none}
+[hidden]{display:none!important}
+@media(max-width:899px){body.ws-on .mtypes{display:none}body.ws-on header.top{padding-top:calc(env(safe-area-inset-top) + 6px);padding-bottom:6px;gap:6px}body.ws-on .ctxc{min-height:42px;padding:3px 8px 3px 4px}body.ws-on .ctxc .ic{width:32px;height:32px}body.ws-on .cv small{display:none}body.ws-on .cv b{font-size:13.5px;-webkit-line-clamp:1}body.ws-on .bt small{display:none}body.ws-on .wshead{margin-bottom:6px}body.ws-on .wshead h1{font-size:18px}}
+
+/* page title: description folds behind "?" */
+.hbtn{display:inline-grid;place-items:center;width:26px;height:26px;margin-left:8px;border-radius:13px;border:1px solid var(--line);background:var(--panel2);color:var(--mut);font:700 13px Inter,system-ui,sans-serif;vertical-align:4px;cursor:pointer}.hbtn.on{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+/* tabs: one accent; phones show 5 */
+nav.tabs{background:var(--panel)!important;backdrop-filter:none}
+nav.tabs button{font-family:Inter,system-ui,sans-serif!important;font-size:10.5px!important}
+nav.tabs button .ti{background:none!important;color:var(--mut)!important;box-shadow:none!important}
+nav.tabs button.on .ti{background:var(--acc)!important;color:var(--onacc)!important}
+nav.tabs button.on{color:var(--ink)}
+nav.tabs button.sec{display:none}nav.tabs button.more{display:flex}
+@media(min-width:900px),(orientation:landscape) and (max-height:560px){nav.tabs button.sec{display:flex}nav.tabs button.more{display:none}}
+html.land nav.tabs button.sec{display:flex!important}html.land nav.tabs button.more{display:none!important}
+html.port nav.tabs button.sec{display:none!important}html.port nav.tabs button.more{display:flex!important}
+.moregrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.moregrid button{display:grid;justify-items:center;gap:6px;padding:12px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font:600 13px Inter,system-ui,sans-serif;cursor:pointer}
+.moregrid button svg{width:24px;height:24px;color:var(--acc)}.moregrid button.on{border-color:var(--acc)}
+/* ---- workspaces (Cad, Cam): big canvas, floating tools, side panels ---- */
+#main.wide{max-width:none;padding:10px max(10px,env(safe-area-inset-right)) 12px max(10px,env(safe-area-inset-left))}
+.wshead{display:flex;align-items:center;flex-wrap:wrap;margin:0 0 8px}.wshead h1{font-size:20px;margin:0}.wshead p.sub{flex-basis:100%;margin:8px 0 0}
+.ws{display:grid;grid-template-columns:minmax(0,1fr) 380px;height:calc(100dvh - var(--hh,70px) - 64px);min-height:540px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel)}
+.ws.cam{grid-template-columns:290px minmax(0,1fr) 380px}
+.wsmain{position:relative;background:var(--canvas);min-height:0;overflow:hidden}
+.wsmain>svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.wspanel,.wsleft{background:var(--panel);overflow:auto;min-height:0;overscroll-behavior:contain}
+.wspanel{border-left:1px solid var(--line)}.wsleft{border-right:1px solid var(--line)}
+.ptabs{position:sticky;top:0;z-index:3;display:flex;gap:2px;padding:6px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.ptabs button{flex:1 0 auto;height:34px;padding:0 10px;border:0;border-radius:7px;background:none;color:var(--mut);font:600 13px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.ptabs button.on{background:var(--panel2);color:var(--ink);box-shadow:inset 0 -2px 0 var(--acc)}
+.ptabs em{font-style:normal;font-size:11px;padding:0 6px;border-radius:8px;background:var(--acc);color:var(--onacc)}
+.ws .card{border:0!important;border-bottom:1px solid var(--line)!important;border-radius:0;background:transparent}
+.ws .pbody>.card:last-child{border-bottom:0!important}
+.rb{width:48px;height:48px;border-radius:9px;border:0;background:transparent;color:var(--ink);display:grid;place-items:center;align-content:center;gap:1px;cursor:pointer;padding:0;flex:none}
+.rb svg{width:21px;height:21px}.rb small{font:600 9px/1.1 Inter,system-ui,sans-serif;color:var(--mut);max-width:46px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rb:hover{background:var(--panel2)}.rb.on{background:var(--acc);color:var(--onacc)}.rb.on small{color:var(--onacc)}.rb.open{background:var(--panel2)}.rb.dim{opacity:.38}
+.crail{position:absolute;left:8px;top:8px;z-index:5;display:flex;flex-direction:column;gap:4px;padding:5px;border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 8px 24px rgb(0 0 0/.22)}
+.cgrp{position:relative}
+.fly{position:absolute;left:calc(100% + 10px);top:-5px;display:grid;grid-template-columns:repeat(4,48px);gap:3px;padding:5px;border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 30px rgb(0 0 0/.3)}
+.cbar{position:absolute;left:80px;right:64px;top:8px;z-index:4;display:flex;gap:6px;flex-wrap:wrap}
+.cbar .btn{background:var(--panel)}
+.cinfo{left:80px!important}
+.ins3d{position:absolute;right:10px;bottom:10px;width:280px;height:190px;border-radius:12px;border:1px solid var(--line);background:var(--panel);overflow:hidden;z-index:4;box-shadow:0 8px 24px rgb(0 0 0/.25)}
+.ins3d.big{width:min(72%,820px);height:min(72%,600px)}
+.ins3d canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.ins3d .pill{position:absolute;left:6px;bottom:6px;font-size:11px;padding:3px 7px;max-width:calc(100% - 12px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ins3d .mini{position:absolute;right:6px;top:6px;width:30px;height:30px}
+.cpal{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:4;display:flex;gap:3px;padding:5px;border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 30px rgb(0 0 0/.25);max-width:calc(100% - 20px);overflow-x:auto;scrollbar-width:thin}
+.cpal .rb{width:54px;height:54px}.cpal .rb svg{width:30px;height:30px}
+.lhead{display:flex;justify-content:space-between;align-items:center;padding:12px 12px 6px}.lhead b{font-size:13px;color:var(--mut)}.lhead span{font:500 12px "JetBrains Mono",monospace;color:var(--mut)}
+.orow{display:flex;align-items:center;gap:10px;margin:2px 8px;padding:8px;border-radius:9px;border:1px solid transparent;cursor:pointer}
+.orow:hover{background:var(--panel2)}.orow.on{background:var(--panel2);border-color:var(--acc)}.orow.off{opacity:.5}
+.orow .opt b{font-size:14px}.orow .opt span{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.orow .sw{transform:scale(.8)}
+.lstat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:10px 12px;border-top:1px solid var(--line);font-size:11px;color:var(--mut)}.lstat b{display:block;font:600 17px "JetBrains Mono",monospace;color:var(--ink)}
+.camed .op{border:0;background:none}.camed .oph{display:none}.camed .opb{display:block;padding:0}
+.otabs{display:flex;gap:3px;padding:3px;margin:4px 0 10px;border-radius:9px;background:var(--panel2);border:1px solid var(--line)}
+.otabs button{flex:1;height:32px;border:0;border-radius:7px;background:none;color:var(--ink);font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.otabs button.on{background:var(--acc);color:var(--onacc)}
+.zgrid{display:grid;grid-template-columns:repeat(3,40px);gap:6px}.zgrid .mini.on{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+@media(max-width:899px){
+ .ws,.ws.cam{grid-template-columns:minmax(0,1fr);height:auto;min-height:0;border:0;background:none;overflow:visible}
+ .ws .wsmain{order:1;height:60dvh;min-height:360px;border:1px solid var(--line);border-radius:var(--r)}
+ .ws .wsleft{order:2}.ws .wspanel{order:3}
+ .wspanel,.wsleft{border:1px solid var(--line)!important;border-radius:var(--r);margin-top:10px;overflow:visible}
+ .crail{left:8px;right:8px;top:auto;bottom:8px;flex-direction:row;justify-content:space-around}
+ .cgrp{position:static}
+ .fly{left:0;right:0;top:auto;bottom:calc(100% + 8px);grid-template-columns:repeat(auto-fill,48px);justify-content:center}
+ .cbar{left:8px;right:56px}.cbar .lbl{display:none}
+ .cinfo{left:8px!important;bottom:76px!important}
+ .ins3d{width:132px;height:96px;bottom:auto;top:56px;right:56px}
+ .ins3d.big{width:calc(100% - 20px);height:58%;right:10px}
+ .ins3d .pill{display:none}
+ .cpal{left:8px;right:8px;transform:none;max-width:none}
+ .cpal .rb{width:50px;height:50px}
+ .ws.cam .ovl.tr{display:none}
+}
 </style>
 </head>
 <body>
 <div class="app">
 <header class="top">
- <div class="brand"><i class="lg"><svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><rect width="40" height="40" rx="11" fill="#2457d6"/><rect x="9" y="6" width="5" height="25" rx="1.2" fill="#fff"/><rect x="11" y="6" width="19" height="7" rx="2" fill="#fff"/><rect x="23" y="13" width="5" height="6" fill="#dfe6f7"/><rect x="24.6" y="19" width="1.8" height="5" fill="#ffb21f"/><rect x="18" y="25" width="15" height="3" rx="1" fill="#ff6a13"/><rect x="6" y="31" width="28" height="3" rx="1.2" fill="#fff"/></svg></i><div class="bt"><b>MINI <span class="grad">CAM</span></b><small id="tagline">Import · Simulate · Post</small><small class="by">by Ryan Nguyen</small></div></div>
+ <div class="brand"><i class="lg"><svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><rect width="40" height="40" rx="10" fill="#ff7a1a"/><rect x="9" y="6" width="5" height="25" rx="1.2" fill="#fff"/><rect x="11" y="6" width="19" height="7" rx="2" fill="#fff"/><rect x="23" y="13" width="5" height="6" fill="#dfe6f7"/><rect x="24.6" y="19" width="1.8" height="5" fill="#ffb21f"/><rect x="18" y="25" width="15" height="3" rx="1" fill="#ff6a13"/><rect x="6" y="31" width="28" height="3" rx="1.2" fill="#fff"/></svg></i><div class="bt"><b>MINI <span class="grad">CAM</span></b><small id="tagline">Import · Simulate · Post</small><small class="by">by Ryan Nguyen</small></div></div>
  <div class="ctx">
   <label class="ctxc"><i class="ic" style="background:#2457d6"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="6" rx="1.5"/><path d="M12 8.5v5M9 13.5h6l-1.5 3h-3zM4 21.5h16M7 18.5h10v3H7z"/></svg></i><span class="cv"><small id="lblMach"></small><b id="valMach"></b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m7 10 5 5 5-5"/></svg><select id="selMachine" aria-label="Machine"></select></label>
   <label class="ctxc"><i class="ic" id="matIc"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg></i><span class="cv"><small id="lblMat"></small><b id="valMat"></b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m7 10 5 5 5-5"/></svg><select id="selMat" aria-label="Material"></select></label>

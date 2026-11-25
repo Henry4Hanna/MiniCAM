@@ -16,6 +16,11 @@ Open `index.html` in a browser, or turn on GitHub Pages (Settings → Pages → 
 - `solid.js` — 3D solid kernel for the CAD tab: booleans (join / cut / intersect), extrude, revolve, sweep, loft, draft, shell, edge fillet / chamfer, STL out
 - `lessons.js` — shop feed data
 
+## Look (v1.5)
+- Dark shop theme by default (switch in Settings): graphite panels, one orange accent, Inter + JetBrains Mono, one icon set.
+- Cad and Cam are workspaces: a big drawing area, floating grouped toolbar / operation palette, and a side panel with tabs (bottom of the screen on phones).
+- Operation settings are split into tabs: Tool · Depths · Entry & leads · Speeds. Phones show 5 tabs (Cad, Cam, Simulator, Tools, More); page descriptions fold behind a ? button.
+
 ## Cam tab (manual 2D programming)
 - Drawing from the Cad tab or an imported file (DXF, PDF, STL, STEP); stock, face-off, part thickness, safe Z and the 9-point X0 Y0 origin.
 - Tap a shape, tap an operation icon: Face, 2D Contour, 2D Pocket, 2D Adaptive, Rest, Slot, T-slot undercut, 2D Chamfer, Corner radius, Spot, Drill, Tap, Ream, Bore, Circular / helical bore, Thread mill, Engrave, V-Carve.
