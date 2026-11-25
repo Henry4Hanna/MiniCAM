@@ -525,7 +525,7 @@ function renderShell(){
  const mc=mach(),m=mat();$('#lblMach').textContent=t('machine')+' · '+mc.rpmMax+' rpm';$('#valMach').textContent=mc.name.replace(/^TRAK /,'').replace(/ \(.*\)$/,'');
  $('#lblMat').textContent=t('material');$('#valMat').textContent=LANG==='vi'?m.vi:m.en;const mi=$('#matIc');mi.style.background=`linear-gradient(135deg,${m.color},color-mix(in srgb,${m.color} 55%,#000))`;mi.querySelector('svg').setAttribute('stroke',lumi(m.color)>0.72?'#1d2328':'#fff');$('#tagline').textContent=t('tagline');$$('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.l===LANG));document.documentElement.lang=LANG;
 }
-function render(){applySettings();document.body.classList.remove('noscroll');document.body.style.setProperty('--tc',TABCOL[S.tab]||'#2457d6');renderShell();const fn={draw:rDraw,mat:rMat,learn:rLearn,about:rAbout,settings:rSettings,help:rHelp,nest:rNest,program:rProgram,tools:rTools,fixtures:rFixtures,sim:rSim,calc:rCalc,setup:rSetup}[S.tab];SIMSTATE.playing=false;$('#main').innerHTML='';fn();window.scrollTo(0,0);}
+function render(){applySettings();document.body.classList.remove('noscroll');document.body.style.setProperty('--tc',TABCOL[S.tab]||'#2457d6');renderShell();const fn={draw:rDraw,mat:rMat,learn:rLearn,about:rAbout,settings:rSettings,help:rHelp,nest:rNest,program:rProgram,tools:rTools,fixtures:rFixtures,sim:rSim,calc:rCalc,setup:rSetup,cad:rCad}[S.tab];SIMSTATE.playing=false;$('#main').innerHTML='';fn();window.scrollTo(0,0);}
 const inp=(k,v,attrs)=>`<label class="f">${esc(t(k))}<input inputmode="decimal" ${attrs||''} value="${esc(v)}"></label>`;
 
 /* ----- program tab ----- */
@@ -3104,6 +3104,200 @@ function rLatheSim(){const L=latheBuild(),vi=LANG==='vi',sh=S.lsSh||{},md=S.lsMo
  $$('[data-lsj]').forEach(b=>b.onclick=()=>{LSIM.playing=false;$('#lPlay').innerHTML=IC.play;LSIM.r.fill(R0);LSIM.k=0;step(+b.dataset.lsj+1);});
  step(0);new ResizeObserver(()=>latheDraw(cv,LSIM.k)).observe(cv);}
 
+/* ================= CAD: draw 2D, see it in 3D, send it to the program ================= */
+TX.cad=['CAD','CAD'];
+IC.cad='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l3.5-1L19 7.5 16.5 5 5 16.5z"/><path d="M14.5 7l2.5 2.5"/><path d="M3 3h5M3 3v5"/></svg>';
+TABCOL.cad='#0f8a5f';
+function CD(){const d={ents:[],T:0.5,grid:0.125,snap:true,tool:'line',units:'in',f:{}};if(!S.cad)S.cad={};for(const k in d)if(S.cad[k]==null)S.cad[k]=d[k];return S.cad;}
+const CADV={sel:null,pts:[],cur:null,drag:null,hist:[],fut:[],view:null,yaw:-0.6,pitch:0.95,show3d:true};
+const CTOOLS=[['select','Chọn / kéo','Select / move','<path d="M5 3l14 8-6 1.5L10 19z"/>'],['line','Đường thẳng','Line','<path d="M4 20L20 4"/><circle cx="4" cy="20" r="1.6"/><circle cx="20" cy="4" r="1.6"/>'],['rect','Chữ nhật','Rectangle','<rect x="3.5" y="6" width="17" height="12" rx="1.5"/>'],['circle','Tròn','Circle','<circle cx="12" cy="12" r="8"/><path d="M12 12h8"/>'],['arc','Cung','Arc','<path d="M4 18A10 10 0 0 1 20 10"/><circle cx="12" cy="18" r="1.4"/>'],['poly','Đa giác','Polygon','<path d="M12 3l8 4.6v8.8L12 21l-8-4.6V7.6z"/>'],['slot','Rãnh dài','Slot','<rect x="3" y="8" width="18" height="8" rx="4"/>'],['pan','Kéo màn hình','Pan','<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>']];
+const CFIELDS={line:[['x1',0],['y1',0],['x2',2],['y2',0]],rect:[['x',0],['y',0],['w',3],['h',2],['r',0]],circle:[['x',0],['y',0],['d',0.5]],arc:[['x',0],['y',0],['r',1],['a0',0],['a1',90]],poly:[['x',0],['y',0],['n',6],['af',1]],slot:[['x1',0],['y1',0],['x2',1.5],['y2',0],['w',0.25]]};
+const CFL={x1:'X1',y1:'Y1',x2:'X2',y2:'Y2',x:'X',y:'Y',w:['Rộng W','Width W'],h:['Cao H','Height H'],r:['R góc / R','Corner R / R'],d:'Ø',a0:['Góc đầu °','Start °'],a1:['Góc cuối °','End °'],n:['Số cạnh','Sides'],af:['Đối cạnh','Across flats']};
+const cfl=k=>{const v=CFL[k];return Array.isArray(v)?v[LANG==='vi'?0:1]:v;};
+let CADID=1;const cid=()=>'e'+Date.now().toString(36)+(CADID++);
+/* every entity as points (closed or open) — used to draw, pick, chain and extrude */
+function cEnt2P(e){const A=(c,r,a0,a1,n)=>{const o=[];for(let i=0;i<=n;i++){const a=(a0+(a1-a0)*i/n)*Math.PI/180;o.push([c[0]+r*Math.cos(a),c[1]+r*Math.sin(a)]);}return o;};
+ if(e.t==='line')return{P:[e.a,e.b],closed:false};
+ if(e.t==='circle')return{P:A(e.c,e.r,0,360,64).slice(0,-1),closed:true};
+ if(e.t==='arc'){let a1=e.a1;while(a1<=e.a0)a1+=360;return{P:A(e.c,e.r,e.a0,a1,Math.max(8,Math.ceil((a1-e.a0)/6))),closed:false};}
+ if(e.t==='rect'){const{x,y,w,h}=e,r=Math.min(+e.r||0,Math.abs(w)/2,Math.abs(h)/2);const x0=Math.min(x,x+w),y0=Math.min(y,y+h),W=Math.abs(w),H=Math.abs(h);if(r<=1e-6)return{P:[[x0,y0],[x0+W,y0],[x0+W,y0+H],[x0,y0+H]],closed:true};
+  return{P:[...A([x0+W-r,y0+r],r,-90,0,8),...A([x0+W-r,y0+H-r],r,0,90,8),...A([x0+r,y0+H-r],r,90,180,8),...A([x0+r,y0+r],r,180,270,8)],closed:true};}
+ if(e.t==='poly'){const o=[];for(let k=0;k<e.n;k++){const a=(e.rot||0)*Math.PI/180+2*Math.PI*k/e.n;o.push([e.c[0]+e.r*Math.cos(a),e.c[1]+e.r*Math.sin(a)]);}return{P:o,closed:true};}
+ if(e.t==='slot'){const dx=e.b[0]-e.a[0],dy=e.b[1]-e.a[1],an=Math.atan2(dy,dx)*180/Math.PI,r=e.w/2;return{P:[...A(e.b,r,an-90,an+90,12),...A(e.a,r,an+90,an+270,12)],closed:true};}
+ return{P:[],closed:false};}
+function cSnaps(){const o=[];for(const e of CD().ents){if(e.t==='line')o.push(e.a,e.b,[(e.a[0]+e.b[0])/2,(e.a[1]+e.b[1])/2]);else if(e.t==='circle'||e.t==='arc'||e.t==='poly'){o.push(e.c);if(e.t==='arc'){const P=cEnt2P(e).P;o.push(P[0],P[P.length-1]);}if(e.t==='circle')[0,90,180,270].forEach(a=>o.push([e.c[0]+e.r*Math.cos(a*Math.PI/180),e.c[1]+e.r*Math.sin(a*Math.PI/180)]));if(e.t==='poly')o.push(...cEnt2P(e).P);}
+ else if(e.t==='rect'){const x0=Math.min(e.x,e.x+e.w),y0=Math.min(e.y,e.y+e.h),W=Math.abs(e.w),H=Math.abs(e.h);o.push([x0,y0],[x0+W,y0],[x0+W,y0+H],[x0,y0+H],[x0+W/2,y0+H/2]);}else if(e.t==='slot')o.push(e.a,e.b);}o.push([0,0]);return o;}
+function cSnap(p,px){const c=CD(),s=CADV.view.s;let best=null,bd=14*s;for(const q of cSnaps()){const d=Math.hypot(q[0]-p[0],q[1]-p[1]);if(d<bd){bd=d;best=q;}} if(best)return{p:best.slice(),k:'pt'};if(c.snap){const g=+c.grid||0.125;return{p:[Math.round(p[0]/g)*g,Math.round(p[1]/g)*g],k:'grid'};}return{p,k:''};}
+const r4=v=>Math.round(v*1e4)/1e4;
+function cPush(){const c=CD();CADV.hist.push(JSON.stringify(c.ents));if(CADV.hist.length>60)CADV.hist.shift();CADV.fut=[];}
+function cFit(){const c=CD(),cv=$('#cadSvg');if(!cv)return;const r=cv.getBoundingClientRect();let b=[-0.5,-0.5,4,3];const P=c.ents.flatMap(e=>cEnt2P(e).P);if(P.length){b=[Math.min(...P.map(p=>p[0])),Math.min(...P.map(p=>p[1])),Math.max(...P.map(p=>p[0])),Math.max(...P.map(p=>p[1]))];}
+ const w=Math.max(0.5,b[2]-b[0]),h=Math.max(0.5,b[3]-b[1]);CADV.view={cx:(b[0]+b[2])/2,cy:(b[1]+b[3])/2,s:Math.max(w/(r.width-60),h/(r.height-60))};}
+function cEntFromPts(tool,P,f){const c=CD();if(tool==='line')return{t:'line',a:P[0],b:P[1]};if(tool==='rect')return{t:'rect',x:Math.min(P[0][0],P[1][0]),y:Math.min(P[0][1],P[1][1]),w:Math.abs(P[1][0]-P[0][0]),h:Math.abs(P[1][1]-P[0][1]),r:+(f.r||0)};
+ if(tool==='circle')return{t:'circle',c:P[0],r:Math.hypot(P[1][0]-P[0][0],P[1][1]-P[0][1])};
+ if(tool==='arc'){const r=Math.hypot(P[1][0]-P[0][0],P[1][1]-P[0][1]),a0=Math.atan2(P[1][1]-P[0][1],P[1][0]-P[0][0])*180/Math.PI,a1=Math.atan2(P[2][1]-P[0][1],P[2][0]-P[0][0])*180/Math.PI;return{t:'arc',c:P[0],r,a0:r4(a0),a1:r4(a1)};}
+ if(tool==='poly'){const n=Math.max(3,Math.round(+f.n||6));return{t:'poly',c:P[0],r:Math.hypot(P[1][0]-P[0][0],P[1][1]-P[0][1]),n,rot:r4(Math.atan2(P[1][1]-P[0][1],P[1][0]-P[0][0])*180/Math.PI)};}
+ if(tool==='slot')return{t:'slot',a:P[0],b:P[1],w:+(f.w||0.25)};return null;}
+const CNEED={line:2,rect:2,circle:2,arc:3,poly:2,slot:2};
+function cF(tool){const c=CD();const d=Object.fromEntries((CFIELDS[tool]||[]).map(([k,v])=>[k,v]));return c.f[tool]={...d,...(c.f[tool]||{})};}
+/* numbers ↔ entity */
+function cEntFromF(tool,f){const n=k=>+f[k]||0;if(tool==='line')return{t:'line',a:[n('x1'),n('y1')],b:[n('x2'),n('y2')]};if(tool==='rect')return{t:'rect',x:n('x'),y:n('y'),w:n('w'),h:n('h'),r:n('r')};if(tool==='circle')return{t:'circle',c:[n('x'),n('y')],r:n('d')/2};
+ if(tool==='arc')return{t:'arc',c:[n('x'),n('y')],r:n('r'),a0:n('a0'),a1:n('a1')};if(tool==='poly'){const N=Math.max(3,Math.round(n('n')||6));return{t:'poly',c:[n('x'),n('y')],n:N,r:n('af')/2/Math.cos(Math.PI/N),rot:0};}if(tool==='slot')return{t:'slot',a:[n('x1'),n('y1')],b:[n('x2'),n('y2')],w:n('w')};return null;}
+function cF4E(e){if(e.t==='line')return{x1:e.a[0],y1:e.a[1],x2:e.b[0],y2:e.b[1]};if(e.t==='rect')return{x:e.x,y:e.y,w:e.w,h:e.h,r:e.r||0};if(e.t==='circle')return{x:e.c[0],y:e.c[1],d:2*e.r};if(e.t==='arc')return{x:e.c[0],y:e.c[1],r:e.r,a0:e.a0,a1:e.a1};if(e.t==='poly')return{x:e.c[0],y:e.c[1],n:e.n,af:2*e.r*Math.cos(Math.PI/e.n)};if(e.t==='slot')return{x1:e.a[0],y1:e.a[1],x2:e.b[0],y2:e.b[1],w:e.w};return{};}
+function cMove(e,dx,dy){const m=p=>[r4(p[0]+dx),r4(p[1]+dy)];if(e.a)e.a=m(e.a);if(e.b)e.b=m(e.b);if(e.c)e.c=m(e.c);if(e.t==='rect'){e.x=r4(e.x+dx);e.y=r4(e.y+dy);}}
+function cXform(e,fn,kind){const m=p=>fn(p).map(r4);if(e.t==='rect'){const P=cEnt2P({...e,r:0}).P.map(m);const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]);Object.assign(e,{x:Math.min(...xs),y:Math.min(...ys),w:r4(Math.max(...xs)-Math.min(...xs)),h:r4(Math.max(...ys)-Math.min(...ys))});return;}
+ if(e.a)e.a=m(e.a);if(e.b)e.b=m(e.b);if(e.c)e.c=m(e.c);
+ if(e.t==='arc'){if(kind==='mx'){const a0=180-e.a1,a1=180-e.a0;e.a0=a0;e.a1=a1;}else if(kind==='my'){const a0=-e.a1,a1=-e.a0;e.a0=a0;e.a1=a1;}else{e.a0+=90;e.a1+=90;}}
+ if(e.t==='poly'){e.rot=kind==='mx'?180-(e.rot||0):kind==='my'?-(e.rot||0):(e.rot||0)+90;}}
+/* closed loops for 3D + classify (outer / pockets / holes) */
+function cLoops(){const c=CD(),loops=[],open=[];for(const e of c.ents){const q=cEnt2P(e);if(q.closed)loops.push({P:q.P,e});else open.push({P:q.P.map(p=>p.slice()),e});}
+ // chain open pieces end to end
+ const tol=1e-3,used=new Set();for(let i=0;i<open.length;i++){if(used.has(i))continue;used.add(i);let ch=open[i].P.slice(),grow=true;const es=[open[i].e];while(grow){grow=false;for(let j=0;j<open.length;j++){if(used.has(j))continue;const Q=open[j].P,e0=ch[ch.length-1],s0=ch[0];const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1])<tol;
+   if(d(e0,Q[0])){ch=ch.concat(Q.slice(1));}else if(d(e0,Q[Q.length-1])){ch=ch.concat(Q.slice(0,-1).reverse());}else if(d(s0,Q[Q.length-1])){ch=Q.slice(0,-1).concat(ch);}else if(d(s0,Q[0])){ch=Q.slice(1).reverse().concat(ch);}else continue;used.add(j);es.push(open[j].e);grow=true;}}
+  if(ch.length>3&&Math.hypot(ch[0][0]-ch[ch.length-1][0],ch[0][1]-ch[ch.length-1][1])<tol)loops.push({P:ch.slice(0,-1),e:open[i].e,es});}
+ const ar=P=>{let a=0;for(let i=0;i<P.length;i++){const p=P[i],q=P[(i+1)%P.length];a+=p[0]*q[1]-q[0]*p[1];}return a/2;};loops.forEach(l=>{if(ar(l.P)<0)l.P.reverse();l.A=ar(l.P);});
+ loops.sort((a,b)=>b.A-a.A);const outer=loops[0]||null;const pip=(p,P)=>{let k=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])k=!k;}return k;};
+ const inner=outer?loops.slice(1).filter(l=>pip(l.P[0],outer.P)):[];return{outer,inner};}
+function cDepth(e,T){const d=e.depth;if(d==='thru')return T;if(d!==''&&d!=null&&!isNaN(+d)&&+d>0)return Math.min(T,+d);return e.t==='circle'?T:Math.min(0.25,T/2);}
+/* DXF out — layer names carry the depth (DEPTH_x / THRU), THICK= text gives the part thickness */
+function cadDXF(){const c=CD(),F=v=>(+v).toFixed(5),L=[];L.push('0','SECTION','2','HEADER','9','$INSUNITS','70',c.units==='mm'?'4':'1','0','ENDSEC','0','SECTION','2','ENTITIES');
+ const lay=e=>e.depth==='thru'?'THRU':(e.depth!==''&&e.depth!=null&&+e.depth>0?'DEPTH_'+(+e.depth):'0');
+ const lw=(e,V,closed)=>{L.push('0','LWPOLYLINE','8',lay(e),'90',String(V.length),'70',closed?'1':'0');for(const v of V){L.push('10',F(v[0]),'20',F(v[1]));if(v[2])L.push('42',F(v[2]));}};
+ for(const e of c.ents){const l=lay(e);
+  if(e.t==='line')L.push('0','LINE','8',l,'10',F(e.a[0]),'20',F(e.a[1]),'11',F(e.b[0]),'21',F(e.b[1]));
+  else if(e.t==='circle')L.push('0','CIRCLE','8',l,'10',F(e.c[0]),'20',F(e.c[1]),'40',F(e.r));
+  else if(e.t==='arc'){let a0=((e.a0%360)+360)%360,a1=((e.a1%360)+360)%360;L.push('0','ARC','8',l,'10',F(e.c[0]),'20',F(e.c[1]),'40',F(e.r),'50',F(a0),'51',F(a1));}
+  else if(e.t==='rect'){const x0=Math.min(e.x,e.x+e.w),y0=Math.min(e.y,e.y+e.h),W=Math.abs(e.w),H=Math.abs(e.h),r=Math.min(+e.r||0,W/2,H/2),b=0.41421356;if(r<=1e-6)lw(e,[[x0,y0],[x0+W,y0],[x0+W,y0+H],[x0,y0+H]],true);else lw(e,[[x0+r,y0],[x0+W-r,y0,b],[x0+W,y0+r],[x0+W,y0+H-r,b],[x0+W-r,y0+H],[x0+r,y0+H,b],[x0,y0+H-r],[x0,y0+r,b]],true);}
+  else if(e.t==='poly')lw(e,cEnt2P(e).P,true);
+  else if(e.t==='slot'){const dx=e.b[0]-e.a[0],dy=e.b[1]-e.a[1],l_=Math.hypot(dx,dy)||1,n=[dy/l_,-dx/l_],h=e.w/2;lw(e,[[e.a[0]+n[0]*h,e.a[1]+n[1]*h],[e.b[0]+n[0]*h,e.b[1]+n[1]*h,1],[e.b[0]-n[0]*h,e.b[1]-n[1]*h],[e.a[0]-n[0]*h,e.a[1]-n[1]*h,1]],true);}}
+ const P=c.ents.flatMap(e=>cEnt2P(e).P);const mx=P.length?Math.max(...P.map(p=>p[0])):0,my=P.length?Math.max(...P.map(p=>p[1])):0;
+ L.push('0','TEXT','8','NOTES','10',F(mx+0.5),'20',F(my),'40','0.1','1','THICK='+(+c.T));L.push('0','ENDSEC','0','EOF');return L.join('\n')+'\n';}
+function cadTemplates(k){const ents=[];const E=o=>ents.push({id:cid(),depth:'',...o});
+ if(k==='plate'){E({t:'rect',x:0,y:0,w:4,h:3,r:0.125});[[0.375,0.375],[3.625,0.375],[3.625,2.625],[0.375,2.625]].forEach(p=>E({t:'circle',c:p,r:0.133,depth:'thru'}));E({t:'rect',x:1.25,y:0.875,w:1.5,h:1.25,r:0.25,depth:0.25});return{ents,T:0.5};}
+ if(k==='flange'){E({t:'circle',c:[0,0],r:1.5});E({t:'circle',c:[0,0],r:0.5,depth:'thru'});for(let i=0;i<6;i++){const a=i*Math.PI/3;E({t:'circle',c:[r4(1.125*Math.cos(a)),r4(1.125*Math.sin(a))],r:0.1405,depth:'thru'});}return{ents,T:0.375};}
+ if(k==='bracket'){const P=[[0,0],[3,0],[3,0.75],[1,0.75],[1,2.5],[0,2.5]];for(let i=0;i<P.length;i++)E({t:'line',a:P[i],b:P[(i+1)%P.length]});E({t:'slot',a:[0.5,1.25],b:[0.5,2.0],w:0.266,depth:'thru'});E({t:'circle',c:[2.4,0.375],r:0.133,depth:'thru'});return{ents,T:0.5};}
+ return null;}
+/* ---------- page ---------- */
+function rCad(){const c=CD(),vi=LANG==='vi',tool=c.tool,sel=c.ents.find(e=>e.id===CADV.sel);const f=sel?cF4E(sel):cF(tool);
+ const fields=sel?Object.keys(f):(CFIELDS[tool]||[]).map(x=>x[0]);
+ $('#main').innerHTML=`<h1>CAD · ${vi?'Vẽ 2D → 3D → Chương trình':'Draw 2D → 3D → Program'}</h1><p class="sub">${vi?'Vẽ bằng ngón tay / chuột (bắt điểm vào lưới và điểm đầu, tâm, giữa) hoặc gõ số chính xác. Hình kín ngoài cùng = biên chi tiết; hình bên trong = hốc / lỗ (chọn độ sâu). Gửi sang Phay hoặc Tiện để ra G-code.':'Draw with a finger / mouse (snaps to the grid and to ends, centers, midpoints) or type exact numbers. Biggest closed shape = part outline; shapes inside = pockets / holes (pick a depth). Send to Mill or Lathe for G-code.'}</p>
+ <div class="grid g2"><div class="grid" style="align-content:start">
+  <div class="card" style="padding:10px"><div class="row" style="gap:4px;flex-wrap:wrap">${CTOOLS.map(([k,v,e,ic])=>`<button class="ib sm ${tool===k&&!sel?'on':''}" data-ctool="${k}" title="${vi?v:e}" style="--ic:#0f8a5f"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic}</svg><small>${vi?v:e}</small></button>`).join('')}</div>
+   <div class="view" style="height:min(56vh,520px);margin-top:8px;position:relative;background:#fbfcfd;touch-action:none"><svg id="cadSvg" style="width:100%;height:100%;display:block;touch-action:none;user-select:none"></svg>
+    <div class="ovl tr" style="flex-direction:column;gap:6px"><button class="mini" data-cad="zin">${IC.plus}</button><button class="mini" data-cad="zout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg></button><button class="mini" data-cad="fit" style="font-size:11px;font-weight:700">FIT</button></div>
+    <div class="ovl bl" style="pointer-events:none"><span class="pill" id="cadInfo">${vi?'Chạm để bắt đầu':'Tap to start'}</span></div></div>
+   <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-cad="undo">↶ ${vi?'Hoàn tác':'Undo'}</button><button class="btn sm" data-cad="redo">↷</button><button class="btn sm" data-cad="done">✓ ${vi?'Xong nét':'End chain'}</button><button class="btn sm ${c.snap?'pri':''}" data-cad="snap">🧲 ${vi?'Bắt lưới':'Snap'}</button><label class="chip">${vi?'Lưới':'Grid'} <select id="cadGrid">${(c.units==='mm'?[0.5,1,2,5,10]:[0.0625,0.125,0.25,0.5,1]).map(g=>`<option value="${g}" ${+c.grid===g?'selected':''}>${g}</option>`).join('')}</select></label><label class="chip">${vi?'Đơn vị':'Units'} <select id="cadUnits"><option value="in" ${c.units!=='mm'?'selected':''}>inch</option><option value="mm" ${c.units==='mm'?'selected':''}>mm</option></select></label><button class="btn sm" data-cad="clear" style="color:var(--bad)">${IC.del}${vi?'Xóa hết':'Clear all'}</button></div></div>
+  <div class="card" style="--cc:#0f8a5f"><h2>${sel?(vi?'Hình đang chọn':'Selected shape')+' · '+esc(CTOOLS.find(x=>x[0]===sel.t)?.[vi?1:2]||sel.t):(vi?'Gõ số':'Type numbers')+' · '+esc(CTOOLS.find(x=>x[0]===tool)?.[vi?1:2]||'')}</h2>
+   ${fields.length?`<div class="fields">${fields.map(k=>`<label class="f">${cfl(k)}<input inputmode="decimal" ${sel?'data-ce':'data-cf'}="${k}" value="${r4(+f[k]||0)}"></label>`).join('')}${sel?`<label class="f">${vi?'Độ sâu':'Depth'}<select data-ce="depth"><option value="" ${sel.depth===''||sel.depth==null?'selected':''}>${vi?'Tự động':'Auto'}</option><option value="thru" ${sel.depth==='thru'?'selected':''}>${vi?'Xuyên':'Through'}</option>${[0.05,0.1,0.125,0.25,0.375,0.5,0.75,1].filter(d=>d<+c.T).map(d=>`<option value="${d}" ${+sel.depth===d?'selected':''}>${d}</option>`).join('')}</select></label><label class="f">${vi?'Sâu khác':'Other depth'}<input inputmode="decimal" data-ce="depthN" value="${sel.depth!=='thru'&&sel.depth!==''&&sel.depth!=null?sel.depth:''}"></label>`:''}</div>`:`<p class="sub" style="margin:0">${tool==='select'?(vi?'Chạm vào một hình để chọn, kéo để dời. Kéo chỗ trống để di chuyển màn hình.':'Tap a shape to select it, drag to move it. Drag empty space to pan.'):(vi?'Kéo để di chuyển màn hình, chụm 2 ngón để phóng to.':'Drag to pan, pinch to zoom.')}</p>`}
+   <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">${sel?`<button class="btn sm" data-cad="dup">⧉ ${vi?'Nhân bản':'Duplicate'}</button><button class="btn sm" data-cad="mx">⇋ ${vi?'Lật ngang':'Mirror X'}</button><button class="btn sm" data-cad="my">⇵ ${vi?'Lật dọc':'Mirror Y'}</button><button class="btn sm" data-cad="rot">⟲ 90°</button><button class="btn sm" data-cad="del" style="color:var(--bad)">${IC.del}${vi?'Xóa':'Delete'}</button><button class="btn sm" data-cad="unsel">✕ ${vi?'Bỏ chọn':'Deselect'}</button>`:fields.length?`<button class="btn sm pri" data-cad="addNum">${IC.plus}${vi?'Thêm hình theo số':'Add from numbers'}</button>`:''}</div></div>
+ </div><div class="grid" style="align-content:start">
+  <div class="card" style="--cc:#8b4fd6"><h2>3D</h2><div class="view" style="height:min(40vh,340px);position:relative;background:#eef1f4"><canvas id="cad3d" style="width:100%;height:100%;display:block;touch-action:none"></canvas><div class="ovl bl"><span class="pill" id="cad3i"></span></div></div>
+   <div class="fields" style="margin-top:8px"><label class="f">${vi?'Chiều dày chi tiết':'Part thickness'}<input inputmode="decimal" id="cadT" value="${c.T}"></label></div><p class="sub" style="margin:6px 0 0;font-size:12.5px">${vi?'Kéo để xoay. Màu đậm = hốc, lỗ đen = xuyên.':'Drag to turn it. Darker = pocket, black = through.'}</p></div>
+  <div class="card" style="--cc:#2457d6"><h2>${vi?'Xuất ra chương trình':'Make the program'}</h2><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn go" data-cad="send">⚙ ${vi?'Gửi sang Phay → G-code':'Send to Mill → G-code'}</button><button class="btn" data-cad="sendL">⟳ ${vi?'Gửi sang Tiện (nửa mặt cắt)':'Send to Lathe (half section)'}</button><button class="btn" data-cad="sendW">⚡ ${vi?'Gửi sang Cắt dây':'Send to Wire EDM'}</button><button class="btn" data-cad="dxf">${IC.save}${vi?'Tải DXF':'Save DXF'}</button></div>
+   <p class="sub" style="margin:8px 0 0;font-size:12.5px">${vi?'Tiện: vẽ nửa mặt cắt bằng đường thẳng / cung — trục X là tâm quay, Y là bán kính.':'Lathe: draw the half section with lines / arcs — the X axis is the spindle centerline, Y is the radius.'}</p></div>
+  <div class="card"><h2>${vi?'Mẫu nhanh':'Quick templates'}</h2><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-ctpl="plate">${vi?'Tấm 4 lỗ + hốc':'Plate, 4 holes + pocket'}</button><button class="btn sm" data-ctpl="flange">${vi?'Mặt bích 6 lỗ':'Flange, 6 holes'}</button><button class="btn sm" data-ctpl="bracket">${vi?'Bát chữ L':'L bracket'}</button></div>
+   <p class="sub" style="margin:8px 0 0;font-size:12.5px">${c.ents.length} ${vi?'hình':'shapes'} · ${vi?'kích thước':'size'} ${cSizeTxt()}</p></div></div></div>`;
+ requestAnimationFrame(()=>{if(!CADV.view)cFit();cDraw();cad3D();cWire();});}
+function cSizeTxt(){const P=CD().ents.flatMap(e=>cEnt2P(e).P);if(!P.length)return'—';const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]);return fl(Math.max(...xs)-Math.min(...xs),3)+' × '+fl(Math.max(...ys)-Math.min(...ys),3)+' × '+fl(CD().T,3);}
+function cDraw(){const sv=$('#cadSvg');if(!sv)return;const c=CD(),V=CADV.view,r=sv.getBoundingClientRect(),W=r.width,H=r.height;if(!W)return;
+ const X=x=>W/2+(x-V.cx)/V.s,Y=y=>H/2-(y-V.cy)/V.s;let g=+c.grid||0.125;while(g/V.s<9)g*=2;let o='';
+ const x0=V.cx-W/2*V.s,x1=V.cx+W/2*V.s,y0=V.cy-H/2*V.s,y1=V.cy+H/2*V.s;
+ for(let x=Math.ceil(x0/g)*g;x<=x1;x+=g){const maj=Math.abs(Math.round(x/g)%4)===0;o+=`<line x1="${X(x)}" y1="0" x2="${X(x)}" y2="${H}" stroke="${maj?'#d5dbe1':'#eceff2'}" stroke-width="1"/>`;}
+ for(let y=Math.ceil(y0/g)*g;y<=y1;y+=g){const maj=Math.abs(Math.round(y/g)%4)===0;o+=`<line x1="0" y1="${Y(y)}" x2="${W}" y2="${Y(y)}" stroke="${maj?'#d5dbe1':'#eceff2'}" stroke-width="1"/>`;}
+ o+=`<line x1="${X(0)}" y1="${Y(0)}" x2="${X(0)+40}" y2="${Y(0)}" stroke="#d93a3a" stroke-width="2"/><line x1="${X(0)}" y1="${Y(0)}" x2="${X(0)}" y2="${Y(0)-40}" stroke="#1c9b5f" stroke-width="2"/><text x="${X(0)+42}" y="${Y(0)+4}" font-size="11" fill="#d93a3a">X</text><text x="${X(0)-4}" y="${Y(0)-44}" font-size="11" fill="#1c9b5f">Y</text>`;
+ const lp=cLoops(),outS=new Set(lp.outer?(lp.outer.es||[lp.outer.e]):[]);
+ const pathOf=q=>q.P.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('')+(q.closed?'Z':'');
+ if(lp.outer)o+=`<path d="${lp.outer.P.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('')}Z${lp.inner.map(l=>l.P.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('')+'Z').join('')}" fill="rgba(15,138,95,.10)" fill-rule="evenodd"/>`;
+ for(const e of c.ents){const q=cEnt2P(e),isSel=e.id===CADV.sel,col=isSel?'#ff6a13':outS.has(e)?'#0f8a5f':(e.depth==='thru'||(e.t==='circle'&&(e.depth===''||e.depth==null)))?'#2457d6':'#8b4fd6';o+=`<path d="${pathOf(q)}" fill="none" stroke="${col}" stroke-width="${isSel?3.5:2}" stroke-linejoin="round"/>`;
+  if(isSel){const P=q.P,xs=P.map(p=>p[0]),ys=P.map(p=>p[1]);o+=`<text x="${X((Math.min(...xs)+Math.max(...xs))/2)}" y="${Y(Math.max(...ys))-8}" text-anchor="middle" font-size="12" font-weight="700" fill="#ff6a13">${cDimTxt(e)}</text>`;}}
+ o+=`<path id="cadPrev" d="" fill="none" stroke="#ff6a13" stroke-width="2" stroke-dasharray="6 4"/><circle id="cadCur" r="5" cx="-20" cy="-20" fill="none" stroke="#ff6a13" stroke-width="2"/>`;
+ sv.innerHTML=o;CADV.X=X;CADV.Y=Y;}
+function cDimTxt(e){if(e.t==='line')return'L '+fl(Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]),3)+' · '+fl(Math.atan2(e.b[1]-e.a[1],e.b[0]-e.a[0])*180/Math.PI,1)+'°';if(e.t==='rect')return fl(Math.abs(e.w),3)+' × '+fl(Math.abs(e.h),3)+(e.r?' R'+fl(e.r,3):'');if(e.t==='circle')return'Ø'+fl(2*e.r,3);if(e.t==='arc')return'R'+fl(e.r,3)+' · '+fl(e.a0,1)+'°→'+fl(e.a1,1)+'°';if(e.t==='poly')return e.n+(LANG==='vi'?' cạnh · đối cạnh ':' sides · AF ')+fl(2*e.r*Math.cos(Math.PI/e.n),3);if(e.t==='slot')return(LANG==='vi'?'rãnh ':'slot ')+fl(Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1])+e.w,3)+' × '+fl(e.w,3);return'';}
+function cPrev(m){const pv=$('#cadPrev'),cu=$('#cadCur');if(!pv||!CADV.X)return;const c=CD(),X=CADV.X,Y=CADV.Y;if(m){cu.setAttribute('cx',X(m.p[0]));cu.setAttribute('cy',Y(m.p[1]));cu.setAttribute('stroke',m.k==='pt'?'#1c9b5f':'#ff6a13');}
+ let d='',info='';if(m&&CADV.pts.length&&CNEED[c.tool]){const P=[...CADV.pts,m.p];let e=null;if(P.length>=CNEED[c.tool])e=cEntFromPts(c.tool,P.slice(0,CNEED[c.tool]),cF(c.tool));else if(c.tool==='arc'&&P.length===2)e={t:'circle',c:P[0],r:Math.hypot(P[1][0]-P[0][0],P[1][1]-P[0][1])};
+  if(e){const q=cEnt2P(e);d=q.P.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('')+(q.closed?'Z':'');info=cDimTxt(e);}}
+ pv.setAttribute('d',d);const ii=$('#cadInfo');if(ii&&m)ii.textContent=(info?info+' · ':'')+'X'+fl(m.p[0],3)+' Y'+fl(m.p[1],3);}
+function cHit(p){const c=CD(),s=CADV.view.s;let best=null,bd=12*s;for(const e of c.ents){const q=cEnt2P(e),P=q.P,n=q.closed?P.length:P.length-1;for(let i=0;i<n;i++){const a=P[i],b=P[(i+1)%P.length],dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy||1e-12,t_=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l2)),d=Math.hypot(a[0]+dx*t_-p[0],a[1]+dy*t_-p[1]);if(d<bd){bd=d;best=e;}}}return best;}
+function cWire(){const sv=$('#cadSvg');if(!sv||sv._w)return;sv._w=1;const ptrs=new Map();let pinch=null;
+ const M=e=>{const r=sv.getBoundingClientRect(),V=CADV.view;return[V.cx+(e.clientX-r.left-r.width/2)*V.s,V.cy-(e.clientY-r.top-r.height/2)*V.s];};
+ sv.addEventListener('wheel',e=>{e.preventDefault();const p=M(e),k=e.deltaY>0?1.15:1/1.15,V=CADV.view;V.cx=p[0]+(V.cx-p[0])*k;V.cy=p[1]+(V.cy-p[1])*k;V.s*=k;cDraw();},{passive:false});
+ sv.addEventListener('pointerdown',e=>{sv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,[e.clientX,e.clientY]);if(ptrs.size===2){const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a[0]-b[0],a[1]-b[1]),s:CADV.view.s,cx:CADV.view.cx,cy:CADV.view.cy,m:[(a[0]+b[0])/2,(a[1]+b[1])/2]};CADV.drag=null;return;}
+  const c=CD(),p=M(e);CADV.down={x:e.clientX,y:e.clientY,p,t:Date.now()};
+  if(c.tool==='select'){const h=cHit(p);if(h){if(CADV.sel!==h.id){CADV.sel=h.id;rCad();}cPush();CADV.drag={k:'move',id:h.id,last:cSnap(p).p};return;}}
+  if(c.tool==='select'||c.tool==='pan'){CADV.drag={k:'pan',sx:e.clientX,sy:e.clientY,cx:CADV.view.cx,cy:CADV.view.cy};return;}
+  CADV.drag={k:'draw'};});
+ sv.addEventListener('pointermove',e=>{if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,[e.clientX,e.clientY]);const V=CADV.view;
+  if(pinch&&ptrs.size===2){const[a,b]=[...ptrs.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);V.s=pinch.s*pinch.d/Math.max(10,d);const m=[(a[0]+b[0])/2,(a[1]+b[1])/2];V.cx=pinch.cx-(m[0]-pinch.m[0])*V.s;V.cy=pinch.cy+(m[1]-pinch.m[1])*V.s;cDraw();return;}
+  const p=M(e),dr=CADV.drag;
+  if(dr&&dr.k==='pan'){V.cx=dr.cx-(e.clientX-dr.sx)*V.s;V.cy=dr.cy+(e.clientY-dr.sy)*V.s;cDraw();return;}
+  if(dr&&dr.k==='move'){const q=cSnap(p).p,dx=q[0]-dr.last[0],dy=q[1]-dr.last[1];if(dx||dy){const en=CD().ents.find(x=>x.id===dr.id);if(en){cMove(en,dx,dy);dr.last=q;dr.moved=1;cDraw();const ii=$('#cadInfo');if(ii)ii.textContent=cDimTxt(en);}}return;}
+  if(CD().tool!=='select'&&CD().tool!=='pan')cPrev(cSnap(p));});
+ const up=e=>{ptrs.delete(e.pointerId);if(pinch){if(ptrs.size<2)pinch=null;return;}const dr=CADV.drag;CADV.drag=null;const c=CD();
+  if(dr&&dr.k==='move'){if(dr.moved){persist();rCad();}else CADV.hist.pop();return;}
+  if(dr&&dr.k==='pan'){const dn=CADV.down;if(c.tool==='select'&&dn&&Math.hypot(e.clientX-dn.x,e.clientY-dn.y)<6&&CADV.sel){CADV.sel=null;rCad();}return;}
+  if(!dr||dr.k!=='draw')return;const dn=CADV.down;const m=cSnap(M(e));
+  if(dn&&Math.hypot(e.clientX-dn.x,e.clientY-dn.y)>8&&CADV.pts.length===0&&CNEED[c.tool]===2){CADV.pts=[cSnap(dn.p).p];}
+  CADV.pts.push(m.p);
+  if(CADV.pts.length>=CNEED[c.tool]){const P=CADV.pts.slice(0,CNEED[c.tool]);const en=cEntFromPts(c.tool,P,cF(c.tool));if(en&&cEntOk(en)){cPush();c.ents.push({id:cid(),depth:'',...en});persist();}
+   if(c.tool==='line'){const last=P[1],first=CADV.chain0||P[0];CADV.chain0=first;CADV.pts=Math.hypot(last[0]-first[0],last[1]-first[1])<1e-6&&c.ents.length>1?[]:[last];if(!CADV.pts.length)CADV.chain0=null;}else CADV.pts=[];
+   cDraw();cad3D();const ii=$('#cadInfo');if(ii&&en)ii.textContent='✓ '+cDimTxt(en);}else{cPrev(m);const ii=$('#cadInfo');if(ii)ii.textContent=LANG==='vi'?(c.tool==='arc'&&CADV.pts.length===1?'Chạm điểm đầu cung':c.tool==='arc'?'Chạm điểm cuối cung (ngược kim đồng hồ)':'Chạm điểm thứ hai'):(c.tool==='arc'&&CADV.pts.length===1?'Tap the arc start':c.tool==='arc'?'Tap the arc end (counter-clockwise)':'Tap the second point');}};
+ sv.addEventListener('pointerup',up);sv.addEventListener('pointercancel',e=>{ptrs.delete(e.pointerId);pinch=null;CADV.drag=null;});
+ sv.addEventListener('dblclick',()=>{CADV.pts=[];CADV.chain0=null;cPrev(null);});
+ const cv=$('#cad3d');if(cv){let d=null;cv.addEventListener('pointerdown',e=>{d={x:e.clientX,y:e.clientY,yw:CADV.yaw,pt:CADV.pitch};cv.setPointerCapture(e.pointerId);});cv.addEventListener('pointermove',e=>{if(!d)return;CADV.yaw=d.yw+(e.clientX-d.x)*0.01;CADV.pitch=Math.max(0.15,Math.min(1.5,d.pt+(e.clientY-d.y)*0.008));cad3D();});cv.addEventListener('pointerup',()=>d=null);}
+ new ResizeObserver(()=>{cDraw();cad3D();}).observe(sv);}
+function cEntOk(e){if(e.t==='line')return Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1])>1e-4;if(e.t==='rect')return Math.abs(e.w)>1e-4&&Math.abs(e.h)>1e-4;if(e.t==='circle'||e.t==='arc'||e.t==='poly')return e.r>1e-4;if(e.t==='slot')return Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1])>1e-4&&e.w>1e-4;return true;}
+/* simple 3D: extrude the outline, sink pockets, cut holes through (painter's order) */
+function cad3D(){const cv=$('#cad3d');if(!cv)return;const r=cv.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);if(!r.width)return;cv.width=r.width*dpr;cv.height=r.height*dpr;const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);const W=r.width,H=r.height;g.clearRect(0,0,W,H);
+ const c=CD(),T=Math.max(0.01,+c.T||0.5),lp=cLoops(),info=$('#cad3i');if(!lp.outer){g.fillStyle='#6b737a';g.font='13px Barlow';g.textAlign='center';g.fillText(LANG==='vi'?'Vẽ một hình kín (chữ nhật, tròn, đa giác hoặc đường nối kín) để thấy 3D':'Draw a closed shape (rectangle, circle, polygon or a closed chain) to see 3D',W/2,H/2);if(info)info.textContent='';return;}
+ const cs=Math.cos(CADV.yaw),sn=Math.sin(CADV.yaw),sp=Math.sin(CADV.pitch),cp=Math.cos(CADV.pitch);const O=lp.outer.P;const bx=[Math.min(...O.map(p=>p[0])),Math.min(...O.map(p=>p[1])),Math.max(...O.map(p=>p[0])),Math.max(...O.map(p=>p[1]))],mx=(bx[0]+bx[2])/2,my=(bx[1]+bx[3])/2;
+ const pr=(x,y,z)=>{const X_=(x-mx)*cs-(y-my)*sn,Y_=(x-mx)*sn+(y-my)*cs;return[X_,-(Y_*sp+z*cp),Y_];};const ex=[];for(const p of O)for(const z of[0,-T]){const q=pr(p[0],p[1],z);ex.push(q);}
+ const k=Math.min((W-30)/(Math.max(...ex.map(q=>q[0]))-Math.min(...ex.map(q=>q[0]))||1),(H-40)/(Math.max(...ex.map(q=>q[1]))-Math.min(...ex.map(q=>q[1]))||1)),ox=W/2-(Math.max(...ex.map(q=>q[0]))+Math.min(...ex.map(q=>q[0])))/2*k,oy=(H-14)/2-(Math.max(...ex.map(q=>q[1]))+Math.min(...ex.map(q=>q[1])))/2*k;
+ const P=(x,y,z)=>{const q=pr(x,y,z);return[ox+q[0]*k,oy+q[1]*k,q[2]];};const mc=mat().color||'#b8c0c8';
+ const shade=(n,base)=>{const l=Math.max(0.35,Math.min(1,0.55+0.45*n));return`color-mix(in srgb,${base} ${Math.round(l*100)}%,#1d2328)`;};
+ const poly=(pts,fill,st)=>{g.beginPath();pts.forEach((q,i)=>i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]));g.closePath();g.fillStyle=fill;g.fill();if(st){g.strokeStyle=st;g.lineWidth=1;g.stroke();}};
+ // outer walls facing the viewer, back to front
+ const walls=[];for(let i=0;i<O.length;i++){const a=O[i],b=O[(i+1)%O.length],nx=b[1]-a[1],ny=-(b[0]-a[0]),nl=Math.hypot(nx,ny)||1;const nY=(nx*sn+ny*cs)/nl;if(nY>0.02)continue;const dep=((a[0]+b[0])/2-mx)*sn+((a[1]+b[1])/2-my)*cs;walls.push({a,b,dep,lit:(nx*cs-ny*sn)/nl});}
+ walls.sort((u,v)=>v.dep-u.dep);for(const w of walls)poly([P(w.a[0],w.a[1],0),P(w.b[0],w.b[1],0),P(w.b[0],w.b[1],-T),P(w.a[0],w.a[1],-T)],shade(0.3-0.5*w.lit,mc),'rgba(0,0,0,.18)');
+ poly(O.map(p=>P(p[0],p[1],0)),shade(1,mc),'#3d454c');
+ // pockets and holes
+ let np=0,nh=0;for(const l of lp.inner){const d=cDepth(l.e,T),thru=d>=T-1e-6;thru?nh++:np++;const I=l.P;g.save();g.beginPath();I.forEach((p,i)=>{const q=P(p[0],p[1],0);i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]);});g.closePath();g.clip();
+  if(thru){poly(I.map(p=>P(p[0],p[1],0)),'#1d2328');}else poly(I.map(p=>P(p[0],p[1],-d)),shade(0.78,mc));
+  const iw=[];for(let i=0;i<I.length;i++){const a=I[i],b=I[(i+1)%I.length],nx=-(b[1]-a[1]),ny=b[0]-a[0],nl=Math.hypot(nx,ny)||1;const nY=(nx*sn+ny*cs)/nl;if(nY>0.02)continue;iw.push({a,b,dep:((a[0]+b[0])/2-mx)*sn+((a[1]+b[1])/2-my)*cs,lit:(nx*cs-ny*sn)/nl});}
+  iw.sort((u,v)=>v.dep-u.dep);for(const w of iw)poly([P(w.a[0],w.a[1],0),P(w.b[0],w.b[1],0),P(w.b[0],w.b[1],-d),P(w.a[0],w.a[1],-d)],thru?'#3a4148':shade(0.45-0.4*w.lit,mc));g.restore();
+  g.beginPath();I.forEach((p,i)=>{const q=P(p[0],p[1],0);i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]);});g.closePath();g.strokeStyle='#3d454c';g.lineWidth=1;g.stroke();}
+ if(info)info.textContent=cSizeTxt()+' · '+np+(LANG==='vi'?' hốc · ':' pockets · ')+nh+(LANG==='vi'?' lỗ xuyên':' through');}
+function cadSend(kind){const c=CD(),vi=LANG==='vi';if(!c.ents.length){toast(vi?'Chưa vẽ gì':'Nothing drawn yet');return;}const dxf=cadDXF(),name=(S.hdr.name||'CAD-PART').replace(/[^A-Za-z0-9_-]/g,'')+'.dxf';
+ const pick=t_=>{const cur=mach();if(mtypeOf(cur)===t_||(t_==='mill'&&['mill','m3d','m4','m5'].includes(mtypeOf(cur))))return;const id=(C.MACHINES.find(m=>m.id===(t_==='mill'?'vf3ss':t_==='lathe'?'st10':''))||C.MACHINES.find(m=>mtypeOf(m)===t_)).id;const el=$('#selMachine');el.value=id;el.dispatchEvent(new Event('change',{bubbles:true}));};
+ undoNow();WARN=[];S.meshT=null;S.ref=null;S.pdfInfo=null;PDFDOC=null;importDXF(dxf,name,c.units==='mm'?'mm':'in');S.src='dxf';S.excl=[];S.stock.part=+(c.units==='mm'?c.T/25.4:c.T).toFixed(4);
+ if(kind==='lathe'){L0();S.lathe.src='dxf';pick('lathe');}else if(kind==='wire')pick('wire');else{pick('mill');S.millK='mill';}
+ buildProgram();VIEW.fitted=false;S.tab='program';persist();render();toast(vi?'Đã gửi bản vẽ CAD sang chương trình':'CAD drawing sent to the program');}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ctool],[data-cad],[data-ctpl]');if(!b||S.tab!=='cad')return;const c=CD(),d=b.dataset,vi=LANG==='vi';
+ if(d.ctool){c.tool=d.ctool;CADV.sel=null;CADV.pts=[];CADV.chain0=null;persist();rCad();return;}
+ if(d.ctpl){cPush();const T_=cadTemplates(d.ctpl);if(T_){c.ents=T_.ents;c.T=T_.T;c.units='in';c.grid=0.125;CADV.sel=null;CADV.view=null;persist();rCad();}return;}
+ const a=d.cad,sel=c.ents.find(x=>x.id===CADV.sel),V=CADV.view;
+ if(a==='zin'||a==='zout'){V.s*=a==='zin'?1/1.3:1.3;cDraw();return;}if(a==='fit'){cFit();cDraw();return;}
+ if(a==='undo'){if(CADV.hist.length){CADV.fut.push(JSON.stringify(c.ents));c.ents=JSON.parse(CADV.hist.pop());CADV.sel=null;persist();rCad();}return;}
+ if(a==='redo'){if(CADV.fut.length){CADV.hist.push(JSON.stringify(c.ents));c.ents=JSON.parse(CADV.fut.pop());persist();rCad();}return;}
+ if(a==='done'){CADV.pts=[];CADV.chain0=null;cPrev(null);const ii=$('#cadInfo');if(ii)ii.textContent=vi?'Đã kết thúc nét':'Chain ended';return;}
+ if(a==='snap'){c.snap=!c.snap;persist();rCad();return;}
+ if(a==='clear'){if(!c.ents.length)return;cPush();c.ents=[];CADV.sel=null;CADV.pts=[];persist();rCad();toast(vi?'Đã xóa — bấm Hoàn tác nếu cần':'Cleared — Undo brings it back');return;}
+ if(a==='addNum'){const en=cEntFromF(c.tool,cF(c.tool));if(en&&cEntOk(en)){cPush();c.ents.push({id:cid(),depth:'',...en});persist();rCad();toast('✓ '+cDimTxt(en));}else toast(vi?'Số chưa hợp lệ':'Check the numbers');return;}
+ if(a==='send'){cadSend('mill');return;}if(a==='sendL'){cadSend('lathe');return;}if(a==='sendW'){cadSend('wire');return;}
+ if(a==='dxf'){const name=(S.hdr.name||'CAD-PART').replace(/[^A-Za-z0-9_-]/g,'')+'.dxf';saveFile(name,new TextEncoder().encode(cadDXF()));return;}
+ if(!sel)return;
+ if(a==='unsel'){CADV.sel=null;rCad();return;}
+ if(a==='del'){cPush();c.ents=c.ents.filter(x=>x!==sel);CADV.sel=null;persist();rCad();return;}
+ if(a==='dup'){cPush();const n=JSON.parse(JSON.stringify(sel));n.id=cid();const off=(+c.grid||0.125)*2;cMove(n,off,-off);c.ents.push(n);CADV.sel=n.id;persist();rCad();return;}
+ const P=cEnt2P(sel).P,cx=(Math.min(...P.map(p=>p[0]))+Math.max(...P.map(p=>p[0])))/2,cy=(Math.min(...P.map(p=>p[1]))+Math.max(...P.map(p=>p[1])))/2;cPush();
+ if(a==='mx')cXform(sel,p=>[2*cx-p[0],p[1]],'mx');else if(a==='my')cXform(sel,p=>[p[0],2*cy-p[1]],'my');else if(a==='rot')cXform(sel,p=>[cx-(p[1]-cy),cy+(p[0]-cx)],'rot');persist();rCad();});
+document.addEventListener('change',e=>{const el=e.target;if(S.tab!=='cad')return;const c=CD();
+ if(el.dataset.cf){const f=cF(c.tool);f[el.dataset.cf]=+el.value||0;persist();return;}
+ if(el.dataset.ce){const sel=c.ents.find(x=>x.id===CADV.sel);if(!sel)return;cPush();const k=el.dataset.ce;
+  if(k==='depth'){sel.depth=el.value==='thru'||el.value===''?el.value:+el.value;}else if(k==='depthN'){const v=el.value.trim();sel.depth=v===''?'':(+v>=+c.T?'thru':+v);}
+  else{const f=cF4E(sel);f[k]=+el.value||0;const n=cEntFromF(sel.t,f);if(n&&cEntOk(n)){if(sel.t==='poly')n.rot=sel.rot||0;Object.keys(sel).forEach(x=>{if(!['id','depth'].includes(x))delete sel[x];});Object.assign(sel,n);}}persist();rCad();return;}
+ if(el.id==='cadT'){c.T=Math.max(0.001,+el.value||c.T);persist();cad3D();return;}
+ if(el.id==='cadGrid'){c.grid=+el.value;persist();cDraw();return;}
+ if(el.id==='cadUnits'){c.units=el.value;c.grid=c.units==='mm'?1:0.125;persist();rCad();return;}});
+TABS.splice(TABS.indexOf('draw')+1,0,'cad');
 /* ================= NEST (many parts on one sheet) ================= */
 const NEST0={proc:'router',kerf:0.06,cutF:100,pierce:0.5,smallD:1.25,smallPct:65,leadL:0.2,overburn:0.04,onCode:'M03',offCode:'M05',mode:'flat',w:24,h:12,sheetT:0.5,partT:0.5,margin:0.5,tabW:0.25,tabT:0.03,tabEvery:5,tabFixed:0,hold:'screw',removal:'break',tool:'',items:[]};
 let NESTR=null,NESTG='';
@@ -3479,5 +3673,5 @@ if(had&&!S._mig75){S._mig75=1;if(S.machine==='dpmrx2'){S.machine='vf3ss';S.post=
 if(!had||!S.raw||S.dxfName==='demo-bracket.dxf'){WARN=[];S.raw={loops:[],circles:[],opens:[]};S.feats=[];S.ops=[];S.dwg=null;S.dxfName='';S.src='';S.ref=null;S.geom=null;}
 else{try{applyZero();}catch(e){}}
 buildProgram();render();
-if(/debug/.test(location.search))window.__mc={get S(){return S},get SIM(){return SIM},MG(){return modelGrid()},DT(){return devTarget()},DS(){return devStats()},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();},PD(){return PDFDOC},get V(){return VIEW},get AIS(){return AIS}};
+if(/debug/.test(location.search))window.__mc={get S(){return S},get SIM(){return SIM},MG(){return modelGrid()},DT(){return devTarget()},DS(){return devStats()},b(){buildProgram();return GCODE},get W(){return WARN},open(id){OPEN.add(id);rProgram();},PD(){return PDFDOC},get V(){return VIEW},get AIS(){return AIS},CADX(){return cadDXF()}};
 }
