@@ -271,6 +271,8 @@ html.port nav.tabs button.sec{display:none!important}html.port nav.tabs button.m
 .moregrid button svg{width:24px;height:24px;color:var(--acc)}.moregrid button.on{border-color:var(--acc)}
 /* ---- workspaces (Cad, Cam): big canvas, floating tools, side panels ---- */
 #main.wide{max-width:none;padding:10px max(10px,env(safe-area-inset-right)) 12px max(10px,env(safe-area-inset-left))}
+@media(max-width:899px){#main.wide{padding-bottom:calc(110px + env(safe-area-inset-bottom))}.ws .ptabs{top:calc(var(--hh,0px) - 1px)}}
+html.port #main.wide{padding-bottom:calc(110px + env(safe-area-inset-bottom))!important}
 .wshead{display:flex;align-items:center;flex-wrap:wrap;margin:0 0 8px}.wshead h1{font-size:20px;margin:0}.wshead p.sub{flex-basis:100%;margin:8px 0 0}
 .ws{display:grid;grid-template-columns:minmax(0,1fr) 380px;height:calc(100dvh - var(--hh,70px) - 64px);min-height:540px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel)}
 .ws.cam{grid-template-columns:290px minmax(0,1fr) 380px}
