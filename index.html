@@ -404,6 +404,40 @@ html[data-tskin=big] .rb{width:72px;height:72px}html[data-tskin=big] .rb small{f
 html[data-tskin=big] .btn{min-height:58px;font-size:17px}html[data-tskin=big] .btn.sm{min-height:52px}
 html[data-tskin=big] input,html[data-tskin=big] select{min-height:54px;font-size:17px}html[data-tskin=big] .cbar{gap:10px}
 @media(min-width:900px){html[data-tskin=big] .cbar{left:110px}}
+
+/* 3D inset collapses when there is no solid yet */
+.wsmain .ins3d.empty{height:auto!important;width:auto!important;left:auto!important;min-width:0;box-shadow:none;background:transparent!important;border:0!important;overflow:visible}
+.wsmain .ins3d.empty .grip{border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+html[data-frame=paper] .ins3d .grip{background:#fff;color:#1d2328;border-color:#d9dee5}html[data-frame=blue] .ins3d .grip{background:#123461;border-color:#24599a}
+.ins3d.empty canvas,.ins3d.empty #cad3i,.ins3d.empty .v3bar{display:none!important}
+.ins3d.empty .grip{position:static;border-bottom:0;height:34px;padding-right:2px}
+/* canvas frames */
+html[data-frame=clean] .wsmain,html[data-frame=clean] #sv{background:#0e1114}
+html[data-frame=clean][data-theme=light] .wsmain{background:#fbfcfd}
+html[data-frame=clean] .wsmain>.cbar,html[data-frame=studio] .wsmain>.cbar{right:auto;max-width:calc(100% - 70px);padding:4px;gap:2px;border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(14px);border:1px solid var(--line);box-shadow:0 8px 24px rgb(0 0 0/.25)}
+html[data-frame=clean] .wsmain>.cbar .btn.sm,html[data-frame=studio] .wsmain>.cbar .btn.sm{border:0;background:transparent;box-shadow:none;min-height:36px}
+html[data-frame=clean] .wsmain>.cbar .btn.sm.pri,html[data-frame=studio] .wsmain>.cbar .btn.sm.pri{background:var(--acc);color:var(--onacc,#14171b)}
+html[data-frame=clean] .wsmain>.ovl.tr,html[data-frame=studio] .wsmain>.ovl.tr,html[data-frame=clean] .vtools,html[data-frame=studio] .vtools{gap:0!important;padding:3px;border-radius:14px;background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(14px);border:1px solid var(--line)}
+html[data-frame=clean] .wsmain>.ovl.tr .mini,html[data-frame=studio] .wsmain>.ovl.tr .mini,html[data-frame=clean] .vtools .btn,html[data-frame=studio] .vtools .btn{border:0;background:transparent;box-shadow:none}
+html[data-frame=clean] .cinfo .pill,html[data-frame=studio] .cinfo .pill,html[data-frame=clean] #camInfo,html[data-frame=studio] #camInfo{font-size:12px;padding:4px 10px;background:color-mix(in srgb,var(--panel) 70%,transparent);border-color:transparent}
+html[data-frame=clean] .crail,html[data-frame=clean] .rail,html[data-frame=clean] .cpal{border-radius:16px;background:color-mix(in srgb,var(--panel) 85%,transparent);backdrop-filter:blur(14px)}
+html[data-frame=studio] .wsmain{background:radial-gradient(circle at 50% 40%,#1f262e,#090b0d)}
+html[data-frame=studio] .crail,html[data-frame=studio] .rail,html[data-frame=studio] .cpal{border-radius:22px;border:0;box-shadow:0 14px 34px rgb(0 0 0/.45);background:#1a1f25}
+html[data-frame=studio] .wsmain>.cbar,html[data-frame=studio] .wsmain>.ovl.tr,html[data-frame=studio] .vtools{border:0;border-radius:18px;background:#1a1f25;box-shadow:0 14px 34px rgb(0 0 0/.45)}
+html[data-frame=studio] .ws{border:0;box-shadow:0 20px 50px rgb(0 0 0/.35)}
+html[data-frame=blue] .wsmain{background:#0b2547}
+html[data-frame=blue] .wsmain .btn.sm,html[data-frame=blue] .wsmain .mini,html[data-frame=blue] .crail,html[data-frame=blue] .rail,html[data-frame=blue] .cpal,html[data-frame=blue] .ins3d{background:#123461;border-color:#24599a;color:#e6f0ff}
+html[data-frame=blue] .wsmain .pill{background:#123461;border-color:#24599a;color:#ffd479}
+html[data-frame=paper] .wsmain{background:#fbfbf8}
+html[data-frame=paper] .wsmain .btn.sm,html[data-frame=paper] .wsmain .mini,html[data-frame=paper] .crail,html[data-frame=paper] .rail,html[data-frame=paper] .cpal,html[data-frame=paper] .ins3d{background:#fff;border-color:#d9dee5;color:#1d2328;box-shadow:0 2px 8px rgba(20,30,40,.08)}
+html[data-frame=paper] .wsmain .rb{color:#1d2328}html[data-frame=paper] .wsmain .rb small{color:#5b6670}
+html[data-frame=paper] .wsmain .pill{background:#fff;border-color:#e3e7ec;color:#c25400}
+html[data-frame=hud] .wsmain{background:#05080a}
+html[data-frame=hud] .wsmain::before{content:"";position:absolute;inset:8px;pointer-events:none;z-index:2;background:linear-gradient(#7dffcf,#7dffcf) left top/18px 2px,linear-gradient(#7dffcf,#7dffcf) left top/2px 18px,linear-gradient(#7dffcf,#7dffcf) right top/18px 2px,linear-gradient(#7dffcf,#7dffcf) right top/2px 18px,linear-gradient(#7dffcf,#7dffcf) left bottom/18px 2px,linear-gradient(#7dffcf,#7dffcf) left bottom/2px 18px,linear-gradient(#7dffcf,#7dffcf) right bottom/18px 2px,linear-gradient(#7dffcf,#7dffcf) right bottom/2px 18px;background-repeat:no-repeat;opacity:.7}
+html[data-frame=hud] .wsmain .btn.sm,html[data-frame=hud] .wsmain .mini,html[data-frame=hud] .crail,html[data-frame=hud] .rail,html[data-frame=hud] .cpal,html[data-frame=hud] .ins3d{background:rgba(10,24,22,.55);border-color:rgba(125,255,207,.35);color:#c9ffe9;border-radius:4px;backdrop-filter:blur(6px)}
+html[data-frame=hud] .wsmain .btn.sm.pri,html[data-frame=hud] .wsmain .rb.on{background:rgba(125,255,207,.18)!important;color:#7dffcf;box-shadow:inset 0 0 0 1px #7dffcf}
+html[data-frame=hud] .wsmain .pill{font-family:var(--mono,ui-monospace,monospace);background:transparent;border-color:rgba(125,255,207,.4);color:#7dffcf;text-transform:uppercase;letter-spacing:.06em}
+html[data-frame=hud] .wsmain .rb small{font-family:var(--mono,ui-monospace,monospace);text-transform:uppercase;color:#7dffcf}
 </style>
 </head>
 <body>
