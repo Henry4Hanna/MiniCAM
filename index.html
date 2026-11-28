@@ -352,6 +352,34 @@ html[data-skin=glass] .card{background:color-mix(in srgb,var(--panel) 72%,transp
 html[data-skin=hc]{--bg:#fff;--panel:#fff;--panel2:#f2f2f2;--line:#000;--ink:#000;--mut:#222}
 html[data-skin=hc] .card,html[data-skin=hc] .btn{border-width:2px}
 html[data-skin=hc] body{font-size:17px}
+
+.cbar:has(.cmore){z-index:40}
+@media(max-width:899px){.cbar{gap:4px}.cbar .btn.sm{padding:0 9px;min-width:0}}
+.cmore{position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:220px;display:grid;gap:2px;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+.cmore button{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--ink);font:600 14px Inter,system-ui,sans-serif;text-align:left;cursor:pointer}
+.cmore button:hover{background:var(--panel2)}.cmore svg{width:20px;height:20px;flex:none}
+.kdlg{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.5);display:grid;place-items:center;padding:16px}
+.kbox{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;max-width:560px;width:100%;max-height:86dvh;overflow:auto}
+kbd{font:600 12px var(--mono,ui-monospace,monospace);padding:3px 7px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:var(--panel2);color:var(--ink);white-space:nowrap}
+@media(min-width:900px) and (pointer:fine){.cmdtg{display:none}}
+@media(min-width:900px){
+html[data-wlay=compact] .ws{grid-template-columns:minmax(0,1fr) 320px}html[data-wlay=compact] .ws.cam{grid-template-columns:240px minmax(0,1fr) 320px}
+html[data-wlay=compact] .rb small,html[data-wlay=compact] .cbar .lbl{display:none}html[data-wlay=compact] .rb{width:42px;height:42px}
+html[data-wlay=prog] .ws{grid-template-columns:minmax(0,1fr) 480px}html[data-wlay=prog] .ws.cam{grid-template-columns:260px minmax(0,1fr) 480px}
+html[data-wlay=swap] .ws{grid-template-columns:380px minmax(0,1fr)}html[data-wlay=swap] .ws.cam{grid-template-columns:380px minmax(0,1fr) 290px}
+html[data-wlay=swap] .ws>.wspanel{order:-1;border-left:0;border-right:1px solid var(--line)}html[data-wlay=swap] .ws.cam>.wsleft{order:5}
+html[data-wlay=touch] .ws{grid-template-columns:minmax(0,1fr) 420px}
+}
+html[data-wlay=touch] .btn,html[data-wlay=touchc] .btn{min-height:52px;font-size:16px;padding-left:16px;padding-right:16px}
+html[data-wlay=touch] .btn.sm,html[data-wlay=touchc] .btn.sm{min-height:48px;font-size:15px}
+html[data-wlay=touch] .rb{width:64px;height:64px}html[data-wlay=touch] .rb small{font-size:11px;max-width:62px}
+html[data-wlay=touchc] .rb{width:56px;height:56px}html[data-wlay=touchc] .rb small,html[data-wlay=touchc] .cbar .lbl{display:none}
+html[data-wlay=touch] input,html[data-wlay=touch] select,html[data-wlay=touchc] input,html[data-wlay=touchc] select{min-height:48px;font-size:16px}
+html[data-wlay=touch] .seg button,html[data-wlay=touchc] .seg button{min-height:48px}
+html[data-wlay=touch] .cbar,html[data-wlay=touchc] .cbar{gap:8px}
+@media(min-width:900px){html[data-wlay=touch] .cbar{left:100px}html[data-wlay=touchc] .cbar{left:90px}}
+html[data-wlay=touch] .tcard{padding:14px}
+html[data-wlay=touch] .cmore button{min-height:54px;font-size:16px}
 </style>
 </head>
 <body>
