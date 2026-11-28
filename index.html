@@ -380,6 +380,30 @@ html[data-wlay=touch] .cbar,html[data-wlay=touchc] .cbar{gap:8px}
 @media(min-width:900px){html[data-wlay=touch] .cbar{left:100px}html[data-wlay=touchc] .cbar{left:90px}}
 html[data-wlay=touch] .tcard{padding:14px}
 html[data-wlay=touch] .cmore button{min-height:54px;font-size:16px}
+
+/* touchscreen themes */
+html[data-tskin=hmi]{--bg:#0c0e11;--panel:#15191e;--panel2:#1d2229;--line:#2c333c;--canvas:#07090b}
+html[data-tskin=hmi] .btn,html[data-tskin=hmi] .rb,html[data-tskin=hmi] .seg button{border-radius:6px!important;box-shadow:inset 0 -3px 0 rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.05);text-transform:uppercase;letter-spacing:.03em}
+html[data-tskin=hmi] .btn{background:#232931;border:1px solid #333b45}html[data-tskin=hmi] .card,html[data-tskin=hmi] .view{border-radius:8px}
+html[data-tskin=hmi] .rb.on,html[data-tskin=hmi] .btn.pri{box-shadow:inset 0 -3px 0 rgba(0,0,0,.35),0 0 0 1px var(--acc)}
+html[data-tskin=pill] .btn,html[data-tskin=pill] .seg,html[data-tskin=pill] .seg button,html[data-tskin=pill] .chip,html[data-tskin=pill] input,html[data-tskin=pill] select{border-radius:999px!important}
+html[data-tskin=pill] .rb{border-radius:18px}html[data-tskin=pill] .card,html[data-tskin=pill] .view,html[data-tskin=pill] .tcard{border-radius:22px}
+html[data-tskin=pill] .btn{border:0;background:var(--panel2)}html[data-tskin=pill] .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+html[data-tskin=glass] .btn,html[data-tskin=glass] .rb,html[data-tskin=glass] .tcard{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px)}
+html[data-tskin=glass] .rb.on,html[data-tskin=glass] .btn.pri{background:color-mix(in srgb,var(--acc) 85%,transparent)}
+html[data-tskin=glass] .cbar,html[data-tskin=glass] .rail{backdrop-filter:blur(12px)}
+html[data-tskin=day]{--bg:#eef1f5;--panel:#fff;--panel2:#f5f7fa;--line:#d3dae3;--ink:#0e1318}
+html[data-tskin=day] .card{box-shadow:0 2px 0 #d9e0e8,0 10px 24px rgba(20,30,50,.08);border-color:#dfe5ec}
+html[data-tskin=day] .btn{font-weight:700;box-shadow:0 1px 0 #cfd6df}
+html[data-tskin=mono]{--bg:#101214;--panel:#14171a;--panel2:#191c20;--line:#262a2f}
+html[data-tskin=mono] .btn,html[data-tskin=mono] .rb,html[data-tskin=mono] .card,html[data-tskin=mono] .tcard{background:transparent;border:1px solid var(--line);box-shadow:none}
+html[data-tskin=mono] .rb.on,html[data-tskin=mono] .btn.pri{background:transparent;color:var(--acc);border-color:var(--acc)}
+html[data-tskin=mono] .rb.on svg{stroke:var(--acc)}
+@media(max-width:899px){html[data-tskin] .cbar .btn.sm{padding:0 8px}html[data-tskin] .cbar{gap:4px}}
+html[data-tskin=big] .rb{width:72px;height:72px}html[data-tskin=big] .rb small{font-size:12px;max-width:70px}
+html[data-tskin=big] .btn{min-height:58px;font-size:17px}html[data-tskin=big] .btn.sm{min-height:52px}
+html[data-tskin=big] input,html[data-tskin=big] select{min-height:54px;font-size:17px}html[data-tskin=big] .cbar{gap:10px}
+@media(min-width:900px){html[data-tskin=big] .cbar{left:110px}}
 </style>
 </head>
 <body>
