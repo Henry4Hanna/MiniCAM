@@ -1005,18 +1005,21 @@ function post(prog,cfg){
   line('%');line('O'+String(cfg.progNo||1001).padStart(4,'0')+' '+cm(cfg.name||'PART'));
   (cfg.header||[]).forEach(h=>line(cm(h)));
   line((mm?'G21':'G20')+' G17 G40 G49 G80 G90');
-  let mg=-1,mf=-1,first=true,cx=null,cy=null,cz=null,ca=null,cb=null,cc=null,inv=false,tcpc=false;const fa=v=>(+v).toFixed(3).replace(/\.?0+$/,'')||'0';
+  if(cfg.wearComp)line(cm('CUTTER COMP G41 - D = WEAR ONLY - PATH AT TOOL CENTER'));
+  let mg=-1,mf=-1,first=true,cx=null,cy=null,cz=null,ca=null,cb=null,cc=null,inv=false,tcpc=false,comp=null,compOn=false;const compOff=()=>{if(compOn){line('G40');compOn=false;mg=-1;}comp=null;};const fa=v=>(+v).toFixed(3).replace(/\.?0+$/,'')||'0';
   for(const blk of prog){
-    if(blk.t==='op'){line(cm(blk.name));continue;}
+    if(blk.t==='op'){compOff();line(cm(blk.name));continue;}
+    if(blk.t==='comp'){comp={side:blk.side||'G41',d:blk.d};continue;}
     if(blk.t==='raw'){if(cfg.post==='prototrak'&&blk.probe){line(cm('PROBING NOT SUPPORTED ON PROTOTRAK'));continue;}blk.lines.forEach(l=>line(l));mg=-1;cx=cy=cz=null;continue;}
     if(blk.t==='index'){if(tcpc){line('G49');tcpc=false;}if(blk.wcs)line(blk.wcs);let s='G00';if(blk.a!=null)s+=' A'+fa(blk.a);if(blk.b!=null)s+=' B'+fa(blk.b);if(blk.c!=null)s+=' C'+fa(blk.c);if(s!=='G00')line(s);if(blk.dwo&&cfg.post==='haas')line('G254');ca=blk.a;cb=blk.b;cc=blk.c;mg=0;continue;}
     if(blk.t==='tcpc'){if(blk.on){line('G234 H'+blk.h);tcpc=true;}else{line('G49');tcpc=false;}continue;}
     if(blk.t==='dwoOff'){if(cfg.post==='haas')line('G255');continue;}
-    if(blk.t==='tool'){const t=blk.tool;
+    if(blk.t==='tool'){compOff();const t=blk.tool;
       if(!first){if(inv){line('G94');inv=false;}if(tcpc){line('G49');tcpc=false;}line('G00 Z'+fmt(cfg.clear));line('M09');line('M05');if(cfg.post!=='prototrak'){line('G91 G28 Z0.');line('G90');}}
       if(cfg.toolStop&&!first)line((cfg.stopCode||'M00')+' '+cm('LOAD T'+t.num+' '+t.desc));
+      if(cfg.restart&&cfg.post!=='prototrak'){line(cm('SAFE RESTART - T'+t.num));line((mm?'G21':'G20')+' G00 G17 G40 G49 G80 G90');}
       line(cm('T'+t.num+' '+t.desc));line('T'+t.num+' M06');first=false;mg=-1;mf=-1;cx=cy=cz=null;continue;}
-    if(blk.t==='spin'){line('S'+Math.round(blk.s)+' M03');if(blk.first&&cfg.post!=='prototrak')line('G54');continue;}
+    if(blk.t==='spin'){line('S'+Math.round(blk.s)+' M03');if((blk.first||cfg.restart)&&cfg.post!=='prototrak')line('G54');continue;}
     if(blk.t==='g43'){line('G00 G90 X'+fmt(blk.x)+' Y'+fmt(blk.y));line('G43 H'+blk.h+' Z'+fmt(cfg.clear));if(cfg.coolant)line('M08');cx=blk.x;cy=blk.y;cz=cfg.clear;mg=0;continue;}
     if(blk.t==='cycle'){const c=blk;if(inv){line('G94');inv=false;}let s=(c.kind)+' G98 X'+fmt(c.pts[0][0])+' Y'+fmt(c.pts[0][1])+' Z'+fmt(c.z)+' R'+fmt(c.r);if(c.kind==='G83'||c.kind==='G73')s+=' Q'+fmt(c.q);if(c.kind==='G82'||c.kind==='G86')s+=' P'+(cfg.post==='haas'?(+c.p).toFixed(2).replace(/\.?0+$/,''):Math.round(c.p*1000));s+=' F'+ff(c.f);line(s);
       for(let i=1;i<c.pts.length;i++)line('X'+fmt(c.pts[i][0])+' Y'+fmt(c.pts[i][1]));line('G80');mg=-1;cx=c.pts[c.pts.length-1][0];cy=c.pts[c.pts.length-1][1];cz=c.clear;continue;}
@@ -1026,9 +1029,10 @@ function post(prog,cfg){
       if(blk.a!=null&&blk.a!==ca){s+='A'+fa(blk.a)+' ';ca=blk.a;}if(blk.b!=null&&blk.b!==cb){s+='B'+fa(blk.b)+' ';cb=blk.b;}if(blk.c!=null&&blk.c!==cc){s+='C'+fa(blk.c)+' ';cc=blk.c;}
       if(blk.inv&&!inv){s='G93 '+s;inv=true;mf=-1;}else if(!blk.inv&&inv&&blk.g>0){s='G94 '+s;inv=false;mf=-1;}
       if(blk.g>0&&(blk.f!==mf||inv)){s+='F'+(inv?(+blk.f).toFixed(3):ff(blk.f));mf=blk.f;}
+      if(comp&&cfg.wearComp){if(!compOn&&blk.g===1&&(blk.x!==cx||blk.y!==cy)){s=comp.side+' D'+comp.d+' '+(s.startsWith('G01')?s:'G01 '+s);compOn=true;mg=1;}else if(compOn&&blk.g===0){s='G40 '+s;compOn=false;}}
       s=s.trim();if(s&&s!=='G00'&&s!=='G01')line(s);cx=blk.x;cy=blk.y;cz=blk.z;}
   }
-  if(inv)line('G94');if(tcpc)line('G49');line('G00 Z'+fmt(cfg.clear));line('M09');line('M05');if(cfg.post!=='prototrak'){line('G91 G28 Z0.');line('G90');}line('M30');line('%');
+  compOff();if(inv)line('G94');if(tcpc)line('G49');line('G00 Z'+fmt(cfg.clear));line('M09');line('M05');if(cfg.post!=='prototrak'){line('G91 G28 Z0.');line('G90');}line('M30');line('%');
   return out.join('\n').toUpperCase();
 }
 /* expand program into straight segments for simulation: [x0,y0,z0,x1,y1,z1,kind(0 rapid/1 feed),toolIdx,feed] */
